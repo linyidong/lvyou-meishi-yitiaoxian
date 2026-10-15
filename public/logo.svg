@@ -1,0 +1,6 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="旅行美食一条线">
+  <rect width="64" height="64" rx="14" fill="#F97316" />
+  <path d="M14 42C22 42 24 20 34 20C42 20 46 30 50 34" stroke="#FACC15" stroke-width="5" stroke-linecap="round" />
+  <circle cx="14" cy="42" r="5" fill="#FFFFFF" />
+  <circle cx="50" cy="34" r="5" fill="#FFFFFF" />
+</svg>
