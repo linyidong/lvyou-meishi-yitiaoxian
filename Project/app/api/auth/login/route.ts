@@ -37,8 +37,11 @@ export async function POST(request: NextRequest) {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error || !data.user) {
     // 邮箱未确认与密码错误在 Supabase 里都算登录失败，若统一提示「密码不正确」会误导用户，
-    // 这里按 error.code 区分，让用户知道该去点确认邮件还是该重新输密码。
-    if (error?.code === 'email_not_confirmed') {
+    // 这里按 error.code 区分；老版本 SDK 可能只给 message，所以两种都兜住。
+    if (
+      error?.code === 'email_not_confirmed' ||
+      /email not confirmed/i.test(error?.message ?? '')
+    ) {
       return NextResponse.json({ ok: false, message: MESSAGES.AUTH_EMAIL_NOT_CONFIRMED }, { status: 403 });
     }
     return NextResponse.json({ ok: false, message: MESSAGES.AUTH_LOGIN_FAILED }, { status: 401 });
