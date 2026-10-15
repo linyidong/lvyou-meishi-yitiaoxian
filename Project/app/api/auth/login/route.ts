@@ -34,8 +34,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, message: MESSAGES.AUTH_PASSWORD_REQUIRED }, { status: 400 });
   }
 
+  const startedAt = Date.now();
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error || !data.user) {
+    // 记录 Supabase 返回的原始错误（只记错误码与耗时，不含邮箱与密码），便于定位登录失败原因
+    console.warn('[login] supabase auth failed', {
+      code: error?.code ?? null,
+      status: error?.status ?? null,
+      message: error?.message ?? null,
+      ms: Date.now() - startedAt,
+    });
+    // 出网失败（DNS 解析不到 / 代理 / Supabase 地址写错）会被 supabase-js 报成 fetch failed，
+    // 这与密码毫无关系，必须单独提示，否则用户会一直以为是自己密码记错。
+    if (
+      !error?.status &&
+      /fetch failed|network|ENOTFOUND|EAI_AGAIN|timeout|socket/i.test(error?.message ?? '')
+    ) {
+      return NextResponse.json({ ok: false, message: MESSAGES.SERVICE_UNREACHABLE }, { status: 503 });
+    }
     // 邮箱未确认与密码错误在 Supabase 里都算登录失败，若统一提示「密码不正确」会误导用户，
     // 这里按 error.code 区分；老版本 SDK 可能只给 message，所以两种都兜住。
     if (
