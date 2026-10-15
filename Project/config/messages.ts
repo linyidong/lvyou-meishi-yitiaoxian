@@ -1,5 +1,5 @@
 /**
- * 提示文案常量（M01-M31）
+ * 提示文案常量（M01-M32）
  * 界面提示禁止写死中文，一律引用 MESSAGES.*。
  * M23 需要引用 B21（密码位数），故此处 import BUSINESS，避免把数字写两遍。
  */
@@ -68,4 +68,6 @@ export const MESSAGES = {
   ADMIN_ENTRY_TITLE: '进入管理后台',
   /** M31 个人中心的管理后台入口说明 */
   ADMIN_ENTRY_DESC: '管理用户、路线与地点数据；该入口只对管理员账号显示',
+  /** M32 邮箱未确认（Supabase 开启了邮箱确认，用户还没点邮件里的链接） */
+  AUTH_EMAIL_NOT_CONFIRMED: '这个邮箱还没完成确认，请先到邮箱点确认链接，再回来登录',
 } as const;
