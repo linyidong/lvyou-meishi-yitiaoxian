@@ -1,6 +1,7 @@
 import Link from 'next/link';
-import { ChevronRight } from 'lucide-react';
-import { USER_ROLE_LABEL } from '@/config/enums';
+import { ChevronRight, LayoutDashboard } from 'lucide-react';
+import { USER_ROLE, USER_ROLE_LABEL } from '@/config/enums';
+import { MESSAGES } from '@/config/messages';
 import { ROUTES } from '@/config/routes';
 import { MemberCard } from '@/components/profile/MemberCard';
 import { createClient } from '@/lib/supabase/server';
@@ -55,6 +56,7 @@ export default async function ProfilePage() {
     (routeCitiesRes.data ?? []).map((r) => r.city_id).filter((id): id is string => Boolean(id)),
   ).size;
 
+  const isAdmin = profile?.role === USER_ROLE.ADMIN;
   const displayName = profile?.username ?? profile?.email?.split('@')[0] ?? '旅行者';
   const stats: { label: string; value: number; href?: string }[] = [
     { label: '已保存路线', value: routesRes.count ?? 0, href: ROUTES.MY_ROUTES },
@@ -97,6 +99,23 @@ export default async function ProfilePage() {
           </div>
         </div>
       </section>
+
+      {/* 管理后台入口：仅管理员渲染（服务端按 role 判断，普通用户看不到也不会拿到入口） */}
+      {isAdmin ? (
+        <Link
+          href={ROUTES.ADMIN_HOME}
+          className="flex items-center gap-4 rounded-2xl bg-gradient-to-r from-primary-from to-primary-to p-5 text-white hover:brightness-110"
+        >
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white/15">
+            <LayoutDashboard className="h-5 w-5" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-semibold">{MESSAGES.ADMIN_ENTRY_TITLE}</span>
+            <span className="mt-0.5 block text-xs text-white/80">{MESSAGES.ADMIN_ENTRY_DESC}</span>
+          </span>
+          <ChevronRight className="h-5 w-5 shrink-0" />
+        </Link>
+      ) : null}
 
       {/* 统计 */}
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">

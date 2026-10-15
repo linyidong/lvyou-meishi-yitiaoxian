@@ -188,18 +188,11 @@ export function LoginClient({
         ) : null}
       </div>
 
+      {/* 用户端登录页不提供管理员入口：管理员走 /admin/login 直达，登录后在个人中心进入后台 */}
       <p className="mt-4 text-center text-xs text-muted-foreground">
         <Link href={ROUTES.HOME} className="underline">
           返回首页
         </Link>
-        {!isAdmin ? (
-          <>
-            <span className="mx-2">·</span>
-            <Link href={ROUTES.ADMIN_LOGIN} className="underline">
-              管理员登录
-            </Link>
-          </>
-        ) : null}
       </p>
     </div>
   );
