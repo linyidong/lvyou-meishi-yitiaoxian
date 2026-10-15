@@ -1,7 +1,13 @@
-import { TRANSPORT } from '@/config/enums';
+import { INTERCITY_MODE, LODGING_TYPE, TRANSPORT } from '@/config/enums';
 
 /** 交通方式（E03/E04） */
 export type Transport = (typeof TRANSPORT)[keyof typeof TRANSPORT];
+
+/** 城际交通·去程（E15/E16） */
+export type IntercityMode = (typeof INTERCITY_MODE)[keyof typeof INTERCITY_MODE];
+
+/** 住宿类型（E17/E18） */
+export type LodgingType = (typeof LODGING_TYPE)[keyof typeof LODGING_TYPE];
 
 /** public.routes 行 */
 export interface RouteRow {
@@ -13,6 +19,13 @@ export interface RouteRow {
   transport: Transport;
   /** 对应 BUSINESS.ENABLE_PUBLIC_ROUTES（第一版关闭） */
   is_public: boolean;
+  /** 以下为 U05 / U08 / A06 出行设置字段，空 = 未填写 */
+  origin_city: string | null;
+  intercity_mode: IntercityMode | null;
+  lodging_type: LodgingType | null;
+  lodging_name: string | null;
+  lodging_area: string | null;
+  lodging_nights: number | null;
   created_at: string;
 }
 

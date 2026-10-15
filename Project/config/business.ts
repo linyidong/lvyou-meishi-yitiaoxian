@@ -3,10 +3,12 @@
  * 组件内禁止写死 10 / 5 / 60 这类数值，一律引用本文件。
  */
 export const BUSINESS = {
-  /** B01 单日最多地点数（含起点终点） */
-  MAX_PLACES_PER_DAY: 10,
-  /** B02 多日最多天数 */
+  /** B01 单日最多地点数（与 U07 原型一致） */
+  MAX_PLACES_PER_DAY: 12,
+  /** B02 多日最多天数（与 U05 原型一致，最少 2 天） */
   MAX_DAYS: 7,
+  /** B02a 多日最少天数 */
+  MIN_DAYS: 2,
   /** B03 AI 单次最多提取地点数 */
   MAX_AI_EXTRACT: 20,
   /** B04 在线判定时间（分钟），对应 users.last_seen_at 阈值 */
@@ -27,6 +29,26 @@ export const BUSINESS = {
   ENABLE_PUBLIC_ROUTES: false,
   /** B12 是否启用分享链接（第一版关闭） */
   ENABLE_SHARE_LINK: false,
+  /** B13 单条路线最多地点数（所有天合计，与 U07 原型一致） */
+  MAX_PLACES_PER_ROUTE: 30,
+  /** B14 路线标题最长字数（U05，不含自动带上的城市名前缀） */
+  MAX_ROUTE_TITLE_LENGTH: 30,
+  /** B15 住宿区域最长字数（U05 / U08） */
+  MAX_LODGING_AREA_LENGTH: 20,
+  /** B16 住宿名称最长字数（U05 / U08） */
+  MAX_LODGING_NAME_LENGTH: 30,
+  /** B17 入住晚数下限（与 013 routes_lodging_nights_check 一致） */
+  MIN_LODGING_NIGHTS: 1,
+  /** B18 入住晚数上限（与 013 routes_lodging_nights_check 一致） */
+  MAX_LODGING_NIGHTS: 30,
+  /** B19 管理端列表单次读取上限（A03 / A06，超出的数据待接入分页） */
+  ADMIN_LIST_LIMIT: 200,
+  /** B20 会员操作留痕展示条数（A03） */
+  MEMBER_LOG_LIMIT: 20,
+  /** B21 注册密码最短位数（U01 注册，与 Supabase Auth 默认策略一致） */
+  MIN_PASSWORD_LENGTH: 8,
+  /** B22 首页热门城市展示个数（U02，取自 config/cities.ts HOT_CITIES） */
+  HOME_HOT_CITY_LIMIT: 10,
 
   /** C07 管理员邮箱（数据库 users.role 已设为 admin） */
   ADMIN_EMAIL: '1035940028@qq.com',

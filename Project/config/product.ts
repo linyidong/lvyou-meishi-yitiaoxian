@@ -16,8 +16,15 @@ export const PRODUCT = {
   /** P06 备案号 */
   ICP_NUMBER: '',
 
-  /** S01 主色调 */
-  COLOR_PRIMARY: '#F97316',
+  /**
+   * S01 主色调（实色兜底）
+   * 渐变只用于首屏大块、主 CTA、Logo 底衬；按钮 hover、文字链接、焦点环一律用本实色。
+   */
+  COLOR_PRIMARY: '#E11D48',
+  /** S01a 主色渐变起点（配色方案 G1：玫红 → 紫） */
+  COLOR_PRIMARY_FROM: '#E11D48',
+  /** S01b 主色渐变终点（配色方案 G1：玫红 → 紫） */
+  COLOR_PRIMARY_TO: '#7C3AED',
   /** S02 辅色调 */
   COLOR_SECONDARY: '#FACC15',
   /** S03 背景色 */
@@ -29,6 +36,14 @@ export const PRODUCT = {
   LOGO_PATH: '/logo.svg',
   /** S06 Favicon 文件（public 目录） */
   FAVICON_PATH: '/favicon.ico',
+
+  /** S07 会员权益文案（U10 升级卡 / A03 开通确认弹窗共用，第一版为模拟开通） */
+  MEMBER_BENEFITS: [
+    '单条路线不限地点数',
+    '按营业时间智能排序',
+    '公交 / 驾车混合交通',
+    '高清路线长图导出',
+  ],
 
   /** C08 Vercel 项目名（子域名前缀） */
   PROJECT_NAME: 'travel-food-line',

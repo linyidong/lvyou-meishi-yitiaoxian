@@ -1,6 +1,7 @@
 # dependencies
-/node_modules
-/.pnp
+# 注：代码已迁入 Project/ 子目录，此处不用 / 开头锚定，确保子目录同样生效
+node_modules
+.pnp
 .pnp.*
 .yarn/*
 !.yarn/patches
@@ -9,11 +10,11 @@
 !.yarn/versions
 
 # next.js
-/.next/
-/out/
+.next/
+out/
 
 # production
-/build
+build
 
 # misc
 .DS_Store
@@ -37,8 +38,10 @@ yarn-error.log*
 next-env.d.ts
 
 # supabase local
-/supabase/.temp
+supabase/.temp
 
 # 密钥记录兜底：Pages 文稿等本地文档不得提交
 *.pages
 *.pages.zip
+# 原型压缩包（Modao 导出，仅本地参考，不入库）
+*.zip

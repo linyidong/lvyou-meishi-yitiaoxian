@@ -33,6 +33,9 @@ const config: Config = {
           DEFAULT: PRODUCT.COLOR_PRIMARY,
           foreground: PRODUCT.COLOR_BACKGROUND,
         },
+        // 主色渐变两端（S01a/S01b）：用法 bg-gradient-to-r from-primary-from to-primary-to
+        'primary-from': PRODUCT.COLOR_PRIMARY_FROM,
+        'primary-to': PRODUCT.COLOR_PRIMARY_TO,
         secondary: {
           DEFAULT: PRODUCT.COLOR_SECONDARY,
           foreground: PRODUCT.COLOR_TEXT,

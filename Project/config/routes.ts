@@ -38,10 +38,12 @@ export const ROUTES = {
   ADMIN_ROUTES: '/admin/routes',
   /** R17 管理员导入记录 */
   ADMIN_IMPORTS: '/admin/imports',
+  /** R18 我的收藏地点（U11，本期新增） */
+  COLLECTED: '/collected',
 } as const;
 
 /** 需登录才能访问的前缀（middleware.ts 使用） */
-export const PROTECTED_ROUTES = [ROUTES.MY_ROUTES, '/route', ROUTES.PROFILE];
+export const PROTECTED_ROUTES = [ROUTES.MY_ROUTES, '/route', ROUTES.PROFILE, ROUTES.COLLECTED];
 
 /** 需登录且 role=admin 才能访问的前缀（middleware.ts 使用） */
 export const ADMIN_ROUTES = [
