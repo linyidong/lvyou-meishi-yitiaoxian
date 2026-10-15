@@ -45,8 +45,8 @@ export default function HomePage() {
             <h2 className="text-lg font-bold">热门城市</h2>
             <p className="mt-1 text-sm text-muted-foreground">点一座城市，直接进入新建路线并带上目的地</p>
           </div>
-          <Link href={ROUTES.CITY} className="shrink-0 text-sm text-primary hover:underline">
-            查看全部 {CITIES.length} 座
+          <Link href={ROUTES.ROUTE_NEW} className="shrink-0 text-sm text-primary hover:underline">
+            在新建路线里搜索全部 {CITIES.length} 座
           </Link>
         </div>
 
