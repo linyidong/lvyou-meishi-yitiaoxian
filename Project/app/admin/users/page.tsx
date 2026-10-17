@@ -1,4 +1,5 @@
 import { BUSINESS } from '@/config/business';
+import { USER_ROLE } from '@/config/enums';
 import { ROUTES } from '@/config/routes';
 import {
   AdminUsersClient,
@@ -29,17 +30,23 @@ export default async function AdminUsersPage() {
 
   const emailById = new Map((usersRes.data ?? []).map((u) => [u.id, u.email ?? '—']));
 
-  const users: AdminUserItem[] = (usersRes.data ?? []).map((u) => ({
-    id: u.id,
-    email: u.email,
-    username: u.username,
-    role: u.role as UserRole,
-    member: u.member,
-    memberSince: u.member_since,
-    memberSource: (u.member_source as MemberSource | null) ?? null,
-    lastSeenAt: u.last_seen_at,
-    createdAt: u.created_at,
-  }));
+  // 管理员账号置顶展示，其余用户按注册时间倒序（SQL 侧已按倒序返回，此处仅把管理员提前）
+  const users: AdminUserItem[] = (usersRes.data ?? [])
+    .map((u) => ({
+      id: u.id,
+      email: u.email,
+      username: u.username,
+      role: u.role as UserRole,
+      member: u.member,
+      memberSince: u.member_since,
+      memberSource: (u.member_source as MemberSource | null) ?? null,
+      lastSeenAt: u.last_seen_at,
+      createdAt: u.created_at,
+    }))
+    .sort((a, b) => {
+      if (a.role !== b.role) return a.role === USER_ROLE.ADMIN ? -1 : 1;
+      return String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? ''));
+    });
 
   const logs: MemberLogItem[] = (logsRes.data ?? []).map((l) => ({
     id: l.id,
@@ -54,7 +61,7 @@ export default async function AdminUsersPage() {
     <AdminShell currentPath={ROUTES.ADMIN_USERS}>
       <PageHeader
         title="A03 用户列表"
-        description={`用户为真实注册数据，在线状态按最后活跃时间 ≤ ${BUSINESS.ONLINE_THRESHOLD_MINUTES} 分钟计算 · 可写操作：开通 / 取消会员、删除普通用户账号。`}
+        description={`用户为真实注册数据，管理员账号置顶展示，其余按注册时间倒序。在线状态按最后活跃时间 ≤ ${BUSINESS.ONLINE_THRESHOLD_MINUTES} 分钟计算 · 可写操作：开通 / 取消会员（管理员默认最高级会员，不可改）、删除普通用户账号。`}
       />
       {usersRes.error ? (
         <div className="rounded-2xl border border-red-200 bg-red-50 p-8 text-center">

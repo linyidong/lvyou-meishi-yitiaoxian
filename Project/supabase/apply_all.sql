@@ -1,7 +1,7 @@
 -- apply_all.sql
--- 由 supabase/migrations/001~014 依次拼接而成，用于在全新 Supabase 环境一次性导入建库。
--- 若库已按 001~011 建好，只需执行 apply_012_013.sql（增量升级包）+ 014_member_guard.sql。
--- 请勿单独修改本文件；改动请改 001~014 后重新生成。
+-- 由 supabase/migrations/001~015 依次拼接而成，用于在全新 Supabase 环境一次性导入建库。
+-- 若库已按 001~011 建好，只需执行 apply_012_013.sql（增量升级包）+ 014_member_guard.sql + 015_admin_default_member.sql。
+-- 请勿单独修改本文件；改动请改 001~015 后重新生成。
 
 -- 001_create_users.sql
 -- users：用户表，id 与 auth.users 一一对应，注册时由 010 的触发器写入。
@@ -710,3 +710,43 @@ drop trigger if exists users_prevent_member_self_grant on public.users;
 create trigger users_prevent_member_self_grant
   before update on public.users
   for each row execute function public.prevent_member_self_grant();
+
+-- ==================== 015 管理员默认最高级会员 ====================
+-- 015_admin_default_member.sql
+-- 管理员账号默认享有最高级会员：会员权益由「账号角色」自动决定，不需手工开通。
+-- 回填现有 admin 行 + 建 users_admin_default_member 触发器（BEFORE UPDATE，强制 admin 行
+-- 的 member 三列）；与 014 同为 BEFORE UPDATE，按触发器名先后执行（admin_default 先于
+-- prevent_member_self_grant），015 只做补齐、不拦截，故不冲突。
+-- 幂等：可重复执行。
+
+update public.users
+   set member        = true,
+       member_since  = coalesce(member_since, now()),
+       member_source = 'admin'
+ where role = 'admin'
+   and (member is not true or member_source is null);
+
+create or replace function public.sync_admin_member()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if new.role = 'admin' then
+    new.member        := true;
+    new.member_since  := coalesce(new.member_since, old.member_since, now());
+    new.member_source := 'admin';
+  end if;
+  return new;
+end;
+$$;
+
+comment on function public.sync_admin_member() is
+  'BEFORE UPDATE 触发器函数：把 admin 行的会员字段强制补齐为最高级会员';
+
+drop trigger if exists users_admin_default_member on public.users;
+create trigger users_admin_default_member
+  before update on public.users
+  for each row
+  execute function public.sync_admin_member();

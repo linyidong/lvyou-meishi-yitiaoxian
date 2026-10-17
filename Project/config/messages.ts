@@ -103,4 +103,6 @@ export const MESSAGES = {
   /** M48 删除账号的二次确认说明（A03，参数为待删账号邮箱） */
   USER_DELETE_CONFIRM: (email: string) =>
     `删除后该账号无法登录，其地点、路线与导入记录会一并清除，且不可恢复。确认删除 ${email} 吗？`,
+  /** M49 管理员默认最高级会员，不可开通或取消（A03 与 /api/admin/member） */
+  ADMIN_MEMBER_FIXED: '管理员账号默认享有最高级会员，无需开通或取消',
 } as const;

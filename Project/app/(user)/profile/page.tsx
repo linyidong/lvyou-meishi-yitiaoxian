@@ -57,6 +57,8 @@ export default async function ProfilePage() {
   ).size;
 
   const isAdmin = profile?.role === USER_ROLE.ADMIN;
+  // 管理员账号默认享有最高级会员（库侧由 015 触发器落库，此处同步派生，执行 SQL 前后表现一致）
+  const isMember = Boolean(profile?.member) || isAdmin;
   const displayName = profile?.username ?? profile?.email?.split('@')[0] ?? '旅行者';
   const stats: { label: string; value: number; href?: string }[] = [
     { label: '已保存路线', value: routesRes.count ?? 0, href: ROUTES.MY_ROUTES },
@@ -72,7 +74,7 @@ export default async function ProfilePage() {
   ];
 
   return (
-    <div className="mx-auto max-w-4xl space-y-5">
+    <div className="space-y-5">
       {/* 账号信息 */}
       <section className="flex flex-col gap-4 rounded-2xl border border-border bg-background p-5 sm:flex-row sm:items-center">
         <span className="grid h-16 w-16 place-items-center rounded-2xl bg-primary/10 text-2xl font-bold text-primary">
@@ -83,9 +85,9 @@ export default async function ProfilePage() {
           <p className="mt-0.5 text-sm text-muted-foreground">{profile?.email ?? user.email}</p>
           <div className="mt-2 flex flex-wrap gap-2 text-xs">
             <span className="rounded-lg bg-muted px-2 py-1 text-muted-foreground">
-              {profile?.member ? '会员用户' : '普通用户'}
+              {isAdmin ? '最高级会员' : isMember ? '会员用户' : '普通用户'}
             </span>
-            {profile?.member && profile.member_since ? (
+            {isMember && profile?.member_since ? (
               <span className="rounded-lg bg-muted px-2 py-1 text-muted-foreground">
                 开通于 {fmtDate(profile.member_since)}
               </span>
@@ -140,7 +142,7 @@ export default async function ProfilePage() {
 
       {/* 会员卡（本期新增） */}
       <MemberCard
-        member={Boolean(profile?.member)}
+        member={isMember}
         memberSince={profile?.member_since ?? null}
         memberSource={(profile?.member_source as MemberSource | null) ?? null}
       />

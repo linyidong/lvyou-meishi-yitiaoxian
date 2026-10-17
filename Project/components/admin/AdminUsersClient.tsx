@@ -53,10 +53,18 @@ function minutesAgo(iso: string | null) {
   return (Date.now() - new Date(iso).getTime()) / 60000;
 }
 
+/**
+ * 会员权益判定：管理员默认最高级会员（DB 侧由 015_admin_default_member.sql 触发器兜底，
+ * 此处同步派生，保证回填 SQL 执行前后界面表现一致）。
+ */
+function isMemberRow(u: AdminUserItem) {
+  return u.member || u.role === USER_ROLE.ADMIN;
+}
+
 const tabCls = (on: boolean) =>
   `rounded-lg px-3 py-1 text-sm font-medium ${on ? 'bg-foreground text-background' : 'text-muted-foreground'}`;
 
-/** A03 用户列表：只读列表 + 两项写操作「开通 / 取消会员」「删除普通用户账号」+ 会员操作留痕 */
+/** A03 用户列表：管理员置顶 + 会员开通 / 取消（管理员默认最高级会员，不可改）+ 删除普通用户账号 + 会员操作留痕 */
 export function AdminUsersClient({
   users,
   logs,
@@ -83,8 +91,8 @@ export function AdminUsersClient({
       const online = minutesAgo(u.lastSeenAt) <= BUSINESS.ONLINE_THRESHOLD_MINUTES;
       if (status === 'on' && !online) return false;
       if (status === 'off' && online) return false;
-      if (identity === 'member' && !u.member) return false;
-      if (identity === 'free' && u.member) return false;
+      if (identity === 'member' && !isMemberRow(u)) return false;
+      if (identity === 'free' && isMemberRow(u)) return false;
       if (!kw) return true;
       return [u.email, u.username].some((v) =>
         String(v ?? '')
@@ -103,7 +111,7 @@ export function AdminUsersClient({
 
   const onlineCount = users.filter((u) => minutesAgo(u.lastSeenAt) <= BUSINESS.ONLINE_THRESHOLD_MINUTES)
     .length;
-  const memberCount = users.filter((u) => u.member).length;
+  const memberCount = users.filter(isMemberRow).length;
 
   function showToast(text: string, tone: 'ok' | 'err') {
     setToast({ text, tone });
@@ -303,13 +311,15 @@ export function AdminUsersClient({
                     <td className="px-4 py-3">
                       <span
                         className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs ${
-                          u.member ? 'bg-amber-100 font-medium text-amber-700' : 'bg-muted text-muted-foreground'
+                          isMemberRow(u)
+                            ? 'bg-amber-100 font-medium text-amber-700'
+                            : 'bg-muted text-muted-foreground'
                         }`}
                       >
-                        {u.member ? (
+                        {isMemberRow(u) ? (
                           <>
                             <Crown className="h-3 w-3" />
-                            会员用户
+                            {u.role === USER_ROLE.ADMIN ? '最高级会员' : '会员用户'}
                           </>
                         ) : (
                           '普通用户'
@@ -317,17 +327,21 @@ export function AdminUsersClient({
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={() => askMember(u)}
-                        className={`rounded-lg px-2.5 py-1 text-xs ${
-                          u.member
-                            ? 'border border-border text-muted-foreground hover:bg-muted'
-                            : 'bg-amber-500 font-medium text-white hover:bg-amber-600'
-                        }`}
-                      >
-                        {u.member ? '取消会员' : '开通会员'}
-                      </button>
+                      {u.role === USER_ROLE.ADMIN ? (
+                        <span className="text-xs text-muted-foreground">默认最高级会员</span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => askMember(u)}
+                          className={`rounded-lg px-2.5 py-1 text-xs ${
+                            u.member
+                              ? 'border border-border text-muted-foreground hover:bg-muted'
+                              : 'bg-amber-500 font-medium text-white hover:bg-amber-600'
+                          }`}
+                        >
+                          {u.member ? '取消会员' : '开通会员'}
+                        </button>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       {u.role === USER_ROLE.USER ? (
@@ -398,9 +412,10 @@ export function AdminUsersClient({
       </section>
 
       <p className="mt-4 text-xs text-muted-foreground">
-        写操作仅两项：「开通 / 取消会员」与「删除账号」（仅可删普通用户，管理员账号不可删）。
+        写操作仅两项：「开通 / 取消会员」（管理员账号除外）与「删除账号」（仅可删普通用户）。
         角色列（{USER_ROLE_LABEL[USER_ROLE.USER]} / {USER_ROLE_LABEL[USER_ROLE.ADMIN]}）为账号权限，
-        用户身份列为会员权益状态，两者含义不同。
+        用户身份列为会员权益状态：{USER_ROLE_LABEL[USER_ROLE.ADMIN]}账号默认享有最高级会员，
+        无需开通或取消，便于与{USER_ROLE_LABEL[USER_ROLE.USER]}对比权益差异。
       </p>
 
       {/* 会员操作确认弹窗 */}

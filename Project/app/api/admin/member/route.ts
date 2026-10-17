@@ -40,11 +40,15 @@ export async function POST(request: NextRequest) {
     const admin = createAdminClient();
     const { data: target } = await admin
       .from('users')
-      .select('id')
+      .select('id,role')
       .eq('id', userId)
       .maybeSingle();
     if (!target) {
       return NextResponse.json({ ok: false, message: '用户不存在' }, { status: 404 });
+    }
+    // 管理员默认最高级会员（015 触发器），不允许通过本接口开通或取消
+    if (target.role === USER_ROLE.ADMIN) {
+      return NextResponse.json({ ok: false, message: MESSAGES.ADMIN_MEMBER_FIXED }, { status: 400 });
     }
 
     const now = new Date().toISOString();
