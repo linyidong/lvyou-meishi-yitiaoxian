@@ -49,6 +49,8 @@ export const BUSINESS = {
   MIN_PASSWORD_LENGTH: 8,
   /** B22 首页热门城市展示个数（U02，取自 config/cities.ts HOT_CITIES） */
   HOME_HOT_CITY_LIMIT: 10,
+  /** B23 导入文案字数上限（U06 粘贴分享文案，超限提示见 M34） */
+  MAX_IMPORT_TEXT_LENGTH: 2000,
 
   /** C07 管理员邮箱（数据库 users.role 已设为 admin） */
   ADMIN_EMAIL: '1035940028@qq.com',

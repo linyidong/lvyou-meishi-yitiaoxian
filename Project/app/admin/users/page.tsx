@@ -10,7 +10,7 @@ import { AdminShell } from '@/components/layout/AdminShell';
 import { createClient } from '@/lib/supabase/server';
 import type { MemberAction, MemberSource, UserRole } from '@/types';
 
-/** A03 用户列表：只读 + 会员开通 / 取消（唯一写操作）+ 会员操作留痕 */
+/** A03 用户列表：只读 + 两项写操作（会员开通 / 取消、删除普通用户账号）+ 会员操作留痕 */
 export default async function AdminUsersPage() {
   const supabase = createClient();
 
@@ -54,7 +54,7 @@ export default async function AdminUsersPage() {
     <AdminShell currentPath={ROUTES.ADMIN_USERS}>
       <PageHeader
         title="A03 用户列表"
-        description={`用户为真实注册数据，在线状态按最后活跃时间 ≤ ${BUSINESS.ONLINE_THRESHOLD_MINUTES} 分钟计算 · 管理员唯一可写操作：开通 / 取消会员。`}
+        description={`用户为真实注册数据，在线状态按最后活跃时间 ≤ ${BUSINESS.ONLINE_THRESHOLD_MINUTES} 分钟计算 · 可写操作：开通 / 取消会员、删除普通用户账号。`}
       />
       {usersRes.error ? (
         <div className="rounded-2xl border border-red-200 bg-red-50 p-8 text-center">

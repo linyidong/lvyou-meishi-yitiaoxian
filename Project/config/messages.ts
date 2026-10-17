@@ -1,7 +1,7 @@
 /**
- * 提示文案常量（M01-M33）
+ * 提示文案常量（M01-M44）
  * 界面提示禁止写死中文，一律引用 MESSAGES.*。
- * M23 需要引用 B21（密码位数），故此处 import BUSINESS，避免把数字写两遍。
+ * M23 需要引用 B21（密码位数），M34/M36/M37 需要引用 B23/B01/B13，故此处 import BUSINESS，避免把数字写两遍。
  */
 import { BUSINESS } from './business';
 
@@ -72,4 +72,35 @@ export const MESSAGES = {
   AUTH_EMAIL_NOT_CONFIRMED: '这个邮箱还没完成确认，请先到邮箱点确认链接，再回来登录',
   /** M33 后端连不上（DNS / 代理 / Supabase 地址配置错误，与密码无关） */
   SERVICE_UNREACHABLE: '暂时连不上服务器，请检查网络或 Supabase 地址配置后重试',
+  /** M34 导入文案超长（U06，上限取自 B23） */
+  IMPORT_TEXT_TOO_LONG: `内容超过 ${BUSINESS.MAX_IMPORT_TEXT_LENGTH} 字，请分次导入`,
+  /** M35 生成路线至少 2 个地点（U07） */
+  ROUTE_MIN_PLACES: '至少勾选 2 个地点才能生成路线',
+  /** M36 单日地点数超上限（U07，上限取自 B01） */
+  ROUTE_DAY_LIMIT_EXCEEDED: `单日最多 ${BUSINESS.MAX_PLACES_PER_DAY} 个地点，请减少勾选后再生成`,
+  /** M37 单条路线地点数超上限（U07，上限取自 B13） */
+  ROUTE_PLACES_LIMIT_EXCEEDED: `单条路线最多 ${BUSINESS.MAX_PLACES_PER_ROUTE} 个地点，请减少勾选后再生成`,
+  /** M38 正在生成路线（U07） */
+  ROUTE_GENERATING: '正在按顺路顺序排路线…',
+  /** M39 路线不存在或非本人（U06 / U07 / U09） */
+  ROUTE_NOT_FOUND: '这条路线不存在，或仅创建者可见',
+  /** M40 注册邮件发送失败（D4，不再回显 GoTrue 英文原文） */
+  AUTH_REGISTER_MAIL_FAILED: '注册邮件发送失败，请稍后重试或联系管理员',
+  /** M41 手动添加地点重名（U06） */
+  PLACE_NAME_DUPLICATE: '当前城市已有同名地点，请更换名称',
+  /** M42 手动添加地点名称过短（U06） */
+  PLACE_NAME_TOO_SHORT: '地点名称至少 2 个字',
+  /** M43 地点批量添加成功（U06，count 为实际插入数） */
+  PLACES_ADDED: (count: number) => `已成功添加 ${count} 个地点`,
+  /** M44 注册失败兜底（D4，其余情况不再回显 GoTrue 英文原文） */
+  AUTH_REGISTER_FAILED: '注册失败，请稍后重试或联系管理员',
+  /** M45 删除用户账号成功（A03） */
+  USER_DELETED: '该账号已删除',
+  /** M46 删除用户账号失败（A03） */
+  USER_DELETE_FAILED: '删除失败，请稍后重试',
+  /** M47 只能删除普通用户（A03，管理员账号与自己的账号不可删） */
+  USER_DELETE_FORBIDDEN: '只能删除普通用户账号，管理员账号不可删除',
+  /** M48 删除账号的二次确认说明（A03，参数为待删账号邮箱） */
+  USER_DELETE_CONFIRM: (email: string) =>
+    `删除后该账号无法登录，其地点、路线与导入记录会一并清除，且不可恢复。确认删除 ${email} 吗？`,
 } as const;

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Crown } from 'lucide-react';
+import { Crown, Trash2 } from 'lucide-react';
 import { BUSINESS } from '@/config/business';
 import {
   MEMBER_ACTION,
@@ -56,7 +56,7 @@ function minutesAgo(iso: string | null) {
 const tabCls = (on: boolean) =>
   `rounded-lg px-3 py-1 text-sm font-medium ${on ? 'bg-foreground text-background' : 'text-muted-foreground'}`;
 
-/** A03 用户列表：只读列表 + 唯一写操作「开通 / 取消会员」+ 会员操作留痕 */
+/** A03 用户列表：只读列表 + 两项写操作「开通 / 取消会员」「删除普通用户账号」+ 会员操作留痕 */
 export function AdminUsersClient({
   users,
   logs,
@@ -70,6 +70,9 @@ export function AdminUsersClient({
   const [identity, setIdentity] = useState<IdentityFilter>('all');
   const [page, setPage] = useState(1);
   const [pending, setPending] = useState<{ user: AdminUserItem; grant: boolean } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AdminUserItem | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
   const [busy, setBusy] = useState(false);
   const [modalError, setModalError] = useState('');
   const [toast, setToast] = useState<{ text: string; tone: 'ok' | 'err' } | null>(null);
@@ -110,6 +113,32 @@ export function AdminUsersClient({
   function askMember(user: AdminUserItem) {
     setModalError('');
     setPending({ user, grant: !user.member });
+  }
+
+  function askDelete(user: AdminUserItem) {
+    setDeleteError('');
+    setDeleteTarget(user);
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    setDeleteError('');
+    try {
+      const res = await fetch(`/api/admin/users/${deleteTarget.id}`, { method: 'DELETE' });
+      const data = (await res.json()) as { ok: boolean; message?: string };
+      if (!data.ok) {
+        setDeleteError(data.message ?? MESSAGES.USER_DELETE_FAILED);
+        return;
+      }
+      showToast(MESSAGES.USER_DELETED, 'ok');
+      setDeleteTarget(null);
+      router.refresh();
+    } catch {
+      setDeleteError(MESSAGES.USER_DELETE_FAILED);
+    } finally {
+      setDeleting(false);
+    }
   }
 
   async function confirmMember() {
@@ -201,7 +230,7 @@ export function AdminUsersClient({
       <section className="mb-4 rounded-2xl border border-border bg-background p-4">
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-semibold">会员操作留痕</h2>
-          <span className="rounded bg-amber-50 px-2 py-0.5 text-[11px] text-amber-700">唯一写操作</span>
+          <span className="rounded bg-amber-50 px-2 py-0.5 text-[11px] text-amber-700">写操作</span>
           <span className="ml-auto text-xs text-muted-foreground">
             最多展示最近 {BUSINESS.MEMBER_LOG_LIMIT} 条
           </span>
@@ -247,6 +276,7 @@ export function AdminUsersClient({
                 <th className="px-4 py-3 text-left font-medium">最后活跃</th>
                 <th className="px-4 py-3 text-left font-medium">用户身份</th>
                 <th className="px-4 py-3 text-left font-medium">管理员操作（会员）</th>
+                <th className="px-4 py-3 text-left font-medium">删除账号</th>
                 <th className="px-4 py-3 text-left font-medium">注册时间</th>
               </tr>
             </thead>
@@ -298,6 +328,20 @@ export function AdminUsersClient({
                       >
                         {u.member ? '取消会员' : '开通会员'}
                       </button>
+                    </td>
+                    <td className="px-4 py-3">
+                      {u.role === USER_ROLE.USER ? (
+                        <button
+                          type="button"
+                          onClick={() => askDelete(u)}
+                          className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1 text-xs text-red-600 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                          删除账号
+                        </button>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">{fmt(u.createdAt)}</td>
                   </tr>
@@ -354,8 +398,8 @@ export function AdminUsersClient({
       </section>
 
       <p className="mt-4 text-xs text-muted-foreground">
-        只读页面：除「开通 / 取消会员」外，不提供编辑、删除、禁用或踢出操作。角色列（
-        {USER_ROLE_LABEL[USER_ROLE.USER]} / {USER_ROLE_LABEL[USER_ROLE.ADMIN]}）为账号权限，
+        写操作仅两项：「开通 / 取消会员」与「删除账号」（仅可删普通用户，管理员账号不可删）。
+        角色列（{USER_ROLE_LABEL[USER_ROLE.USER]} / {USER_ROLE_LABEL[USER_ROLE.ADMIN]}）为账号权限，
         用户身份列为会员权益状态，两者含义不同。
       </p>
 
@@ -390,6 +434,41 @@ export function AdminUsersClient({
                 className="h-11 rounded-xl bg-foreground text-sm font-semibold text-background disabled:opacity-50"
               >
                 {busy ? '处理中…' : pending.grant ? '确认开通' : '确认取消'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* 删除账号确认弹窗 */}
+      {deleteTarget ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-background p-6">
+            <h3 className="text-lg font-semibold text-red-600">删除账号</h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              目标用户：{deleteTarget.email ?? '—'}
+              {deleteTarget.username ? `（${deleteTarget.username}）` : ''}
+            </p>
+            <p className="mt-3 text-sm text-muted-foreground">
+              {MESSAGES.USER_DELETE_CONFIRM(deleteTarget.email ?? '该账号')}
+            </p>
+            {deleteError ? <p className="mt-2 text-xs text-red-600">{deleteError}</p> : null}
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={() => setDeleteTarget(null)}
+                className="h-11 rounded-xl border border-border text-sm disabled:opacity-50"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={confirmDelete}
+                className="h-11 rounded-xl bg-red-600 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {deleting ? '删除中…' : '确认删除'}
               </button>
             </div>
           </div>
