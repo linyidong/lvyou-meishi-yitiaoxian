@@ -1,7 +1,7 @@
 -- apply_all.sql
--- 由 supabase/migrations/001~013 依次拼接而成，用于在全新 Supabase 环境一次性导入建库。
--- 若库已按 001~011 建好，只需执行 apply_012_013.sql（增量升级包）。
--- 请勿单独修改本文件；改动请改 001~013 后重新生成。
+-- 由 supabase/migrations/001~014 依次拼接而成，用于在全新 Supabase 环境一次性导入建库。
+-- 若库已按 001~011 建好，只需执行 apply_012_013.sql（增量升级包）+ 014_member_guard.sql。
+-- 请勿单独修改本文件；改动请改 001~014 后重新生成。
 
 -- 001_create_users.sql
 -- users：用户表，id 与 auth.users 一一对应，注册时由 010 的触发器写入。
