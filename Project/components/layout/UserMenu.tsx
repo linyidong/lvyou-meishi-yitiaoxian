@@ -2,12 +2,16 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown, Heart, LogOut, Route, User } from 'lucide-react';
+import { ChevronDown, Heart, LayoutDashboard, LogOut, Route, User } from 'lucide-react';
 import { MESSAGES } from '@/config/messages';
 import { ROUTES } from '@/config/routes';
 
-/** 已登录时的右上角用户菜单：个人中心 / 我的收藏 / 退出登录 */
-export function UserMenu({ displayName }: { displayName: string }) {
+/**
+ * 已登录时的右上角用户菜单：个人中心 / 我的收藏 / 我的路线 / 退出登录。
+ * isAdmin 由服务端（app/(user)/layout.tsx）按 users.role 判定后传入，
+ * 「管理后台」入口只在管理员账号下渲染，普通用户的前端源码里不会出现该链接。
+ */
+export function UserMenu({ displayName, isAdmin = false }: { displayName: string; isAdmin?: boolean }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
@@ -31,9 +35,13 @@ export function UserMenu({ displayName }: { displayName: string }) {
   }
 
   const items = [
-    { href: ROUTES.PROFILE, label: '个人中心', icon: User },
-    { href: ROUTES.COLLECTED, label: '我的收藏', icon: Heart },
-    { href: ROUTES.MY_ROUTES, label: '我的路线', icon: Route },
+    // 「管理后台」仅管理员可见，置于最前，视觉上与其他项区分（主色文字）
+    ...(isAdmin
+      ? [{ href: ROUTES.ADMIN_HOME, label: MESSAGES.ADMIN_ENTRY_TITLE, icon: LayoutDashboard, accent: true }]
+      : []),
+    { href: ROUTES.PROFILE, label: '个人中心', icon: User, accent: false },
+    { href: ROUTES.COLLECTED, label: '我的收藏', icon: Heart, accent: false },
+    { href: ROUTES.MY_ROUTES, label: '我的路线', icon: Route, accent: false },
   ];
 
   return (
@@ -57,9 +65,13 @@ export function UserMenu({ displayName }: { displayName: string }) {
               key={item.href}
               href={item.href}
               onClick={() => setOpen(false)}
-              className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted"
+              className={`flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted ${
+                item.accent ? 'font-medium text-primary' : ''
+              }`}
             >
-              <item.icon className="h-4 w-4 text-muted-foreground" />
+              <item.icon
+                className={`h-4 w-4 ${item.accent ? 'text-primary' : 'text-muted-foreground'}`}
+              />
               {item.label}
             </Link>
           ))}

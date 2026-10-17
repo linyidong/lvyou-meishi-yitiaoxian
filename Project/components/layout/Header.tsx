@@ -14,7 +14,7 @@ const NAV_ITEMS = [
 ];
 
 /** 用户端顶部导航；未登录时右侧显示「登录 / 注册」入口 */
-export function Header({ displayName }: { displayName?: string | null }) {
+export function Header({ displayName, isAdmin = false }: { displayName?: string | null; isAdmin?: boolean }) {
   return (
     <header className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur">
       <div className="mx-auto flex h-14 w-full max-w-5xl items-center gap-3 px-4">
@@ -33,7 +33,7 @@ export function Header({ displayName }: { displayName?: string | null }) {
 
         <div className="shrink-0 border-l border-border pl-3">
           {displayName ? (
-            <UserMenu displayName={displayName} />
+            <UserMenu displayName={displayName} isAdmin={isAdmin} />
           ) : (
             <Link
               href={ROUTES.LOGIN}
