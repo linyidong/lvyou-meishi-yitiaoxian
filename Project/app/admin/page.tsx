@@ -1,17 +1,34 @@
 import Link from 'next/link';
+import {
+  AlertTriangle,
+  BarChart3,
+  ChevronRight,
+  Crown,
+  DatabaseZap,
+  MapPinned,
+  Route,
+  Upload,
+  Users,
+  Wifi,
+} from 'lucide-react';
 import { BUSINESS } from '@/config/business';
-import { PLACE_TYPE } from '@/config/enums';
+import { EVENT_NAME, PLACE_TYPE } from '@/config/enums';
+import { MESSAGES } from '@/config/messages';
 import { ROUTES } from '@/config/routes';
-import { PageHeader } from '@/components/common/PageHeader';
+import { AdminEmptyState, AdminErrorState } from '@/components/admin/AdminState';
 import { AdminShell } from '@/components/layout/AdminShell';
 import { createClient } from '@/lib/supabase/server';
 
+const M = MESSAGES.ADMIN_OVERVIEW;
+
+/** 快捷入口（图标底色照抄原型） */
 const QUICK_LINKS = [
-  { href: ROUTES.ADMIN_USERS, label: 'A03 用户列表' },
-  { href: ROUTES.ADMIN_ONLINE, label: 'A04 在线用户' },
-  { href: ROUTES.ADMIN_PLACES, label: 'A05 地点列表' },
-  { href: ROUTES.ADMIN_ROUTES, label: 'A06 路线列表' },
-  { href: ROUTES.ADMIN_IMPORTS, label: 'A07 导入记录' },
+  { href: ROUTES.ADMIN_USERS, label: M.quickUsers, box: 'bg-sky-50 text-sky-600', Icon: Users },
+  { href: ROUTES.ADMIN_USERS, label: M.quickMembers, box: 'bg-amber-50 text-amber-600', Icon: Crown },
+  { href: ROUTES.ADMIN_ONLINE, label: M.quickOnline, box: 'bg-emerald-50 text-emerald-600', Icon: Wifi },
+  { href: ROUTES.ADMIN_PLACES, label: M.quickPlaces, box: 'bg-teal-50 text-teal-600', Icon: MapPinned },
+  { href: ROUTES.ADMIN_ROUTES, label: M.quickRoutes, box: 'bg-primary/5 text-primary', Icon: Route },
+  { href: ROUTES.ADMIN_IMPORTS, label: M.quickImports, box: 'bg-amber-50 text-amber-600', Icon: Upload },
 ];
 
 /** HH:mm:ss */
@@ -20,82 +37,306 @@ function fmtClock(d: Date) {
   return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 }
 
-/** A02 管理员概览：服务端统计（只读） */
+/** M/D */
+function fmtDay(d: Date) {
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+}
+
+/** A02 管理员概览：全站统计 + 近 7 天埋点指标（只读） */
 export default async function AdminHomePage() {
   const supabase = createClient();
+  const now = new Date();
   const onlineSince = new Date(
-    Date.now() - BUSINESS.ONLINE_THRESHOLD_MINUTES * 60 * 1000,
+    now.getTime() - BUSINESS.ONLINE_THRESHOLD_MINUTES * 60 * 1000,
   ).toISOString();
+  const todayStart = new Date(now);
+  todayStart.setHours(0, 0, 0, 0);
+  const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-  const [usersRes, membersRes, onlineRes, placesRes, spotsRes, foodsRes, routesRes, importsRes] =
-    await Promise.all([
-      supabase.from('users').select('*', { count: 'exact', head: true }),
-      supabase.from('users').select('*', { count: 'exact', head: true }).eq('member', true),
-      supabase
-        .from('users')
-        .select('*', { count: 'exact', head: true })
-        .gte('last_seen_at', onlineSince),
-      supabase.from('places').select('*', { count: 'exact', head: true }),
-      supabase
-        .from('places')
-        .select('*', { count: 'exact', head: true })
-        .eq('type', PLACE_TYPE.ATTRACTION),
-      supabase.from('places').select('*', { count: 'exact', head: true }).eq('type', PLACE_TYPE.FOOD),
-      supabase.from('routes').select('*', { count: 'exact', head: true }),
-      supabase.from('imports').select('*', { count: 'exact', head: true }),
-    ]);
+  const [
+    usersRes,
+    membersRes,
+    onlineRes,
+    todayUsersRes,
+    placesRes,
+    spotsRes,
+    foodsRes,
+    routesRes,
+    importsRes,
+    successImportsRes,
+    addPlaceRes,
+    genRouteRes,
+    upgradeRes,
+    routeEventsRes,
+  ] = await Promise.all([
+    supabase.from('users').select('*', { count: 'exact', head: true }),
+    supabase.from('users').select('*', { count: 'exact', head: true }).eq('member', true),
+    supabase
+      .from('users')
+      .select('*', { count: 'exact', head: true })
+      .gte('last_seen_at', onlineSince),
+    supabase
+      .from('users')
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', todayStart.toISOString()),
+    supabase.from('places').select('*', { count: 'exact', head: true }),
+    supabase
+      .from('places')
+      .select('*', { count: 'exact', head: true })
+      .eq('type', PLACE_TYPE.ATTRACTION),
+    supabase.from('places').select('*', { count: 'exact', head: true }).eq('type', PLACE_TYPE.FOOD),
+    supabase.from('routes').select('*', { count: 'exact', head: true }),
+    supabase.from('imports').select('*', { count: 'exact', head: true }),
+    supabase.from('imports').select('*', { count: 'exact', head: true }).eq('status', 'success'),
+    supabase
+      .from('events')
+      .select('*', { count: 'exact', head: true })
+      .eq('event_name', EVENT_NAME.ADD_PLACE)
+      .gte('created_at', weekStart.toISOString()),
+    supabase
+      .from('events')
+      .select('*', { count: 'exact', head: true })
+      .eq('event_name', EVENT_NAME.GENERATE_ROUTE)
+      .gte('created_at', weekStart.toISOString()),
+    supabase
+      .from('events')
+      .select('*', { count: 'exact', head: true })
+      .eq('event_name', EVENT_NAME.CLICK_UPGRADE)
+      .gte('created_at', weekStart.toISOString()),
+    supabase
+      .from('events')
+      .select('created_at')
+      .eq('event_name', EVENT_NAME.GENERATE_ROUTE)
+      .gte('created_at', weekStart.toISOString()),
+  ]);
+
+  const results = [
+    usersRes,
+    membersRes,
+    onlineRes,
+    todayUsersRes,
+    placesRes,
+    spotsRes,
+    foodsRes,
+    routesRes,
+    importsRes,
+    successImportsRes,
+    addPlaceRes,
+    genRouteRes,
+    upgradeRes,
+    routeEventsRes,
+  ];
+  const hasError = results.some((r) => r.error);
 
   const totalUsers = usersRes.count ?? 0;
   const memberUsers = membersRes.count ?? 0;
   const onlineUsers = onlineRes.count ?? 0;
+  const todayUsers = todayUsersRes.count ?? 0;
   const totalPlaces = placesRes.count ?? 0;
   const spotPlaces = spotsRes.count ?? 0;
   const foodPlaces = foodsRes.count ?? 0;
   const totalRoutes = routesRes.count ?? 0;
   const totalImports = importsRes.count ?? 0;
+  const successImports = successImportsRes.count ?? 0;
+  const addPlaceCount = addPlaceRes.count ?? 0;
+  const genRouteCount = genRouteRes.count ?? 0;
+  const upgradeCount = upgradeRes.count ?? 0;
 
   const memberRate = totalUsers > 0 ? Math.round((memberUsers / totalUsers) * 100) : 0;
+  const importRate = totalImports > 0 ? Math.round((successImports / totalImports) * 100) : 0;
+  const isEmpty = totalUsers === 0 && totalPlaces === 0 && totalRoutes === 0 && totalImports === 0;
 
-  const stats: { label: string; value: number; hint: string }[] = [
-    { label: '当前在线', value: onlineUsers, hint: `最近 ${BUSINESS.ONLINE_THRESHOLD_MINUTES} 分钟有心跳` },
-    { label: '总用户数', value: totalUsers, hint: `其中会员 ${memberUsers} 人` },
-    { label: '会员用户', value: memberUsers, hint: `占比 ${memberRate}%` },
-    { label: '总地点数', value: totalPlaces, hint: `景点 ${spotPlaces} · 美食 ${foodPlaces}` },
-    { label: '总路线数', value: totalRoutes, hint: `已保存 ${totalRoutes} 条` },
-    { label: '导入记录', value: totalImports, hint: `单次最多读取 ${BUSINESS.ADMIN_LIST_LIMIT} 条` },
-  ];
+  // 近 7 天每日生成路线数（按本地日期分桶）
+  const dailyCounts = Array.from({ length: 7 }, (_, i) => {
+    const day = new Date(todayStart);
+    day.setDate(day.getDate() - (6 - i));
+    return { day, count: 0 };
+  });
+  for (const e of routeEventsRes.data ?? []) {
+    const d = new Date(e.created_at);
+    d.setHours(0, 0, 0, 0);
+    const slot = dailyCounts.find((x) => x.day.getTime() === d.getTime());
+    if (slot) slot.count += 1;
+  }
+  const maxDaily = Math.max(1, ...dailyCounts.map((x) => x.count));
 
   return (
-    <AdminShell currentPath={ROUTES.ADMIN_HOME}>
-      <PageHeader
-        title="A02 管理员概览"
-        description={`后台为只读模式，除用户列表的「开通 / 取消会员」外不提供编辑、删除或踢出操作 · 数据更新于 ${fmtClock(new Date())}。`}
-      />
-
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-        {stats.map((s) => (
-          <div key={s.label} className="rounded-2xl border border-border bg-background p-5">
-            <p className="text-xs text-muted-foreground">{s.label}</p>
-            <p className="mt-1 text-3xl font-bold">{s.value}</p>
-            <p className="mt-1 text-xs text-muted-foreground">{s.hint}</p>
+    <AdminShell
+      currentPath={ROUTES.ADMIN_HOME}
+      title={MESSAGES.ADMIN_SHELL.navOverview}
+      overview
+      updatedAt={fmtClock(now)}
+      refreshBanner={MESSAGES.ADMIN_HEADER.refreshed}
+    >
+      {hasError ? (
+        <AdminErrorState title={M.errorTitle} desc={M.errorDesc} icon={DatabaseZap} />
+      ) : isEmpty ? (
+        <AdminEmptyState icon={BarChart3} title={M.emptyTitle} desc={M.emptyDesc} />
+      ) : (
+        <>
+          <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-800">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>
+              {M.constraintLead}
+              <Link href={ROUTES.ADMIN_USERS} className="font-medium underline underline-offset-2">
+                {M.constraintLink}
+              </Link>
+              {M.constraintTail}
+            </span>
           </div>
-        ))}
-      </section>
 
-      <section className="mt-5 rounded-2xl border border-border bg-background p-5">
-        <h2 className="text-sm font-semibold">快捷入口</h2>
-        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {QUICK_LINKS.map((l) => (
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
             <Link
-              key={l.href}
-              href={l.href}
-              className="rounded-xl border border-border px-4 py-3 text-sm hover:border-primary hover:bg-muted"
+              href={ROUTES.ADMIN_ONLINE}
+              className="col-span-2 rounded-2xl bg-slate-900 p-5 text-white transition hover:ring-4 hover:ring-slate-300 lg:col-span-1"
             >
-              {l.label}
+              <div className="flex items-center justify-between text-sm text-slate-300">
+                <span>{M.statOnline}</span>
+                <span className="flex items-center gap-1 text-xs text-emerald-400">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
+                  {M.live}
+                </span>
+              </div>
+              <p className="mt-3 text-4xl font-bold">{onlineUsers}</p>
+              <p className="mt-1 text-xs text-slate-400">
+                {M.statOnlineHint(BUSINESS.ONLINE_THRESHOLD_MINUTES)}
+              </p>
             </Link>
-          ))}
-        </div>
-      </section>
+
+            <Link
+              href={ROUTES.ADMIN_USERS}
+              className="rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-slate-400"
+            >
+              <div className="flex items-center justify-between text-sm text-slate-500">
+                <span>{M.statUsers}</span>
+                <Users className="h-5 w-5 text-sky-600" />
+              </div>
+              <p className="mt-3 text-3xl font-bold text-slate-900">{totalUsers}</p>
+              <p className="mt-1 text-xs text-slate-500">
+                {M.statUsersHint(todayUsers, memberUsers)}
+              </p>
+            </Link>
+
+            <Link
+              href={ROUTES.ADMIN_USERS}
+              className="rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-slate-400"
+            >
+              <div className="flex items-center justify-between text-sm text-slate-500">
+                <span>{M.statMembers}</span>
+                <Crown className="h-5 w-5 text-amber-500" />
+              </div>
+              <p className="mt-3 text-3xl font-bold text-slate-900">{memberUsers}</p>
+              <p className="mt-1 text-xs text-slate-500">{M.statMembersHint(memberRate)}</p>
+            </Link>
+
+            <Link
+              href={ROUTES.ADMIN_PLACES}
+              className="rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-slate-400"
+            >
+              <div className="flex items-center justify-between text-sm text-slate-500">
+                <span>{M.statPlaces}</span>
+                <MapPinned className="h-5 w-5 text-teal-600" />
+              </div>
+              <p className="mt-3 text-3xl font-bold text-slate-900">{totalPlaces}</p>
+              <p className="mt-1 text-xs text-slate-500">
+                {M.statPlacesHint(spotPlaces, foodPlaces)}
+              </p>
+            </Link>
+
+            <Link
+              href={ROUTES.ADMIN_ROUTES}
+              className="rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-slate-400"
+            >
+              <div className="flex items-center justify-between text-sm text-slate-500">
+                <span>{M.statRoutes}</span>
+                <Route className="h-5 w-5 text-primary" />
+              </div>
+              <p className="mt-3 text-3xl font-bold text-slate-900">{totalRoutes}</p>
+              <p className="mt-1 text-xs text-slate-500">{M.statRoutesHint(totalRoutes)}</p>
+            </Link>
+
+            <Link
+              href={ROUTES.ADMIN_IMPORTS}
+              className="rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-slate-400"
+            >
+              <div className="flex items-center justify-between text-sm text-slate-500">
+                <span>{M.statImports}</span>
+                <Upload className="h-5 w-5 text-amber-600" />
+              </div>
+              <p className="mt-3 text-3xl font-bold text-slate-900">{totalImports}</p>
+              <p className="mt-1 text-xs text-slate-500">{M.statImportsHint(importRate)}</p>
+            </Link>
+          </div>
+
+          <div className="mt-6 grid gap-4 lg:grid-cols-3">
+            <section className="rounded-2xl border border-slate-200 bg-white p-5 lg:col-span-2">
+              <div className="flex items-center justify-between">
+                <h2 className="font-semibold text-slate-900">{M.metricsTitle}</h2>
+                <span className="text-xs text-slate-400">{M.metricsRange}</span>
+              </div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                {[
+                  { label: M.metricAddPlace, count: addPlaceCount, event: EVENT_NAME.ADD_PLACE },
+                  { label: M.metricGenRoute, count: genRouteCount, event: EVENT_NAME.GENERATE_ROUTE },
+                  {
+                    label: M.metricUpgradeClick,
+                    count: upgradeCount,
+                    event: EVENT_NAME.CLICK_UPGRADE,
+                  },
+                ].map((m) => (
+                  <div key={m.event} className="rounded-xl bg-slate-50 p-4">
+                    <p className="text-xs text-slate-500">{m.label}</p>
+                    <p className="mt-1 text-2xl font-bold text-slate-900">{m.count}</p>
+                    <p className="text-[11px] text-slate-400">{M.metricEvent(m.event)}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-5">
+                <p className="mb-2 text-xs text-slate-500">{M.metricBars}</p>
+                <div className="flex h-36 items-end gap-2">
+                  {dailyCounts.map((d) => (
+                    <div
+                      key={d.day.toISOString()}
+                      title={`${fmtDay(d.day)} · ${d.count}`}
+                      className="flex-1 rounded-t bg-slate-300"
+                      style={{ height: `${Math.max(4, (d.count / maxDaily) * 100)}%` }}
+                    />
+                  ))}
+                </div>
+                <div className="mt-1 flex gap-2 text-[11px] text-slate-400">
+                  {dailyCounts.map((d) => (
+                    <span key={d.day.toISOString()} className="flex-1 text-center">
+                      {fmtDay(d.day)}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-slate-200 bg-white p-5">
+              <h2 className="font-semibold text-slate-900">{M.quickTitle}</h2>
+              <div className="mt-4 space-y-2">
+                {QUICK_LINKS.map((l) => {
+                  const Icon = l.Icon;
+                  return (
+                    <Link
+                      key={l.label}
+                      href={l.href}
+                      className="flex items-center gap-3 rounded-xl border border-slate-100 p-3 hover:bg-slate-50"
+                    >
+                      <span className={`grid h-9 w-9 place-items-center rounded-lg ${l.box}`}>
+                        <Icon className="h-4 w-4" />
+                      </span>
+                      <span className="flex-1 text-sm">{l.label}</span>
+                      <ChevronRight className="h-4 w-4 text-slate-400" />
+                    </Link>
+                  );
+                })}
+              </div>
+            </section>
+          </div>
+        </>
+      )}
     </AdminShell>
   );
 }

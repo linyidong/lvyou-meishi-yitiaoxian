@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { LoginClient } from '@/components/auth/LoginClient';
+import { AdminLoginClient } from '@/components/admin/AdminLoginClient';
 import { USER_ROLE } from '@/config/enums';
 import { ROUTES } from '@/config/routes';
 import { createClient } from '@/lib/supabase/server';
@@ -25,8 +25,8 @@ export default async function AdminLoginPage({
   }
 
   return (
-    <div className="mx-auto w-full max-w-sm px-4 py-16">
-      <LoginClient mode="admin" initialError={searchParams.error} />
-    </div>
+    <main className="grid min-h-screen place-items-center bg-slate-100 px-4 py-10 text-slate-800">
+      <AdminLoginClient initialError={searchParams.error} />
+    </main>
   );
 }

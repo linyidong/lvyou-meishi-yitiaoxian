@@ -7,7 +7,7 @@ import { MESSAGES } from '@/config/messages';
 import { ROUTES } from '@/config/routes';
 
 /**
- * 已登录时的右上角用户菜单：个人中心 / 我的收藏 / 我的路线 / 退出登录。
+ * 已登录时的右上角用户头像菜单（对齐原型头像样式，保留下拉功能）。
  * isAdmin 由服务端（app/(user)/layout.tsx）按 users.role 判定后传入，
  * 「管理后台」入口只在管理员账号下渲染，普通用户的前端源码里不会出现该链接。
  */
@@ -39,9 +39,9 @@ export function UserMenu({ displayName, isAdmin = false }: { displayName: string
     ...(isAdmin
       ? [{ href: ROUTES.ADMIN_HOME, label: MESSAGES.ADMIN_ENTRY_TITLE, icon: LayoutDashboard, accent: true }]
       : []),
-    { href: ROUTES.PROFILE, label: '个人中心', icon: User, accent: false },
-    { href: ROUTES.COLLECTED, label: '我的收藏', icon: Heart, accent: false },
-    { href: ROUTES.MY_ROUTES, label: '我的路线', icon: Route, accent: false },
+    { href: ROUTES.PROFILE, label: MESSAGES.NAV_PROFILE, icon: User, accent: false },
+    { href: ROUTES.COLLECTED, label: MESSAGES.NAV_COLLECTED, icon: Heart, accent: false },
+    { href: ROUTES.MY_ROUTES, label: MESSAGES.NAV_MY_ROUTES, icon: Route, accent: false },
   ];
 
   return (
@@ -49,28 +49,28 @@ export function UserMenu({ displayName, isAdmin = false }: { displayName: string
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 rounded-xl border border-border py-1.5 pl-1.5 pr-2.5 hover:bg-muted"
+        className="flex items-center gap-2 text-sm text-stone-700 hover:text-primary"
       >
-        <span className="grid h-6 w-6 place-items-center rounded-lg bg-primary text-[11px] font-bold text-primary-foreground">
+        <span className="grid h-8 w-8 place-items-center rounded-full bg-primary/10 font-semibold text-primary">
           {displayName.slice(0, 1)}
         </span>
-        <span className="hidden max-w-24 truncate text-xs font-medium sm:inline">{displayName}</span>
-        <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+        <span className="hidden max-w-28 truncate sm:inline">{displayName}</span>
+        <ChevronDown className="hidden h-3.5 w-3.5 sm:block" />
       </button>
 
       {open ? (
-        <div className="absolute right-0 z-20 mt-2 w-40 overflow-hidden rounded-xl border border-border bg-background py-1 shadow-lg">
+        <div className="absolute right-0 z-20 mt-2 w-40 overflow-hidden rounded-xl border border-stone-200 bg-white py-1 shadow-lg">
           {items.map((item) => (
             <Link
               key={item.href}
               href={item.href}
               onClick={() => setOpen(false)}
-              className={`flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted ${
-                item.accent ? 'font-medium text-primary' : ''
+              className={`flex items-center gap-2 px-3 py-2 text-sm hover:bg-stone-50 ${
+                item.accent ? 'font-semibold text-primary' : 'text-stone-700'
               }`}
             >
               <item.icon
-                className={`h-4 w-4 ${item.accent ? 'text-primary' : 'text-muted-foreground'}`}
+                className={`h-4 w-4 ${item.accent ? 'text-primary' : 'text-stone-400'}`}
               />
               {item.label}
             </Link>
@@ -79,16 +79,13 @@ export function UserMenu({ displayName, isAdmin = false }: { displayName: string
             type="button"
             disabled={busy}
             onClick={logout}
-            className="flex w-full items-center gap-2 border-t border-border px-3 py-2 text-sm text-muted-foreground hover:bg-muted disabled:opacity-50"
+            className="flex w-full items-center gap-2 border-t border-stone-200 px-3 py-2 text-sm text-stone-500 hover:bg-stone-50 disabled:opacity-50"
           >
             <LogOut className="h-4 w-4" />
-            {busy ? '退出中…' : '退出登录'}
+            {busy ? MESSAGES.MENU_LOGGING_OUT : MESSAGES.MENU_LOGOUT}
           </button>
         </div>
       ) : null}
-
-      {/* 供读屏与提示使用，不占视觉空间 */}
-      <span className="sr-only">{MESSAGES.AUTH_LOGOUT_OK}</span>
     </div>
   );
 }

@@ -18,9 +18,12 @@ export default async function LoginPage({
   // 已登录就不必再看登录页，直接去原本要去的页面
   if (user) redirect(sanitizeRedirect(searchParams.redirect, ROUTES.PROFILE));
 
+  // U01 登录页不在 (user) 外壳内（无顶栏 / 底部导航），这里自带与原型一致的外层与主容器
   return (
-    <div className="mx-auto w-full max-w-sm px-4 py-16">
-      <LoginClient mode="user" initialRedirect={searchParams.redirect} initialError={searchParams.error} />
+    <div className="min-h-screen bg-stone-50 text-stone-800">
+      <main className="mx-auto w-full max-w-6xl px-4 py-6 md:px-6 md:py-12">
+        <LoginClient mode="user" initialRedirect={searchParams.redirect} initialError={searchParams.error} />
+      </main>
     </div>
   );
 }

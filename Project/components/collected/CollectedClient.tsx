@@ -3,11 +3,28 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { X } from 'lucide-react';
+import {
+  Bookmark,
+  BookmarkMinus,
+  Building2,
+  Camera,
+  FilterX,
+  Info,
+  MapPin,
+  MapPinPlus,
+  Search,
+  Share2,
+  Sparkles,
+  Utensils,
+  X,
+} from 'lucide-react';
 import { EVENT_NAME, IMPORT_SOURCE_LABEL, PLACE_TYPE, PLACE_TYPE_LABEL } from '@/config/enums';
+import { MESSAGES } from '@/config/messages';
 import { ROUTES } from '@/config/routes';
 import { trackEvent } from '@/lib/events';
 import type { ImportSource, PlaceType } from '@/types';
+
+const M = MESSAGES.COLLECTED;
 
 /** U11 列表项（服务端查好后传入，避免客户端多次请求） */
 export interface CollectedItem {
@@ -86,11 +103,11 @@ export function CollectedClient({
         method: 'DELETE',
       });
       if (!res.ok) {
-        showToast('移除失败，请重试', 'err');
+        showToast(M.toastRemoveFail, 'err');
         return;
       }
       await trackEvent(EVENT_NAME.COLLECT_REMOVE, { name: item.name });
-      showToast(`已移除收藏「${item.name}」`, 'ok');
+      showToast(M.toastRemoved(item.name), 'ok');
       router.refresh();
     } finally {
       setBusyId(null);
@@ -108,14 +125,14 @@ export function CollectedClient({
       });
       const data = (await res.json()) as { ok: boolean; message?: string };
       if (!data.ok) {
-        showToast(data.message ?? '加入失败，请重试', 'err');
+        showToast(data.message ?? M.toastAddFail, 'err');
         return;
       }
       await trackEvent(EVENT_NAME.COLLECT_ADD_ROUTE, {
         name: pending.name,
         routeId,
       });
-      showToast(`「${pending.name}」已加入路线，可在勾选地点里确认`, 'ok');
+      showToast(M.toastAdded(pending.name), 'ok');
       setPending(null);
       router.refresh();
     } finally {
@@ -124,19 +141,17 @@ export function CollectedClient({
   }
 
   const tabCls = (on: boolean) =>
-    on
-      ? 'bg-background text-foreground shadow-sm'
-      : 'text-muted-foreground';
+    on ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-600';
 
   return (
     <>
       {/* 筛选 + 搜索 */}
-      <div className="rounded-2xl border border-border bg-background p-4">
+      <div className="rounded-2xl border border-stone-200 bg-white p-4 md:p-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-          <div className="flex w-full rounded-xl bg-muted p-1 lg:w-fit">
+          <div className="flex w-full rounded-xl bg-stone-100 p-1 lg:w-fit">
             {(
               [
-                ['all', '全部'],
+                ['all', M.filterAll],
                 [PLACE_TYPE.ATTRACTION, PLACE_TYPE_LABEL[PLACE_TYPE.ATTRACTION]],
                 [PLACE_TYPE.FOOD, PLACE_TYPE_LABEL[PLACE_TYPE.FOOD]],
               ] as const
@@ -154,61 +169,67 @@ export function CollectedClient({
             ))}
           </div>
 
-          <input
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-            placeholder="搜索名称、城市、地址或备注"
-            className="h-11 flex-1 rounded-xl border border-border px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-          />
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
+            <input
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+              placeholder={M.searchPlaceholder}
+              className="h-11 w-full rounded-xl border border-stone-300 pl-9 pr-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
 
           <Link
-            href={ROUTES.HOME}
+            href={`${ROUTES.HOME}#importCollect`}
             className="flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-primary-from to-primary-to px-5 text-sm font-semibold text-white hover:brightness-110"
           >
-            导入文案收藏
+            <Sparkles className="h-4 w-4" />
+            {M.importBtn}
           </Link>
         </div>
 
-        <p className="mt-3 text-xs text-muted-foreground">
-          共 {items.length} 个收藏 · 景点 {spotCount} · 美食 {foodCount}
-        </p>
+        <p className="mt-3 text-xs text-stone-500">{M.sum(items.length, spotCount, foodCount)}</p>
       </div>
 
       {/* 列表 */}
       {items.length === 0 ? (
-        <div className="mt-4 rounded-2xl border border-dashed border-border bg-background p-10 text-center">
-          <p className="font-semibold">还没有收藏地点，先去导入文案</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            粘贴小红书 / 抖音的分享文案，AI 提取地点后就能存进收藏库，暂时不用建路线。
-          </p>
+        <div className="mt-6 rounded-2xl border border-dashed border-stone-300 bg-white p-10 text-center">
+          <span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-primary/5 text-primary">
+            <Bookmark className="h-8 w-8" />
+          </span>
+          <p className="mt-4 font-semibold text-stone-900">{M.emptyTitle}</p>
+          <p className="mt-1 text-sm text-stone-500">{M.emptyDesc}</p>
           <div className="mt-5 flex flex-col justify-center gap-3 sm:flex-row">
             <Link
-              href={ROUTES.HOME}
-              className="flex h-11 items-center justify-center rounded-xl bg-gradient-to-r from-primary-from to-primary-to px-6 font-semibold text-white hover:brightness-110"
+              href={`${ROUTES.HOME}#importCollect`}
+              className="flex h-11 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary-from to-primary-to px-6 font-semibold text-white hover:brightness-110"
             >
-              去导入文案
+              <Sparkles className="h-4 w-4" />
+              {M.emptyImport}
             </Link>
             <Link
               href={ROUTES.ROUTE_NEW}
-              className="flex h-11 items-center justify-center rounded-xl border border-border px-6 font-medium hover:bg-muted"
+              className="flex h-11 items-center justify-center gap-2 rounded-xl border border-stone-300 px-6 font-medium hover:bg-stone-50"
             >
-              直接新建路线
+              <MapPinPlus className="h-4 w-4" />
+              {M.emptyNewRoute}
             </Link>
           </div>
         </div>
       ) : filtered.length === 0 ? (
-        <div className="mt-4 rounded-2xl border border-dashed border-border bg-background p-8 text-center">
-          <p className="font-semibold">没有符合条件的地点</p>
-          <p className="mt-1 text-sm text-muted-foreground">换个关键词，或切回「全部」看看。</p>
+        <div className="mt-4 rounded-2xl border border-dashed border-stone-300 bg-white p-8 text-center">
+          <FilterX className="mx-auto h-[34px] w-[34px] text-stone-300" />
+          <p className="mt-2 font-semibold text-stone-800">{M.emptyFilterTitle}</p>
+          <p className="mt-1 text-sm text-stone-500">{M.emptyFilterDesc}</p>
           <button
             type="button"
             onClick={() => {
               setFilter('all');
               setKeyword('');
             }}
-            className="mt-4 h-10 rounded-xl border border-border px-5 text-sm font-medium hover:bg-muted"
+            className="mt-4 h-10 rounded-xl border border-stone-300 px-5 text-sm font-medium hover:bg-stone-50"
           >
-            重置筛选
+            {M.resetFilter}
           </button>
         </div>
       ) : (
@@ -217,18 +238,22 @@ export function CollectedClient({
             const isFood = it.type === PLACE_TYPE.FOOD;
             const inRoute = usedSet.has(it.id);
             return (
-              <div key={it.id} className="rounded-2xl border border-border bg-background p-4">
+              <div key={it.id} className="rounded-2xl border border-stone-200 bg-white p-4">
                 <div className="flex items-start gap-3">
                   <span
-                    className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl text-lg ${
+                    className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${
                       isFood ? 'bg-amber-50 text-amber-600' : 'bg-teal-50 text-teal-600'
                     }`}
                   >
-                    {isFood ? '🍜' : '📷'}
+                    {isFood ? (
+                      <Utensils className="h-[22px] w-[22px]" />
+                    ) : (
+                      <Camera className="h-[22px] w-[22px]" />
+                    )}
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-semibold">{it.name}</span>
+                      <span className="font-semibold text-stone-900">{it.name}</span>
                       <span
                         className={`rounded-full px-2 py-0.5 text-[11px] ${
                           isFood ? 'bg-amber-50 text-amber-700' : 'bg-teal-50 text-teal-700'
@@ -237,18 +262,27 @@ export function CollectedClient({
                         {PLACE_TYPE_LABEL[it.type]}
                       </span>
                       {inRoute ? (
-                        <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
-                          已在路线中
+                        <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] text-stone-600">
+                          {M.inRoute}
                         </span>
                       ) : null}
                     </div>
-                    <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                      <span>{it.cityName ?? '未指定城市'}</span>
-                      <span>{it.address ?? '待定位'}</span>
-                      <span>{it.source ? IMPORT_SOURCE_LABEL[it.source] : '手动添加'}</span>
+                    <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-stone-500">
+                      <span className="flex items-center gap-1">
+                        <Building2 className="h-3.5 w-3.5" />
+                        {it.cityName ?? M.noCity}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <MapPin className="h-3.5 w-3.5" />
+                        {it.address ?? M.noAddress}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Share2 className="h-3.5 w-3.5" />
+                        {it.source ? IMPORT_SOURCE_LABEL[it.source] : M.manualSource}
+                      </span>
                     </p>
-                    <p className="mt-1 text-xs text-muted-foreground/80">
-                      备注：{it.note ?? '—'} · 收藏于 {fmtTime(it.createdAt)}
+                    <p className="mt-1 text-xs text-stone-400">
+                      {M.note(it.note ?? M.noteEmpty, fmtTime(it.createdAt))}
                     </p>
                   </div>
                 </div>
@@ -257,17 +291,19 @@ export function CollectedClient({
                     type="button"
                     disabled={busyId === it.id}
                     onClick={() => setPending(it)}
-                    className="h-9 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:brightness-110 disabled:opacity-50"
+                    className="flex h-9 items-center gap-1.5 rounded-xl bg-gradient-to-r from-primary-from to-primary-to px-4 text-sm font-medium text-white hover:brightness-110 disabled:opacity-50"
                   >
-                    {inRoute ? '再加入其他路线' : '加入路线'}
+                    <MapPinPlus className="h-4 w-4" />
+                    {M.addToRoute}
                   </button>
                   <button
                     type="button"
                     disabled={busyId === it.id}
                     onClick={() => removeOne(it)}
-                    className="h-9 rounded-lg border border-border px-4 text-sm font-medium text-muted-foreground hover:bg-muted disabled:opacity-50"
+                    className="flex h-9 items-center gap-1.5 rounded-xl border border-stone-300 px-4 text-sm font-medium text-stone-600 hover:bg-stone-50 disabled:opacity-50"
                   >
-                    移除收藏
+                    <BookmarkMinus className="h-4 w-4" />
+                    {M.remove}
                   </button>
                 </div>
               </div>
@@ -279,47 +315,61 @@ export function CollectedClient({
       {/* 加入路线弹层 */}
       {pending ? (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-background p-5">
+          <div className="w-full max-w-md rounded-2xl bg-white p-5">
             <div className="flex items-center gap-2">
-              <h2 className="font-bold">把「{pending.name}」加入哪条路线？</h2>
+              <span className="grid h-10 w-10 place-items-center rounded-xl bg-primary/5 text-primary">
+                <MapPinPlus className="h-5 w-5" />
+              </span>
+              <h2 className="font-bold text-stone-900">{M.modalTitle}</h2>
               <button
                 type="button"
                 aria-label="关闭"
                 onClick={() => setPending(null)}
-                className="ml-auto grid h-8 w-8 place-items-center rounded-lg hover:bg-muted"
+                className="ml-auto grid h-8 w-8 place-items-center rounded-lg hover:bg-stone-100"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
+            <p className="mt-4 text-sm text-stone-600">{M.modalDesc(pending.name)}</p>
             {routes.length === 0 ? (
-              <div className="mt-4 text-sm text-muted-foreground">
-                <p>你还没有路线。需要先去选城市并新建路线，再把收藏的地点加入。</p>
-                <Link
-                  href={ROUTES.ROUTE_NEW}
-                  className="mt-4 flex h-11 items-center justify-center rounded-xl bg-gradient-to-r from-primary-from to-primary-to font-semibold text-white hover:brightness-110"
-                >
-                  去新建路线
-                </Link>
-              </div>
+              <p className="mt-2 text-sm text-stone-500">{M.modalNoRoutes}</p>
             ) : (
-              <ul className="mt-4 space-y-2">
+              <ul className="mt-3 space-y-2">
                 {routes.map((r) => (
                   <li key={r.id}>
                     <button
                       type="button"
                       disabled={busyId === pending.id}
                       onClick={() => addToRoute(r.id)}
-                      className="flex w-full items-center justify-between rounded-xl border border-border px-4 py-3 text-left text-sm hover:bg-muted disabled:opacity-50"
+                      className="flex w-full items-center justify-between rounded-xl border border-stone-200 px-4 py-3 text-left text-sm hover:bg-stone-50 disabled:opacity-50"
                     >
                       <span className="font-medium">{r.title}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {r.cityName ?? '未指定城市'} · {r.days} 天
+                      <span className="text-xs text-stone-500">
+                        {r.cityName ?? M.noCity} · {r.days} 天
                       </span>
                     </button>
                   </li>
                 ))}
               </ul>
             )}
+            <div className="mt-5 flex gap-3">
+              <button
+                type="button"
+                disabled={busyId === pending.id}
+                onClick={() => setPending(null)}
+                className="h-11 flex-1 rounded-xl border border-stone-300 font-medium hover:bg-stone-50 disabled:opacity-50"
+              >
+                {M.modalCancel}
+              </button>
+              {routes.length === 0 ? (
+                <Link
+                  href={ROUTES.ROUTE_NEW}
+                  className="flex h-11 flex-1 items-center justify-center rounded-xl bg-gradient-to-r from-primary-from to-primary-to font-semibold text-white hover:brightness-110"
+                >
+                  {M.modalGoNewRoute}
+                </Link>
+              ) : null}
+            </div>
           </div>
         </div>
       ) : null}
@@ -327,10 +377,11 @@ export function CollectedClient({
       {/* 轻提示 */}
       {toast ? (
         <div
-          className={`fixed left-1/2 top-20 z-50 -translate-x-1/2 rounded-xl px-4 py-2.5 text-sm text-white shadow-lg ${
-            toast.tone === 'ok' ? 'bg-emerald-600' : toast.tone === 'err' ? 'bg-red-600' : 'bg-foreground'
+          className={`fixed left-1/2 top-20 z-50 flex -translate-x-1/2 items-center gap-2 rounded-xl px-4 py-2.5 text-sm text-white shadow-lg ${
+            toast.tone === 'ok' ? 'bg-emerald-600' : toast.tone === 'err' ? 'bg-red-600' : 'bg-stone-800'
           }`}
         >
+          <Info className="h-4 w-4" />
           {toast.text}
         </div>
       ) : null}

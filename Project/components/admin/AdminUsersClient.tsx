@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Crown, Trash2 } from 'lucide-react';
+import { AlertTriangle, Crown, Search, Trash2, UserSearch, UserX } from 'lucide-react';
 import { BUSINESS } from '@/config/business';
 import {
   MEMBER_ACTION,
@@ -14,6 +14,8 @@ import {
 import { MESSAGES } from '@/config/messages';
 import { PRODUCT } from '@/config/product';
 import type { MemberAction, MemberSource, UserRole } from '@/types';
+
+const M = MESSAGES.ADMIN_USERS;
 
 export interface AdminUserItem {
   id: string;
@@ -61,8 +63,9 @@ function isMemberRow(u: AdminUserItem) {
   return u.member || u.role === USER_ROLE.ADMIN;
 }
 
+/** 筛选 Tab（原型：白底描边容器 + 内嵌按钮） */
 const tabCls = (on: boolean) =>
-  `rounded-lg px-3 py-1 text-sm font-medium ${on ? 'bg-foreground text-background' : 'text-muted-foreground'}`;
+  `rounded-md px-3 py-1 ${on ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50'}`;
 
 /** A03 用户列表：管理员置顶 + 会员开通 / 取消（管理员默认最高级会员，不可改）+ 删除普通用户账号 + 会员操作留痕 */
 export function AdminUsersClient({
@@ -109,8 +112,9 @@ export function AdminUsersClient({
     currentPage * BUSINESS.ADMIN_PAGE_SIZE,
   );
 
-  const onlineCount = users.filter((u) => minutesAgo(u.lastSeenAt) <= BUSINESS.ONLINE_THRESHOLD_MINUTES)
-    .length;
+  const onlineCount = users.filter(
+    (u) => minutesAgo(u.lastSeenAt) <= BUSINESS.ONLINE_THRESHOLD_MINUTES,
+  ).length;
   const memberCount = users.filter(isMemberRow).length;
 
   function showToast(text: string, tone: 'ok' | 'err') {
@@ -176,23 +180,36 @@ export function AdminUsersClient({
 
   return (
     <>
+      {/* 约束变更说明 */}
+      <div className="mb-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-800">
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+        <span>
+          {M.noticeLead}
+          <strong>{M.noticeStrong}</strong>
+          {M.noticeTail}
+        </span>
+      </div>
+
       {/* 筛选 */}
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <input
-          value={keyword}
-          onChange={(e) => {
-            setKeyword(e.target.value);
-            setPage(1);
-          }}
-          placeholder="搜索邮箱或用户名"
-          className="h-10 w-full max-w-xs rounded-lg border border-border px-3 text-sm outline-none focus:border-primary md:w-64"
-        />
-        <div className="flex rounded-lg border border-border bg-background p-1">
+      <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center">
+        <div className="relative max-w-md flex-1">
+          <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input
+            value={keyword}
+            onChange={(e) => {
+              setKeyword(e.target.value);
+              setPage(1);
+            }}
+            placeholder={M.searchPlaceholder}
+            className="h-10 w-full rounded-lg border border-slate-300 bg-white pr-3 pl-9 text-sm outline-none focus:border-slate-900"
+          />
+        </div>
+        <div className="flex rounded-lg border border-slate-200 bg-white p-1 text-sm">
           {(
             [
-              ['all', '全部'],
-              ['on', '在线'],
-              ['off', '离线'],
+              ['all', M.statusAll],
+              ['on', M.statusOn],
+              ['off', M.statusOff],
             ] as const
           ).map(([value, label]) => (
             <button
@@ -208,12 +225,12 @@ export function AdminUsersClient({
             </button>
           ))}
         </div>
-        <div className="flex rounded-lg border border-border bg-background p-1">
+        <div className="flex rounded-lg border border-slate-200 bg-white p-1 text-sm">
           {(
             [
-              ['all', '全部身份'],
-              ['free', '普通用户'],
-              ['member', '会员用户'],
+              ['all', M.identityAll],
+              ['free', M.identityFree],
+              ['member', M.identityMember],
             ] as const
           ).map(([value, label]) => (
             <button
@@ -229,42 +246,43 @@ export function AdminUsersClient({
             </button>
           ))}
         </div>
-        <span className="text-sm text-muted-foreground md:ml-auto">
+        <span className="text-sm text-slate-500 md:ml-auto">
           共 {users.length} 位用户 · 在线 {onlineCount} 位 · 会员 {memberCount} 位
         </span>
       </div>
 
       {/* 会员操作留痕 */}
-      <section className="mb-4 rounded-2xl border border-border bg-background p-4">
+      <section className="mb-4 rounded-2xl border border-slate-200 bg-white p-4">
         <div className="flex items-center gap-2">
-          <h2 className="text-sm font-semibold">会员操作留痕</h2>
-          <span className="rounded bg-amber-50 px-2 py-0.5 text-[11px] text-amber-700">写操作</span>
-          <span className="ml-auto text-xs text-muted-foreground">
-            最多展示最近 {BUSINESS.MEMBER_LOG_LIMIT} 条
+          <h2 className="text-sm font-semibold text-slate-900">{M.logTitle}</h2>
+          <span className="rounded bg-amber-50 px-2 py-0.5 text-[11px] text-amber-700">
+            {M.logTag}
           </span>
+          <span className="ml-auto text-xs text-slate-400">{M.logLimit}</span>
         </div>
         {logs.length === 0 ? (
-          <p className="mt-3 rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">
-            暂无会员操作记录，点表格右侧「开通会员 / 取消会员」后在此留痕。
-          </p>
+          <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">{M.logEmpty}</p>
         ) : (
           <ul className="mt-3 space-y-1.5 text-xs">
             {logs.map((l) => (
-              <li key={l.id} className="flex flex-wrap items-center gap-2 rounded-lg bg-muted px-3 py-2">
+              <li
+                key={l.id}
+                className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 px-3 py-2"
+              >
                 <span className="font-medium">{l.targetEmail}</span>
                 <span
                   className={`rounded px-2 py-0.5 ${
                     l.action === MEMBER_ACTION.GRANT
                       ? 'bg-amber-100 text-amber-700'
-                      : 'bg-muted-foreground/20 text-foreground'
+                      : 'bg-slate-200 text-slate-700'
                   }`}
                 >
                   {MEMBER_ACTION_LABEL[l.action]}
                 </span>
-                <span className="text-muted-foreground">
+                <span className="text-slate-500">
                   {MEMBER_SOURCE_LABEL[l.source]} · 操作人 {l.operatorEmail}
                 </span>
-                <span className="ml-auto text-muted-foreground">{fmt(l.createdAt)}</span>
+                <span className="ml-auto text-slate-500">{fmt(l.createdAt)}</span>
               </li>
             ))}
           </ul>
@@ -272,183 +290,204 @@ export function AdminUsersClient({
       </section>
 
       {/* 列表 */}
-      <section className="overflow-hidden rounded-2xl border border-border bg-background">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[880px] text-sm">
-            <thead className="bg-muted text-xs text-muted-foreground">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium">邮箱</th>
-                <th className="px-4 py-3 text-left font-medium">用户名</th>
-                <th className="px-4 py-3 text-left font-medium">角色</th>
-                <th className="px-4 py-3 text-left font-medium">在线状态</th>
-                <th className="px-4 py-3 text-left font-medium">最后活跃</th>
-                <th className="px-4 py-3 text-left font-medium">用户身份</th>
-                <th className="px-4 py-3 text-left font-medium">管理员操作（会员）</th>
-                <th className="px-4 py-3 text-left font-medium">删除账号</th>
-                <th className="px-4 py-3 text-left font-medium">注册时间</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {rows.map((u) => {
-                const online = minutesAgo(u.lastSeenAt) <= BUSINESS.ONLINE_THRESHOLD_MINUTES;
-                return (
-                  <tr key={u.id}>
-                    <td className="px-4 py-3">{u.email ?? '—'}</td>
-                    <td className="px-4 py-3">{u.username ?? '—'}</td>
-                    <td className="px-4 py-3">{USER_ROLE_LABEL[u.role]}</td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs ${
-                          online
-                            ? 'bg-emerald-50 text-emerald-700'
-                            : 'bg-muted text-muted-foreground'
-                        }`}
-                      >
-                        {online ? '在线' : '离线'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">{fmt(u.lastSeenAt)}</td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs ${
-                          isMemberRow(u)
-                            ? 'bg-amber-100 font-medium text-amber-700'
-                            : 'bg-muted text-muted-foreground'
-                        }`}
-                      >
-                        {isMemberRow(u) ? (
-                          <>
-                            <Crown className="h-3 w-3" />
-                            {u.role === USER_ROLE.ADMIN ? '最高级会员' : '会员用户'}
-                          </>
-                        ) : (
-                          '普通用户'
-                        )}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      {u.role === USER_ROLE.ADMIN ? (
-                        <span className="text-xs text-muted-foreground">默认最高级会员</span>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => askMember(u)}
-                          className={`rounded-lg px-2.5 py-1 text-xs ${
-                            u.member
-                              ? 'border border-border text-muted-foreground hover:bg-muted'
-                              : 'bg-amber-500 font-medium text-white hover:bg-amber-600'
+      {users.length === 0 ? (
+        <section className="rounded-2xl border border-dashed border-slate-300 bg-white py-16 text-center">
+          <UserX className="mx-auto h-12 w-12 text-slate-300" />
+          <p className="mt-3 font-semibold">{M.emptyTitle}</p>
+          <p className="mt-1 text-sm text-slate-500">{M.emptyDesc}</p>
+        </section>
+      ) : (
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+          <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <table className="w-full min-w-[880px] text-sm">
+              <thead className="bg-slate-50 text-xs text-slate-500">
+                <tr>
+                  <th className="px-4 py-3 text-left font-medium">{M.thEmail}</th>
+                  <th className="px-4 py-3 text-left font-medium">{M.thUsername}</th>
+                  <th className="px-4 py-3 text-left font-medium">{M.thRole}</th>
+                  <th className="px-4 py-3 text-left font-medium">{M.thOnline}</th>
+                  <th className="px-4 py-3 text-left font-medium">{M.thLastSeen}</th>
+                  <th className="px-4 py-3 text-left font-medium">{M.thIdentity}</th>
+                  <th className="px-4 py-3 text-left font-medium">{M.thMemberAction}</th>
+                  <th className="px-4 py-3 text-left font-medium">{M.thDelete}</th>
+                  <th className="px-4 py-3 text-left font-medium">{M.thCreatedAt}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {rows.map((u) => {
+                  const online = minutesAgo(u.lastSeenAt) <= BUSINESS.ONLINE_THRESHOLD_MINUTES;
+                  return (
+                    <tr key={u.id}>
+                      <td className="px-4 py-3">{u.email ?? '—'}</td>
+                      <td className="px-4 py-3">{u.username ?? '—'}</td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`rounded px-2 py-0.5 text-xs ${
+                            u.role === USER_ROLE.ADMIN
+                              ? 'bg-slate-900 font-medium text-white'
+                              : 'bg-slate-100 text-slate-600'
                           }`}
                         >
-                          {u.member ? '取消会员' : '开通会员'}
-                        </button>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      {u.role === USER_ROLE.USER ? (
-                        <button
-                          type="button"
-                          onClick={() => askDelete(u)}
-                          className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1 text-xs text-red-600 hover:bg-red-50"
+                          {USER_ROLE_LABEL[u.role]}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs ${
+                            online
+                              ? 'bg-emerald-50 text-emerald-700'
+                              : 'bg-slate-100 text-slate-500'
+                          }`}
                         >
-                          <Trash2 className="h-3 w-3" />
-                          删除账号
-                        </button>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">{fmt(u.createdAt)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                          {online ? M.online : M.offline}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-slate-500">{fmt(u.lastSeenAt)}</td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs ${
+                            isMemberRow(u)
+                              ? 'bg-amber-100 font-medium text-amber-700'
+                              : 'bg-slate-100 text-slate-500'
+                          }`}
+                        >
+                          {isMemberRow(u) ? (
+                            <>
+                              <Crown className="h-3 w-3" />
+                              {u.role === USER_ROLE.ADMIN ? M.memberFixed : M.memberBadge}
+                            </>
+                          ) : (
+                            M.memberNone
+                          )}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        {u.role === USER_ROLE.ADMIN ? (
+                          <span className="text-xs text-slate-500">{M.memberActionFixed}</span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => askMember(u)}
+                            className={`rounded-lg px-2.5 py-1 text-xs ${
+                              u.member
+                                ? 'border border-slate-300 text-slate-600 hover:bg-slate-50'
+                                : 'bg-amber-500 font-medium text-white hover:bg-amber-600'
+                            }`}
+                          >
+                            {u.member ? M.memberRevoke : M.memberGrant}
+                          </button>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {u.role === USER_ROLE.USER ? (
+                          <button
+                            type="button"
+                            onClick={() => askDelete(u)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1 text-xs text-red-600 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                            {M.deleteAccount}
+                          </button>
+                        ) : (
+                          <span className="text-xs text-slate-500">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-slate-500">{fmt(u.createdAt)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
 
-        {rows.length === 0 ? (
-          <div className="py-14 text-center">
-            <p className="text-sm text-muted-foreground">
-              {users.length === 0 ? '暂无注册用户' : '没有符合条件的用户'}
-            </p>
-            {users.length > 0 ? (
+          {rows.length === 0 ? (
+            <div className="py-14 text-center">
+              <UserSearch className="mx-auto h-10 w-10 text-slate-300" />
+              <p className="mt-2 text-sm text-slate-500">
+                {M.noMatchPrefix}
+                {keyword.trim()}
+                {M.noMatchSuffix}
+              </p>
               <button
                 type="button"
                 onClick={() => {
                   setKeyword('');
                   setStatus('all');
                   setIdentity('all');
+                  setPage(1);
                 }}
-                className="mt-3 text-sm underline"
+                className="mt-3 text-sm text-slate-900 underline"
               >
-                清空筛选
+                {M.clearSearch}
               </button>
-            ) : null}
-          </div>
-        ) : (
-          <div className="flex items-center justify-between border-t border-border px-4 py-3 text-sm">
-            <span className="text-muted-foreground">
-              共 {filtered.length} 条 · 第 {currentPage} / {totalPages} 页
+            </div>
+          ) : null}
+
+          <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3 text-sm">
+            <span className="text-slate-500">
+              {M.pagination(filtered.length, currentPage, totalPages)}
             </span>
             <div className="flex items-center gap-1">
               <button
                 type="button"
                 disabled={currentPage <= 1}
                 onClick={() => setPage(currentPage - 1)}
-                className="rounded-lg border border-border px-3 py-1 disabled:opacity-40"
+                className="rounded-lg border border-slate-300 px-3 py-1 disabled:opacity-40"
               >
-                上一页
+                {M.prev}
               </button>
               <button
                 type="button"
                 disabled={currentPage >= totalPages}
                 onClick={() => setPage(currentPage + 1)}
-                className="rounded-lg border border-border px-3 py-1 disabled:opacity-40"
+                className="rounded-lg border border-slate-300 px-3 py-1 disabled:opacity-40"
               >
-                下一页
+                {M.next}
               </button>
             </div>
           </div>
-        )}
-      </section>
+        </section>
+      )}
 
-      <p className="mt-4 text-xs text-muted-foreground">
-        写操作仅两项：「开通 / 取消会员」（管理员账号除外）与「删除账号」（仅可删普通用户）。
-        角色列（{USER_ROLE_LABEL[USER_ROLE.USER]} / {USER_ROLE_LABEL[USER_ROLE.ADMIN]}）为账号权限，
-        用户身份列为会员权益状态：{USER_ROLE_LABEL[USER_ROLE.ADMIN]}账号默认享有最高级会员，
-        无需开通或取消，便于与{USER_ROLE_LABEL[USER_ROLE.USER]}对比权益差异。
-      </p>
+      <p className="mt-4 text-xs text-slate-400">{M.footNote}</p>
 
       {/* 会员操作确认弹窗 */}
       {pending ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-background p-6">
-            <h3 className="text-lg font-semibold">{pending.grant ? '开通会员' : '取消会员'}</h3>
-            <p className="mt-1 text-xs text-muted-foreground">
-              目标用户：{pending.user.email ?? '—'}
-              {pending.user.username ? `（${pending.user.username}）` : ''}
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6">
+            <h3 className="text-lg font-semibold text-slate-900">
+              {pending.grant ? M.modalGrantTitle : M.modalRevokeTitle}
+            </h3>
+            <p className="mt-1 text-xs text-slate-500">
+              {M.modalTarget(pending.user.email ?? '—', pending.user.username)}
             </p>
-            <p className="mt-3 text-sm text-muted-foreground">
+            <p className="mt-3 text-sm text-slate-600">
               {pending.grant
-                ? `开通后该用户身份变为「会员用户」，可享受会员权益（${PRODUCT.MEMBER_BENEFITS.join('、')}）。`
-                : '取消后该用户身份回到「普通用户」，将不再享受会员权益，历史路线与收藏保留。'}
+                ? M.modalGrantDesc(PRODUCT.MEMBER_BENEFITS.join('、'))
+                : M.modalRevokeDesc}
             </p>
+            <p className="mt-2 text-xs text-slate-400">{M.modalNote}</p>
             {modalError ? <p className="mt-2 text-xs text-red-600">{modalError}</p> : null}
             <div className="mt-6 grid grid-cols-2 gap-3">
               <button
                 type="button"
                 disabled={busy}
                 onClick={() => setPending(null)}
-                className="h-11 rounded-xl border border-border text-sm disabled:opacity-50"
+                className="h-11 rounded-xl border border-slate-300 text-sm disabled:opacity-50"
               >
-                取消
+                {M.modalCancel}
               </button>
               <button
                 type="button"
                 disabled={busy}
                 onClick={confirmMember}
-                className="h-11 rounded-xl bg-foreground text-sm font-semibold text-background disabled:opacity-50"
+                className="h-11 rounded-xl bg-slate-900 text-sm font-semibold text-white disabled:opacity-50"
               >
-                {busy ? '处理中…' : pending.grant ? '确认开通' : '确认取消'}
+                {busy
+                  ? M.processing
+                  : pending.grant
+                    ? M.modalConfirmGrant
+                    : M.modalConfirmRevoke}
               </button>
             </div>
           </div>
@@ -457,14 +496,13 @@ export function AdminUsersClient({
 
       {/* 删除账号确认弹窗 */}
       {deleteTarget ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-background p-6">
-            <h3 className="text-lg font-semibold text-red-600">删除账号</h3>
-            <p className="mt-1 text-xs text-muted-foreground">
-              目标用户：{deleteTarget.email ?? '—'}
-              {deleteTarget.username ? `（${deleteTarget.username}）` : ''}
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6">
+            <h3 className="text-lg font-semibold text-red-600">{M.deleteTitle}</h3>
+            <p className="mt-1 text-xs text-slate-500">
+              {M.modalTarget(deleteTarget.email ?? '—', deleteTarget.username)}
             </p>
-            <p className="mt-3 text-sm text-muted-foreground">
+            <p className="mt-3 text-sm text-slate-600">
               {MESSAGES.USER_DELETE_CONFIRM(deleteTarget.email ?? '该账号')}
             </p>
             {deleteError ? <p className="mt-2 text-xs text-red-600">{deleteError}</p> : null}
@@ -473,9 +511,9 @@ export function AdminUsersClient({
                 type="button"
                 disabled={deleting}
                 onClick={() => setDeleteTarget(null)}
-                className="h-11 rounded-xl border border-border text-sm disabled:opacity-50"
+                className="h-11 rounded-xl border border-slate-300 text-sm disabled:opacity-50"
               >
-                取消
+                {M.modalCancel}
               </button>
               <button
                 type="button"
@@ -483,16 +521,17 @@ export function AdminUsersClient({
                 onClick={confirmDelete}
                 className="h-11 rounded-xl bg-red-600 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
               >
-                {deleting ? '删除中…' : '确认删除'}
+                {deleting ? M.deleting : M.deleteConfirm}
               </button>
             </div>
           </div>
         </div>
       ) : null}
 
+      {/* 写操作结果反馈 */}
       {toast ? (
         <div
-          className={`fixed left-1/2 top-20 z-50 -translate-x-1/2 rounded-xl px-4 py-2.5 text-sm text-white shadow-lg ${
+          className={`fixed top-20 left-1/2 z-50 -translate-x-1/2 rounded-xl px-4 py-2.5 text-sm text-white shadow-lg ${
             toast.tone === 'ok' ? 'bg-emerald-600' : 'bg-red-600'
           }`}
         >

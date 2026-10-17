@@ -4,11 +4,13 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check, Crown } from 'lucide-react';
 import { BUSINESS } from '@/config/business';
-import { MEMBER_SOURCE_LABEL, EVENT_NAME } from '@/config/enums';
+import { EVENT_NAME, MEMBER_SOURCE_LABEL } from '@/config/enums';
 import { MESSAGES } from '@/config/messages';
 import { PRODUCT } from '@/config/product';
 import { trackEvent } from '@/lib/events';
 import type { MemberSource } from '@/types';
+
+const M = MESSAGES.PROFILE;
 
 /** YYYY-MM-DD */
 function fmtDate(iso: string | null) {
@@ -69,36 +71,39 @@ export function MemberCard({
     }
   }
 
+  const benefits = PRODUCT.MEMBER_BENEFITS.join('、');
+
   return (
     <>
       {member ? (
         <section className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-5">
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-100 text-amber-600">
-            <Crown className="h-5 w-5" />
+            <Crown className="h-[22px] w-[22px]" />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="font-semibold text-amber-900">你已成为会员用户</p>
-            <p className="mt-1 text-sm text-amber-800">
-              已享受会员权益：{PRODUCT.MEMBER_BENEFITS.join('、')}。
-            </p>
+            <p className="font-semibold text-amber-900">{M.memberOnTitle}</p>
+            <p className="mt-1 text-sm text-amber-800">{M.memberOnDesc(benefits)}</p>
             <p className="mt-1 text-xs text-amber-700">
-              开通于 {fmtDate(memberSince)} ·{' '}
-              {memberSource ? MEMBER_SOURCE_LABEL[memberSource] : '来源未知'}
+              {M.memberOnMeta(
+                fmtDate(memberSince),
+                memberSource ? MEMBER_SOURCE_LABEL[memberSource] : M.sourceUnknown,
+              )}
             </p>
           </div>
         </section>
       ) : (
-        <section className="relative grid gap-5 overflow-hidden rounded-2xl bg-foreground p-5 text-white md:grid-cols-3 md:items-center">
+        <section className="relative grid items-center gap-5 overflow-hidden rounded-2xl bg-stone-900 p-5 text-white md:grid-cols-3 md:p-6">
+          <div className="absolute -bottom-10 -right-10 h-48 w-48 rounded-full bg-primary/40" />
           <div className="relative md:col-span-2">
-            <p className="flex items-center gap-1.5 text-xs font-semibold text-secondary">
+            <p className="flex items-center gap-1 text-xs font-semibold text-amber-300">
               <Crown className="h-4 w-4" />
-              会员权益
+              {M.upgradeTag}
             </p>
-            <h2 className="mt-2 text-xl font-bold">升级为会员，解锁更强的路线规划</h2>
-            <ul className="mt-3 grid gap-1.5 text-sm text-white/70 sm:grid-cols-2">
+            <h2 className="mt-2 text-xl font-bold">{M.upgradeTitle}</h2>
+            <ul className="mt-3 grid gap-1.5 text-sm text-stone-300 sm:grid-cols-2">
               {PRODUCT.MEMBER_BENEFITS.map((item) => (
-                <li key={item} className="flex items-center gap-1.5">
-                  <Check className="h-3.5 w-3.5 shrink-0" />
+                <li key={item} className="flex gap-1.5">
+                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
                   {item}
                 </li>
               ))}
@@ -109,50 +114,43 @@ export function MemberCard({
               <button
                 type="button"
                 onClick={openUpgrade}
-                className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-secondary font-bold text-foreground hover:brightness-105"
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-amber-400 font-bold text-stone-900 hover:bg-amber-300"
               >
-                升级为会员
+                {M.upgradeBtn}
               </button>
             ) : (
-              <p className="text-sm text-white/70">{MESSAGES.UPGRADE_TOAST}</p>
+              <p className="text-sm text-stone-300">{MESSAGES.UPGRADE_TOAST}</p>
             )}
-            <p className="mt-2 text-center text-[11px] text-white/50">
-              {BUSINESS.ENABLE_REAL_PAYMENT
-                ? '点击后进入支付流程'
-                : '模拟流程：点击后仅模拟支付成功，第一版不真实收费、未接入真实支付'}
+            <p className="mt-2 text-center text-[11px] text-stone-400">
+              {BUSINESS.ENABLE_REAL_PAYMENT ? M.upgradeNoteReal : M.upgradeNoteMock}
             </p>
           </div>
         </section>
       )}
 
       {modalOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-background p-6">
-            <h3 className="text-lg font-semibold">升级为会员（模拟）</h3>
-            <p className="mt-2 text-sm text-muted-foreground">
-              模拟支付成功后，你的身份将变为「会员用户」，可享受
-              {PRODUCT.MEMBER_BENEFITS.join('、')}。
-            </p>
-            <p className="mt-2 text-xs text-muted-foreground/80">
-              本页不接入真实支付，点击「模拟支付成功」不会产生任何扣费，仅用于演示会员状态；管理员也可在后台为你开通会员。
-            </p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/50 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6">
+            <h3 className="text-lg font-semibold">{M.modalTitle}</h3>
+            <p className="mt-2 text-sm text-stone-600">{M.modalDesc(benefits)}</p>
+            <p className="mt-2 text-xs text-stone-400">{M.modalNote}</p>
             {errorText ? <p className="mt-2 text-xs text-red-600">{errorText}</p> : null}
             <div className="mt-6 grid grid-cols-2 gap-3">
               <button
                 type="button"
                 disabled={busy}
                 onClick={() => setModalOpen(false)}
-                className="h-11 rounded-xl border border-border text-sm disabled:opacity-50"
+                className="h-11 rounded-xl border border-stone-300 text-sm disabled:opacity-50"
               >
-                取消
+                {M.cancel}
               </button>
               <button
                 type="button"
                 disabled={busy}
                 onClick={confirmUpgrade}
-                className="h-11 rounded-xl bg-secondary text-sm font-semibold text-foreground disabled:opacity-50"
+                className="h-11 rounded-xl bg-amber-400 text-sm font-semibold text-stone-900 disabled:opacity-50"
               >
-                {busy ? '处理中…' : '模拟支付成功'}
+                {busy ? M.processing : M.confirmUpgrade}
               </button>
             </div>
           </div>

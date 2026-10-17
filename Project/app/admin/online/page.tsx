@@ -1,9 +1,11 @@
 import { BUSINESS } from '@/config/business';
+import { MESSAGES } from '@/config/messages';
 import { ROUTES } from '@/config/routes';
 import { AdminOnlineClient, type AdminOnlineRow } from '@/components/admin/AdminOnlineClient';
-import { PageHeader } from '@/components/common/PageHeader';
+import { AdminErrorState } from '@/components/admin/AdminState';
 import { AdminShell } from '@/components/layout/AdminShell';
 import { createClient } from '@/lib/supabase/server';
+import { Unplug } from 'lucide-react';
 
 /** HH:mm:ss */
 function fmtClock(d: Date) {
@@ -54,16 +56,15 @@ export default async function AdminOnlinePage() {
   }));
 
   return (
-    <AdminShell currentPath={ROUTES.ADMIN_ONLINE}>
-      <PageHeader
-        title="A04 在线用户"
-        description={`在线判定按最后活跃时间 ≤ ${BUSINESS.ONLINE_THRESHOLD_MINUTES} 分钟计算 · 单次最多读取 ${BUSINESS.ADMIN_LIST_LIMIT} 条 · 仅手动刷新。`}
-      />
+    <AdminShell
+      currentPath={ROUTES.ADMIN_ONLINE}
+      title={MESSAGES.ADMIN_SHELL.navOnline}
+      badge={MESSAGES.ADMIN_SHELL.badgeReadonly}
+      refresh
+      refreshBanner={MESSAGES.ADMIN_ONLINE.refreshedBanner}
+    >
       {error ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-8 text-center">
-          <p className="font-semibold text-red-800">在线用户加载失败</p>
-          <p className="mt-1 text-sm text-red-700">{error.message}</p>
-        </div>
+        <AdminErrorState icon={Unplug} title={MESSAGES.ADMIN_ONLINE.errorTitle} />
       ) : (
         <AdminOnlineClient
           rows={rows}

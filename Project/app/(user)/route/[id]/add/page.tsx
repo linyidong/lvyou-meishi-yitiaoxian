@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { FlowSteps } from '@/components/route/FlowSteps';
 import { MESSAGES } from '@/config/messages';
 import { ROUTES } from '@/config/routes';
 import {
@@ -8,7 +9,7 @@ import {
 import { createClient } from '@/lib/supabase/server';
 import type { PlaceType } from '@/types';
 
-/** U06 添加地点：当前城市收藏 + AI 提取文案，确认后落库并进入 U07 */
+/** U06 导入地点（第 3 步）：当前城市收藏 + AI 提取文案，确认后落库并进入 U07 */
 export default async function RouteAddPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
   const {
@@ -18,13 +19,18 @@ export default async function RouteAddPage({ params }: { params: { id: string } 
   // middleware.ts 已拦截未登录，这里只做兜底
   if (!user) {
     return (
-      <p className="text-sm text-muted-foreground">
-        请先
-        <Link href={ROUTES.LOGIN} className="text-primary underline">
-          登录
-        </Link>
-        后导入地点。
-      </p>
+      <>
+        <FlowSteps current={3} />
+        <div className="pt-6 md:pt-10">
+          <p className="text-sm text-stone-500">
+            请先
+            <Link href={ROUTES.LOGIN} className="text-primary underline">
+              登录
+            </Link>
+            后导入地点。
+          </p>
+        </div>
+      </>
     );
   }
 
@@ -35,17 +41,26 @@ export default async function RouteAddPage({ params }: { params: { id: string } 
     .eq('user_id', user.id)
     .maybeSingle();
 
+  // 无权限（路线不存在 / 不属于当前账号）
   if (!route) {
     return (
-      <div className="rounded-2xl border border-dashed border-border bg-background p-10 text-center">
-        <p className="font-semibold">{MESSAGES.ROUTE_NOT_FOUND}</p>
-        <Link
-          href={ROUTES.MY_ROUTES}
-          className="mt-4 inline-flex h-10 items-center rounded-xl border border-border px-5 text-sm font-medium hover:bg-muted"
-        >
-          返回我的路线
-        </Link>
-      </div>
+      <>
+        <FlowSteps current={3} />
+        <div className="pt-6 md:pt-10">
+          <section className="rounded-2xl bg-white border border-stone-200 p-8 text-center">
+            <p className="font-semibold">{MESSAGES.ROUTE_ADD.deniedTitle}</p>
+            <p className="mt-1 text-sm text-stone-500">{MESSAGES.ROUTE_ADD.deniedDesc}</p>
+            <div className="mt-5 flex flex-col sm:flex-row gap-3 justify-center">
+              <Link
+                href={ROUTES.CITY}
+                className="h-10 px-5 rounded-lg bg-primary hover:brightness-110 text-white text-sm font-semibold flex items-center justify-center"
+              >
+                {MESSAGES.ROUTE_ADD.deniedGo}
+              </Link>
+            </div>
+          </section>
+        </div>
+      </>
     );
   }
 
@@ -80,12 +95,17 @@ export default async function RouteAddPage({ params }: { params: { id: string } 
   const addedPlaceIds = (rp ?? []).map((x) => x.place_id);
 
   return (
-    <RouteAddClient
-      routeId={route.id}
-      cityName={cityName}
-      cityId={route.city_id}
-      cityPlaces={cityPlaces}
-      addedPlaceIds={addedPlaceIds}
-    />
+    <>
+      <FlowSteps current={3} />
+      <div className="pt-6 md:pt-10">
+        <RouteAddClient
+          routeId={route.id}
+          cityName={cityName}
+          cityId={route.city_id}
+          cityPlaces={cityPlaces}
+          addedPlaceIds={addedPlaceIds}
+        />
+      </div>
+    </>
   );
 }

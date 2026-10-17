@@ -6,9 +6,11 @@ import {
   type AdminUserItem,
   type MemberLogItem,
 } from '@/components/admin/AdminUsersClient';
-import { PageHeader } from '@/components/common/PageHeader';
+import { AdminErrorState } from '@/components/admin/AdminState';
 import { AdminShell } from '@/components/layout/AdminShell';
+import { MESSAGES } from '@/config/messages';
 import { createClient } from '@/lib/supabase/server';
+import { DatabaseZap } from 'lucide-react';
 import type { MemberAction, MemberSource, UserRole } from '@/types';
 
 /** A03 用户列表：只读 + 两项写操作（会员开通 / 取消、删除普通用户账号）+ 会员操作留痕 */
@@ -58,16 +60,14 @@ export default async function AdminUsersPage() {
   }));
 
   return (
-    <AdminShell currentPath={ROUTES.ADMIN_USERS}>
-      <PageHeader
-        title="A03 用户列表"
-        description={`用户为真实注册数据，管理员账号置顶展示，其余按注册时间倒序。在线状态按最后活跃时间 ≤ ${BUSINESS.ONLINE_THRESHOLD_MINUTES} 分钟计算 · 可写操作：开通 / 取消会员（管理员默认最高级会员，不可改）、删除普通用户账号。`}
-      />
+    <AdminShell
+      currentPath={ROUTES.ADMIN_USERS}
+      title={MESSAGES.ADMIN_SHELL.navUsers}
+      badge={MESSAGES.ADMIN_SHELL.badgeUsers}
+      showAdminName
+    >
       {usersRes.error ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-8 text-center">
-          <p className="font-semibold text-red-800">用户列表加载失败</p>
-          <p className="mt-1 text-sm text-red-700">{usersRes.error.message}</p>
-        </div>
+        <AdminErrorState icon={DatabaseZap} title={MESSAGES.ADMIN_USERS.errorTitle} />
       ) : (
         <AdminUsersClient users={users} logs={logs} />
       )}

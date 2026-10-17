@@ -1,11 +1,14 @@
 import Link from 'next/link';
 import { ChevronRight, LayoutDashboard } from 'lucide-react';
-import { USER_ROLE, USER_ROLE_LABEL } from '@/config/enums';
+import { MemberCard } from '@/components/profile/MemberCard';
+import { ProfileMenu } from '@/components/profile/ProfileMenu';
+import { USER_ROLE } from '@/config/enums';
 import { MESSAGES } from '@/config/messages';
 import { ROUTES } from '@/config/routes';
-import { MemberCard } from '@/components/profile/MemberCard';
 import { createClient } from '@/lib/supabase/server';
-import type { MemberSource, UserRole } from '@/types';
+import type { MemberSource } from '@/types';
+
+const M = MESSAGES.PROFILE;
 
 /** YYYY-MM-DD */
 function fmtDate(iso: string | null) {
@@ -15,7 +18,7 @@ function fmtDate(iso: string | null) {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
-/** U10 个人中心：账号信息 + 统计四宫格 + 会员卡（本期新增） */
+/** U10 个人中心（第 6 步后）：账号信息 + 统计四宫格 + 会员卡 + 菜单 */
 export default async function ProfilePage() {
   const supabase = createClient();
   const {
@@ -61,45 +64,57 @@ export default async function ProfilePage() {
   const isMember = Boolean(profile?.member) || isAdmin;
   const displayName = profile?.username ?? profile?.email?.split('@')[0] ?? '旅行者';
   const stats: { label: string; value: number; href?: string }[] = [
-    { label: '已保存路线', value: routesRes.count ?? 0, href: ROUTES.MY_ROUTES },
-    { label: '收藏地点', value: collectedRes.count ?? 0, href: ROUTES.COLLECTED },
-    { label: '导入地点', value: placesRes.count ?? 0 },
-    { label: '去过城市', value: cityCount },
-  ];
-
-  const menus = [
-    { href: ROUTES.MY_ROUTES, label: '我的路线' },
-    { href: ROUTES.COLLECTED, label: '我的收藏地点' },
-    { href: ROUTES.ROUTE_NEW, label: '新建路线' },
+    { label: M.statRoutes, value: routesRes.count ?? 0, href: ROUTES.MY_ROUTES },
+    { label: M.statCollected, value: collectedRes.count ?? 0, href: ROUTES.COLLECTED },
+    { label: M.statPlaces, value: placesRes.count ?? 0 },
+    { label: M.statCities, value: cityCount },
   ];
 
   return (
     <div className="space-y-5">
       {/* 账号信息 */}
-      <section className="flex flex-col gap-4 rounded-2xl border border-border bg-background p-5 sm:flex-row sm:items-center">
+      <section className="flex flex-col items-center gap-4 rounded-2xl border border-stone-200 bg-white p-5 sm:flex-row md:p-6">
         <span className="grid h-16 w-16 place-items-center rounded-2xl bg-primary/10 text-2xl font-bold text-primary">
           {displayName.slice(0, 1)}
         </span>
         <div className="min-w-0 flex-1">
-          <h1 className="text-xl font-bold">{displayName}</h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">{profile?.email ?? user.email}</p>
+          <h1 className="text-xl font-bold text-stone-900">{displayName}</h1>
+          <p className="mt-0.5 text-sm text-stone-500">{profile?.email ?? user.email}</p>
           <div className="mt-2 flex flex-wrap gap-2 text-xs">
-            <span className="rounded-lg bg-muted px-2 py-1 text-muted-foreground">
-              {isAdmin ? '最高级会员' : isMember ? '会员用户' : '普通用户'}
+            <span className="rounded-lg bg-stone-100 px-2 py-1 text-stone-600">
+              {isAdmin ? M.memberBadgeAdmin : isMember ? M.memberBadge : M.memberBadgeNone}
             </span>
             {isMember && profile?.member_since ? (
-              <span className="rounded-lg bg-muted px-2 py-1 text-muted-foreground">
-                开通于 {fmtDate(profile.member_since)}
+              <span className="rounded-lg bg-stone-100 px-2 py-1 text-stone-600">
+                {M.memberSince(fmtDate(profile.member_since))}
               </span>
             ) : null}
-            <span className="rounded-lg bg-muted px-2 py-1 text-muted-foreground">
-              账号角色 {profile?.role ? USER_ROLE_LABEL[profile.role as UserRole] : '—'}
-            </span>
-            <span className="rounded-lg bg-muted px-2 py-1 text-muted-foreground">
-              注册于 {fmtDate(profile?.created_at ?? null)}
+            <span className="rounded-lg bg-stone-100 px-2 py-1 text-stone-600">
+              {M.registeredAt(fmtDate(profile?.created_at ?? null))}
             </span>
           </div>
         </div>
+      </section>
+
+      {/* 统计四宫格 */}
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        {stats.map((s) =>
+          s.href ? (
+            <Link
+              key={s.label}
+              href={s.href}
+              className="rounded-2xl border border-stone-200 bg-white p-4 hover:border-primary/30"
+            >
+              <p className="text-xs text-stone-500">{s.label}</p>
+              <p className="mt-1 text-2xl font-bold text-stone-900">{s.value}</p>
+            </Link>
+          ) : (
+            <div key={s.label} className="rounded-2xl border border-stone-200 bg-white p-4">
+              <p className="text-xs text-stone-500">{s.label}</p>
+              <p className="mt-1 text-2xl font-bold text-stone-900">{s.value}</p>
+            </div>
+          ),
+        )}
       </section>
 
       {/* 管理后台入口：仅管理员渲染（服务端按 role 判断，普通用户看不到也不会拿到入口） */}
@@ -119,28 +134,7 @@ export default async function ProfilePage() {
         </Link>
       ) : null}
 
-      {/* 统计 */}
-      <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        {stats.map((s) =>
-          s.href ? (
-            <Link
-              key={s.label}
-              href={s.href}
-              className="rounded-2xl border border-border bg-background p-4 hover:border-primary"
-            >
-              <p className="text-xs text-muted-foreground">{s.label}</p>
-              <p className="mt-1 text-2xl font-bold">{s.value}</p>
-            </Link>
-          ) : (
-            <div key={s.label} className="rounded-2xl border border-border bg-background p-4">
-              <p className="text-xs text-muted-foreground">{s.label}</p>
-              <p className="mt-1 text-2xl font-bold">{s.value}</p>
-            </div>
-          ),
-        )}
-      </section>
-
-      {/* 会员卡（本期新增） */}
+      {/* 会员卡 */}
       <MemberCard
         member={isMember}
         memberSince={profile?.member_since ?? null}
@@ -148,18 +142,7 @@ export default async function ProfilePage() {
       />
 
       {/* 菜单 */}
-      <section className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-background">
-        {menus.map((m) => (
-          <Link
-            key={m.href}
-            href={m.href}
-            className="flex items-center gap-3 px-5 py-4 text-sm hover:bg-muted"
-          >
-            <span className="flex-1">{m.label}</span>
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          </Link>
-        ))}
-      </section>
+      <ProfileMenu />
     </div>
   );
 }

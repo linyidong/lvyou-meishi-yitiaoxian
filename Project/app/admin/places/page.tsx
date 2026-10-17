@@ -1,10 +1,12 @@
 import { BUSINESS } from '@/config/business';
 import { GEO_STATUS } from '@/config/enums';
+import { MESSAGES } from '@/config/messages';
 import { ROUTES } from '@/config/routes';
 import { AdminPlacesClient, type AdminPlaceRow } from '@/components/admin/AdminPlacesClient';
-import { PageHeader } from '@/components/common/PageHeader';
+import { AdminErrorState } from '@/components/admin/AdminState';
 import { AdminShell } from '@/components/layout/AdminShell';
 import { createClient } from '@/lib/supabase/server';
+import { DatabaseZap } from 'lucide-react';
 import type { GeoStatus, ImportSource, PlaceType } from '@/types';
 
 /** A05 地点列表：只读全量地点（单次上限 B19） */
@@ -23,12 +25,12 @@ export default async function AdminPlacesPage() {
 
   if (placesRes.error) {
     return (
-      <AdminShell currentPath={ROUTES.ADMIN_PLACES}>
-        <PageHeader title="A05 地点列表" />
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-8 text-center">
-          <p className="font-semibold text-red-800">地点列表加载失败</p>
-          <p className="mt-1 text-sm text-red-700">{placesRes.error.message}</p>
-        </div>
+      <AdminShell
+        currentPath={ROUTES.ADMIN_PLACES}
+        title={MESSAGES.ADMIN_SHELL.navPlaces}
+        badge={MESSAGES.ADMIN_SHELL.badgeReadonly}
+      >
+        <AdminErrorState icon={DatabaseZap} title={MESSAGES.ADMIN_PLACES.errorTitle} />
       </AdminShell>
     );
   }
@@ -49,11 +51,11 @@ export default async function AdminPlacesPage() {
   }));
 
   return (
-    <AdminShell currentPath={ROUTES.ADMIN_PLACES}>
-      <PageHeader
-        title="A05 地点列表"
-        description={`只读列表，按创建时间倒序 · 单次最多读取 ${BUSINESS.ADMIN_LIST_LIMIT} 条 · 每页 ${BUSINESS.ADMIN_PAGE_SIZE} 条。`}
-      />
+    <AdminShell
+      currentPath={ROUTES.ADMIN_PLACES}
+      title={MESSAGES.ADMIN_SHELL.navPlaces}
+      badge={MESSAGES.ADMIN_SHELL.badgeReadonly}
+    >
       <AdminPlacesClient rows={rows} />
     </AdminShell>
   );

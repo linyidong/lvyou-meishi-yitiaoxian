@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { TRANSPORT_LABEL } from '@/config/enums';
+import { FlowSteps } from '@/components/route/FlowSteps';
 import { MESSAGES } from '@/config/messages';
 import { ROUTES } from '@/config/routes';
 import {
@@ -9,7 +9,7 @@ import {
 import { createClient } from '@/lib/supabase/server';
 import type { PlaceType, Transport } from '@/types';
 
-/** U07 勾选地点：当前城市地点库 + 已在路线中的点，生成后写入 route_places */
+/** U07 勾选地点（第 4 步）：当前城市地点库 + 已在路线中的点，生成后写入 route_places */
 export default async function RoutePlacesPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
   const {
@@ -19,13 +19,18 @@ export default async function RoutePlacesPage({ params }: { params: { id: string
   // middleware.ts 已拦截未登录，这里只做兜底
   if (!user) {
     return (
-      <p className="text-sm text-muted-foreground">
-        请先
-        <Link href={ROUTES.LOGIN} className="text-primary underline">
-          登录
-        </Link>
-        后勾选地点。
-      </p>
+      <>
+        <FlowSteps current={4} />
+        <div className="pt-6 md:pt-10">
+          <p className="text-sm text-stone-500">
+            请先
+            <Link href={ROUTES.LOGIN} className="text-primary underline">
+              登录
+            </Link>
+            后勾选地点。
+          </p>
+        </div>
+      </>
     );
   }
 
@@ -36,17 +41,26 @@ export default async function RoutePlacesPage({ params }: { params: { id: string
     .eq('user_id', user.id)
     .maybeSingle();
 
+  // 无权限（路线不存在或不属于当前账号）
   if (!route) {
     return (
-      <div className="rounded-2xl border border-dashed border-border bg-background p-10 text-center">
-        <p className="font-semibold">{MESSAGES.ROUTE_NOT_FOUND}</p>
-        <Link
-          href={ROUTES.MY_ROUTES}
-          className="mt-4 inline-flex h-10 items-center rounded-xl border border-border px-5 text-sm font-medium hover:bg-muted"
-        >
-          返回我的路线
-        </Link>
-      </div>
+      <>
+        <FlowSteps current={4} />
+        <div className="pt-6 md:pt-10">
+          <div className="rounded-2xl border border-stone-200 bg-white py-16 text-center">
+            <p className="font-semibold">{MESSAGES.ROUTE_PLACES.deniedTitle}</p>
+            <p className="mt-1 text-sm text-stone-500">{MESSAGES.ROUTE_PLACES.deniedDesc}</p>
+            <div className="mt-5 flex flex-col sm:flex-row gap-3 justify-center px-6">
+              <Link
+                href={ROUTES.CITY}
+                className="h-10 px-5 rounded-lg bg-primary hover:brightness-110 text-white text-sm font-semibold flex items-center justify-center"
+              >
+                {MESSAGES.ROUTE_PLACES.deniedCreate}
+              </Link>
+            </div>
+          </div>
+        </div>
+      </>
     );
   }
 
@@ -85,13 +99,18 @@ export default async function RoutePlacesPage({ params }: { params: { id: string
   const initialCheckedIds = (rp ?? []).map((x) => x.place_id);
 
   return (
-    <RoutePlacesClient
-      routeId={route.id}
-      cityName={cityName}
-      days={route.days}
-      transportLabel={TRANSPORT_LABEL[route.transport as Transport]}
-      places={places}
-      initialCheckedIds={initialCheckedIds}
-    />
+    <>
+      <FlowSteps current={4} />
+      <div className="pt-6 md:pt-10">
+        <RoutePlacesClient
+          routeId={route.id}
+          cityName={cityName}
+          days={route.days}
+          transport={route.transport as Transport}
+          places={places}
+          initialCheckedIds={initialCheckedIds}
+        />
+      </div>
+    </>
   );
 }

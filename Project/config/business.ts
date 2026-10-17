@@ -51,6 +51,10 @@ export const BUSINESS = {
   HOME_HOT_CITY_LIMIT: 10,
   /** B23 导入文案字数上限（U06 粘贴分享文案，超限提示见 M34） */
   MAX_IMPORT_TEXT_LENGTH: 2000,
+  /** B24 步行速度 km/h（U08 市内交通时间估算，与原型 walk 速度一致） */
+  WALK_SPEED_KMH: 4.5,
+  /** B25 骑行速度 km/h（U08 市内交通时间估算，与原型 bike 速度一致） */
+  BIKE_SPEED_KMH: 12,
 
   /** C07 管理员邮箱（数据库 users.role 已设为 admin） */
   ADMIN_EMAIL: '1035940028@qq.com',

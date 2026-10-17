@@ -90,12 +90,12 @@ export const INTERCITY_MODE_LABEL: Record<
   (typeof INTERCITY_MODE)[keyof typeof INTERCITY_MODE],
   string
 > = {
-  [INTERCITY_MODE.HSR]: '高铁',
+  [INTERCITY_MODE.HSR]: '高铁 / 动车',
   [INTERCITY_MODE.PLANE]: '飞机',
   [INTERCITY_MODE.DRIVE]: '自驾',
-  [INTERCITY_MODE.COACH]: '大巴',
-  [INTERCITY_MODE.SLEEPER]: '卧铺',
-  [INTERCITY_MODE.NONE]: '暂不选择',
+  [INTERCITY_MODE.COACH]: '长途大巴',
+  [INTERCITY_MODE.SLEEPER]: '火车卧铺',
+  [INTERCITY_MODE.NONE]: '暂不设置',
 };
 
 /** E17/E18 住宿类型（U05 / U08 出行设置） */

@@ -1,14 +1,41 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { BedDouble, Flag, Minus, Plus, TrainFront } from 'lucide-react';
+import {
+  ArrowRight,
+  Bed,
+  BedDouble,
+  BedSingle,
+  Building2,
+  Bus,
+  Car,
+  CircleAlert,
+  CircleCheck,
+  CircleMinus,
+  Ellipsis,
+  House,
+  MapPin,
+  Minus,
+  Plane,
+  Plus,
+  Search,
+  SquarePen,
+  TrainFront,
+  TrainTrack,
+  TriangleAlert,
+  Users,
+  type LucideIcon,
+} from 'lucide-react';
 import { BUSINESS } from '@/config/business';
+import { cityPinyin } from '@/config/cities';
 import {
   INTERCITY_MODE,
   INTERCITY_MODE_LABEL,
   LODGING_TYPE,
   LODGING_TYPE_LABEL,
 } from '@/config/enums';
+import { MESSAGES } from '@/config/messages';
+import { cn } from '@/lib/utils';
 import type { IntercityMode, LodgingType } from '@/types';
 
 /** 出行设置的表单值（U05 新建 / U08 编辑共用） */
@@ -33,17 +60,54 @@ export const EMPTY_TRIP_SETTINGS: TripSettingsValue = {
 const INTERCITY_LIST = Object.values(INTERCITY_MODE);
 const LODGING_LIST = Object.values(LODGING_TYPE);
 
-const chipCls = (on: boolean) =>
-  `flex h-11 items-center justify-center gap-1.5 rounded-xl border-2 text-sm font-medium ${
-    on ? 'border-primary bg-primary/5 text-primary' : 'border-border hover:bg-muted'
-  }`;
+/** 城际交通（大交通）图标：高铁 / 飞机 / 自驾 / 大巴 / 卧铺 / 暂不设置 */
+const INTERCITY_ICON: Record<IntercityMode, LucideIcon> = {
+  [INTERCITY_MODE.HSR]: TrainFront,
+  [INTERCITY_MODE.PLANE]: Plane,
+  [INTERCITY_MODE.DRIVE]: Car,
+  [INTERCITY_MODE.COACH]: Bus,
+  [INTERCITY_MODE.SLEEPER]: TrainTrack,
+  [INTERCITY_MODE.NONE]: CircleMinus,
+};
 
-const cardCls = 'rounded-2xl border border-border bg-background p-5';
-const inputCls =
-  'h-11 w-full rounded-xl border border-border px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
-const badgeNew = 'rounded-full bg-amber-50 px-2 py-0.5 text-[11px] text-amber-700';
-const badgeRe = 'rounded-full bg-primary/10 px-2 py-0.5 text-[11px] text-primary';
-const badgeOpt = 'rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground';
+/** 住宿类型图标：酒店 / 民宿 / 青旅 / 亲友家 / 其他 */
+const LODGING_ICON: Record<LodgingType, LucideIcon> = {
+  [LODGING_TYPE.HOTEL]: Building2,
+  [LODGING_TYPE.HOMESTAY]: House,
+  [LODGING_TYPE.HOSTEL]: BedDouble,
+  [LODGING_TYPE.RELATIVE]: Users,
+  [LODGING_TYPE.OTHER]: Ellipsis,
+};
+
+const CARD_CLS = 'mt-5 rounded-2xl border border-stone-200 bg-white p-5 md:p-6';
+const HEAD_ICON_CLS = 'grid h-11 w-11 shrink-0 place-items-center rounded-xl';
+const LABEL_CLS = 'flex flex-wrap items-center gap-1.5 text-sm font-semibold text-stone-900';
+const BADGE_REQ = 'rounded-full bg-primary/5 px-2 py-0.5 text-[11px] font-normal text-primary';
+const BADGE_OPT = 'rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-normal text-stone-600';
+const BADGE_NEW = 'rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-normal text-amber-700';
+const INPUT_CLS =
+  'h-11 w-full rounded-xl border border-stone-300 bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
+
+/** 城际交通 / 住宿类型候选块（原型 CHIP_ON + 选中态） */
+function chipCls(on: boolean, size = 'h-10') {
+  return cn(
+    'flex items-center justify-center gap-1.5 rounded-xl border-2 px-3 text-sm font-medium',
+    size,
+    on
+      ? 'border-primary bg-primary/5 text-primary'
+      : 'border-stone-200 text-stone-600 hover:border-stone-300',
+  );
+}
+
+/** 出发城市候选块（原型左侧城市名 + 右侧「即旅行城市」/ 选中勾） */
+function originChipCls(on: boolean) {
+  return cn(
+    'flex h-10 items-center justify-between gap-1.5 rounded-xl border-2 px-3 text-sm font-medium',
+    on
+      ? 'border-primary bg-primary/5 text-primary'
+      : 'border-stone-200 text-stone-700 hover:border-stone-300',
+  );
+}
 
 /**
  * 出行设置三块表单：出发城市（必填）/ 城际交通·去程（选填）/ 终点城市住宿（选填）。
@@ -54,6 +118,7 @@ export function TripSettingsFields({
   onChange,
   cityOptions,
   destCity,
+  destHint,
   days,
   originError,
 }: {
@@ -63,277 +128,342 @@ export function TripSettingsFields({
   cityOptions: string[];
   /** 旅行城市（目的地），用于「同城出发」提示与文案 */
   destCity: string | null;
+  /** 旅行目的地标签（来自 /city 的二级目的地时带括号标注，用于出发城市卡片说明） */
+  destHint?: string;
   /** 行程天数，「按行程天数填满」与晚数提示使用 */
   days: number;
   /** 提交时出发城市为空时展示的错误文案 */
   originError?: string;
 }) {
+  const M = MESSAGES.TRIP_FORM;
   const [originKeyword, setOriginKeyword] = useState('');
   const [customOpen, setCustomOpen] = useState(false);
   const [customValue, setCustomValue] = useState('');
 
-  const matches = useMemo(() => {
-    const kw = originKeyword.trim();
-    const list = kw ? cityOptions.filter((c) => c.includes(kw)) : cityOptions;
+  const originMatches = useMemo(() => {
+    const kw = originKeyword.trim().toLowerCase();
+    const list = kw
+      ? cityOptions.filter((name) => {
+          if (name.includes(kw)) return true;
+          const { full, initials } = cityPinyin(name);
+          return full.includes(kw) || initials.includes(kw);
+        })
+      : cityOptions;
     return list.slice(0, 12);
   }, [cityOptions, originKeyword]);
 
   const sameCity = Boolean(destCity) && value.originCity === destCity;
   const needLodging = value.lodgingType !== null;
   const nights = value.lodgingNights ?? BUSINESS.MIN_LODGING_NIGHTS;
-  const nightsWarn =
-    needLodging && nights > days
-      ? `入住 ${nights} 晚多于行程 ${days} 天，仅作记录，请确认是否填写有误`
-      : '';
+  const nightsWarn = needLodging
+    ? nights > days
+      ? M.nightsWarnOver(nights, days)
+      : nights < days - 1
+        ? M.nightsWarnUnder(days, nights)
+        : ''
+    : '';
+
+  const intercityHint = !value.originCity
+    ? M.intercityHintNoOrigin
+    : sameCity
+      ? M.intercityHintSameCity
+      : value.intercityMode && value.intercityMode !== INTERCITY_MODE.NONE
+        ? M.intercityHintSet(
+            value.originCity,
+            destCity ?? '',
+            INTERCITY_MODE_LABEL[value.intercityMode],
+          )
+        : M.intercityHintNone;
 
   function stepNights(delta: number) {
-    const next = Math.min(BUSINESS.MAX_LODGING_NIGHTS, Math.max(BUSINESS.MIN_LODGING_NIGHTS, nights + delta));
+    const next = Math.min(
+      BUSINESS.MAX_LODGING_NIGHTS,
+      Math.max(BUSINESS.MIN_LODGING_NIGHTS, nights + delta),
+    );
     onChange({ lodgingNights: next });
   }
 
+  function pickCustomOrigin() {
+    const name = customValue.trim();
+    if (!name) return;
+    onChange({ originCity: name });
+    setOriginKeyword('');
+    setCustomOpen(false);
+    setCustomValue('');
+  }
+
   return (
-    <div className="space-y-5">
-      {/* ===== 出发城市（必填） ===== */}
-      <div className={cardCls}>
+    <div>
+      {/* ===== 出发城市（必填，目的地仍为上面的「旅行城市」） ===== */}
+      <div className={CARD_CLS}>
         <div className="flex items-start gap-3">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-sky-50 text-sky-600">
-            <Flag className="h-5 w-5" />
+          <span className={cn(HEAD_ICON_CLS, 'bg-sky-50 text-sky-600')}>
+            <Building2 className="h-6 w-6" />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="flex flex-wrap items-center gap-1.5 text-sm font-semibold">
-              出发城市
-              <span className={badgeRe}>必填</span>
-              <span className={badgeNew}>本期新增</span>
+            <p className={LABEL_CLS}>
+              <MapPin className="h-4 w-4 text-primary" />
+              {M.originTitle}
+              <span className={BADGE_REQ}>{M.badgeRequired}</span>
+              <span className={BADGE_NEW}>{M.badgeNew}</span>
             </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              你这次从哪座城市出发（居住地或上一站），用于估算城际交通。它与上面的「旅行城市」
-              {destCity ? `（${destCity}）` : ''}是两个不同概念。
+            <p className="mt-1 text-xs text-stone-500">
+              {M.originDesc1}
+              <span>{destHint ?? MESSAGES.TRIP_CITY.destFallback}</span>
+              {M.originDesc2}
             </p>
           </div>
         </div>
 
-        <input
-          value={originKeyword}
-          onChange={(e) => setOriginKeyword(e.target.value)}
-          placeholder="搜索出发城市，如：重庆"
-          className={`mt-3 ${inputCls}`}
-        />
-
-        <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
-          {matches.map((name) => (
-            <button
-              key={name}
-              type="button"
-              onClick={() => onChange({ originCity: name })}
-              className={chipCls(value.originCity === name)}
-            >
-              {name}
-            </button>
-          ))}
+        <div className="relative mt-3">
+          <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-stone-400" />
+          <input
+            value={originKeyword}
+            onChange={(e) => {
+              setOriginKeyword(e.target.value);
+              setCustomOpen(false);
+            }}
+            placeholder={M.originSearchPlaceholder}
+            className={cn(INPUT_CLS, 'pl-10 pr-3')}
+          />
         </div>
-        {matches.length === 0 ? (
-          <p className="mt-2 text-xs text-muted-foreground">
-            没有匹配的国内城市，可点下面的「手动输入出发城市名」直接填写
-          </p>
+
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3" id="originGrid">
+          {originMatches.map((name) => {
+            const on = value.originCity === name;
+            const same = name === destCity;
+            return (
+              <button
+                key={name}
+                type="button"
+                onClick={() => onChange({ originCity: name })}
+                className={originChipCls(on)}
+              >
+                <span className="truncate">{name}</span>
+                {same ? (
+                  <span className="shrink-0 text-[10px] text-stone-400">
+                    {MESSAGES.TRIP_CITY.sameCityTag}
+                  </span>
+                ) : on ? (
+                  <CircleCheck className="h-4 w-4 shrink-0 text-primary" />
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+
+        {originMatches.length === 0 ? (
+          <p className="mt-2 text-xs text-stone-500">{M.originNoResult}</p>
         ) : null}
 
         {customOpen ? (
-          <div className="mt-3 flex gap-2">
+          <div className="mt-2 flex gap-2">
             <input
               value={customValue}
               onChange={(e) => setCustomValue(e.target.value)}
-              placeholder="输入出发城市名"
-              className={inputCls}
+              placeholder={M.originManualPlaceholder}
+              className={INPUT_CLS}
             />
             <button
               type="button"
-              onClick={() => {
-                const name = customValue.trim();
-                if (!name) return;
-                onChange({ originCity: name });
-                setOriginKeyword('');
-                setCustomOpen(false);
-                setCustomValue('');
-              }}
-              className="h-11 shrink-0 rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground hover:brightness-110"
+              onClick={pickCustomOrigin}
+              className="h-11 shrink-0 rounded-xl bg-gradient-to-r from-primary-from to-primary-to px-4 text-sm font-semibold text-white hover:brightness-110"
             >
-              使用
+              {M.originManualUse}
             </button>
           </div>
         ) : (
           <button
             type="button"
             onClick={() => setCustomOpen(true)}
-            className="mt-3 inline-flex h-9 items-center gap-1 rounded-lg border border-dashed border-border px-3 text-xs text-muted-foreground hover:bg-muted"
+            className="mt-2 flex h-9 items-center gap-1 rounded-lg border border-dashed border-stone-300 px-3 text-xs text-stone-600 hover:bg-stone-50"
           >
-            <Plus className="h-4 w-4" />
-            没找到？手动输入出发城市名
+            <SquarePen className="h-4 w-4" />
+            {M.originManual}
           </button>
         )}
 
-        {value.originCity ? (
-          <p className="mt-3 text-xs text-muted-foreground">
-            已选择：<span className="font-semibold text-foreground">{value.originCity}</span>
-          </p>
-        ) : null}
-
         {sameCity ? (
-          <p className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-            同城出发，无需城际交通。下面「城际交通 · 去程」可保持「暂不选择」。
+          <p className="mt-3 flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+            <CircleCheck className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{M.originSame}</span>
           </p>
         ) : null}
 
         {originError ? (
-          <p className="mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {originError}
+          <p className="mt-3 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{originError}</span>
           </p>
         ) : null}
       </div>
 
       {/* ===== 城际交通 · 去程（选填） ===== */}
-      <div className={cardCls}>
+      <div className={CARD_CLS}>
         <div className="flex items-start gap-3">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-indigo-50 text-indigo-600">
-            <TrainFront className="h-5 w-5" />
+          <span className={cn(HEAD_ICON_CLS, 'bg-indigo-50 text-indigo-600')}>
+            <TrainFront className="h-6 w-6" />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="flex flex-wrap items-center gap-1.5 text-sm font-semibold">
-              城际交通 · 去程
-              <span className={badgeOpt}>选填</span>
-              <span className={badgeNew}>本期新增</span>
+            <p className={LABEL_CLS}>
+              <ArrowRight className="h-4 w-4 text-primary" />
+              {M.intercityTitle}
+              <span className={BADGE_OPT}>{M.badgeOptional}</span>
+              <span className={BADGE_NEW}>{M.badgeNew}</span>
             </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              出发城市 → 旅行城市的<strong className="font-semibold">大交通</strong>
-              方式，与「市内交通」（步行 / 骑行）是两回事。这里只做行程信息记录，不会查询班次或票价。
+            <p className="mt-1 text-xs text-stone-500">
+              {M.intercityDesc1}
+              <strong>{M.intercityDescStrong}</strong>
+              {M.intercityDesc2}
             </p>
           </div>
         </div>
 
-        <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6">
-          {INTERCITY_LIST.map((mode) => (
-            <button
-              key={mode}
-              type="button"
-              onClick={() => onChange({ intercityMode: value.intercityMode === mode ? null : mode })}
-              className={chipCls(value.intercityMode === mode)}
-            >
-              {INTERCITY_MODE_LABEL[mode]}
-            </button>
-          ))}
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {INTERCITY_LIST.map((mode) => {
+            const Icon = INTERCITY_ICON[mode];
+            return (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => onChange({ intercityMode: mode })}
+                className={chipCls(value.intercityMode === mode)}
+              >
+                <Icon className="h-5 w-5" />
+                {INTERCITY_MODE_LABEL[mode]}
+              </button>
+            );
+          })}
         </div>
-        <p className="mt-2 text-xs text-muted-foreground">
-          {value.intercityMode === null
-            ? '暂不设置：不会记录大交通方式，之后可在路线编辑页补充'
-            : sameCity
-              ? '同城出发：出发城市与旅行城市相同，无需城际交通'
-              : `${value.originCity || '出发城市'} → ${destCity ?? '旅行城市'} · ${INTERCITY_MODE_LABEL[value.intercityMode]}`}
-        </p>
+        <p className="mt-2 text-xs text-stone-500">{intercityHint}</p>
       </div>
 
       {/* ===== 终点城市住宿（选填） ===== */}
-      <div className={cardCls}>
+      <div className={cn(CARD_CLS, 'space-y-4')}>
         <div className="flex items-start gap-3">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-violet-50 text-violet-600">
-            <BedDouble className="h-5 w-5" />
+          <span className={cn(HEAD_ICON_CLS, 'bg-violet-50 text-violet-600')}>
+            <Bed className="h-6 w-6" />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="flex flex-wrap items-center gap-1.5 text-sm font-semibold">
-              终点城市住宿
-              <span className={badgeOpt}>选填</span>
-              <span className={badgeNew}>本期新增</span>
+            <p className={LABEL_CLS}>
+              <House className="h-4 w-4 text-primary" />
+              {M.lodgingTitle}
+              <span className={BADGE_OPT}>{M.badgeOptional}</span>
+              <span className={BADGE_NEW}>{M.badgeNew}</span>
             </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              到{destCity ? ` ${destCity} ` : '旅行城市'}之后的住宿安排，仅记录信息，不代订房。
+            <p className="mt-1 text-xs text-stone-500">
+              {M.lodgingDesc1}{' '}
+              <span>{destCity ?? M.lodgingDestFallback}</span>{' '}
+              {M.lodgingDesc2}
             </p>
           </div>
         </div>
 
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() =>
-              onChange({
-                lodgingType: value.lodgingType ?? LODGING_TYPE.HOTEL,
-                lodgingNights: value.lodgingNights ?? BUSINESS.MIN_LODGING_NIGHTS,
-              })
-            }
-            className={chipCls(needLodging)}
-          >
-            需要住宿
-          </button>
-          <button
-            type="button"
-            onClick={() =>
-              onChange({ lodgingType: null, lodgingArea: '', lodgingName: '', lodgingNights: null })
-            }
-            className={chipCls(!needLodging)}
-          >
-            暂不预订
-          </button>
+        <div>
+          <p className="text-xs font-semibold text-stone-500">{M.lodgingNeedQ}</p>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() =>
+                onChange({
+                  lodgingType: value.lodgingType ?? LODGING_TYPE.HOTEL,
+                  lodgingNights: value.lodgingNights ?? BUSINESS.MIN_LODGING_NIGHTS,
+                })
+              }
+              className={chipCls(needLodging, 'h-11')}
+            >
+              <Bed className="h-5 w-5" />
+              {M.lodgingYes}
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                onChange({ lodgingType: null, lodgingArea: '', lodgingName: '', lodgingNights: null })
+              }
+              className={chipCls(!needLodging, 'h-11')}
+            >
+              <BedSingle className="h-5 w-5" />
+              {M.lodgingNo}
+            </button>
+          </div>
         </div>
 
         {needLodging ? (
-          <div className="mt-4 space-y-4">
+          <div className="space-y-4">
             <div>
-              <p className="text-xs font-semibold text-muted-foreground">住宿类型</p>
-              <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-5">
-                {LODGING_LIST.map((type) => (
-                  <button
-                    key={type}
-                    type="button"
-                    onClick={() => onChange({ lodgingType: type })}
-                    className={chipCls(value.lodgingType === type)}
-                  >
-                    {LODGING_TYPE_LABEL[type]}
-                  </button>
-                ))}
+              <p className="text-xs font-semibold text-stone-500">{M.lodgingTypeLabel}</p>
+              <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {LODGING_LIST.map((type) => {
+                  const Icon = LODGING_ICON[type];
+                  return (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => onChange({ lodgingType: type })}
+                      className={chipCls(value.lodgingType === type)}
+                    >
+                      <Icon className="h-5 w-5" />
+                      {LODGING_TYPE_LABEL[type]}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
-              <label className="block">
-                <span className="text-xs font-semibold text-muted-foreground">住宿区域</span>
+              <div>
+                <label
+                  htmlFor="lodgingArea"
+                  className="text-xs font-semibold text-stone-500"
+                >
+                  {M.areaLabel}
+                </label>
                 <input
+                  id="lodgingArea"
                   value={value.lodgingArea}
                   maxLength={BUSINESS.MAX_LODGING_AREA_LENGTH}
                   onChange={(e) => onChange({ lodgingArea: e.target.value })}
-                  placeholder="例如：宽窄巷子附近"
-                  className={`mt-1.5 ${inputCls}`}
+                  placeholder={M.areaPlaceholder}
+                  className={cn(INPUT_CLS, 'mt-1.5 px-3')}
                 />
-              </label>
-              <label className="block">
-                <span className="text-xs font-semibold text-muted-foreground">
-                  酒店 / 民宿名称（选填）
-                </span>
+              </div>
+              <div>
+                <label
+                  htmlFor="lodgingName"
+                  className="text-xs font-semibold text-stone-500"
+                >
+                  {M.nameLabel}
+                </label>
                 <input
+                  id="lodgingName"
                   value={value.lodgingName}
                   maxLength={BUSINESS.MAX_LODGING_NAME_LENGTH}
                   onChange={(e) => onChange({ lodgingName: e.target.value })}
-                  placeholder="例如：某民宿（可不填）"
-                  className={`mt-1.5 ${inputCls}`}
+                  placeholder={M.namePlaceholder}
+                  className={cn(INPUT_CLS, 'mt-1.5 px-3')}
                 />
-              </label>
+              </div>
             </div>
 
             <div>
-              <p className="text-xs font-semibold text-muted-foreground">入住晚数</p>
-              <div className="mt-2 flex items-center gap-3 rounded-xl bg-muted px-4 py-3">
+              <p className="text-xs font-semibold text-stone-500">{M.nightsLabel}</p>
+              <div className="mt-2 flex items-center gap-4 rounded-xl bg-stone-100 px-4 py-3">
                 <button
                   type="button"
-                  aria-label="减少入住晚数"
+                  aria-label={M.nightsMinus}
                   onClick={() => stepNights(-1)}
-                  className="grid h-9 w-9 place-items-center rounded-lg border border-border bg-background"
+                  className="grid h-9 w-9 place-items-center rounded-lg border border-stone-300 bg-white"
                 >
                   <Minus className="h-4 w-4" />
                 </button>
-                <span className="text-sm text-muted-foreground">共住</span>
+                <span className="text-sm text-stone-600">{M.nightsText}</span>
                 <span className="w-8 text-center text-lg font-semibold">{nights}</span>
-                <span className="text-sm text-muted-foreground">晚</span>
+                <span className="text-sm text-stone-600">{M.nightsUnit}</span>
                 <button
                   type="button"
-                  aria-label="增加入住晚数"
+                  aria-label={M.nightsPlus}
                   onClick={() => stepNights(1)}
-                  className="grid h-9 w-9 place-items-center rounded-lg border border-border bg-background"
+                  className="grid h-9 w-9 place-items-center rounded-lg border border-stone-300 bg-white"
                 >
                   <Plus className="h-4 w-4" />
                 </button>
@@ -347,18 +477,21 @@ export function TripSettingsFields({
                       ),
                     })
                   }
-                  className="ml-auto h-8 rounded-lg border border-border bg-background px-3 text-xs"
+                  className="ml-auto h-8 rounded-lg border border-stone-300 bg-white px-3 text-xs"
                 >
-                  按行程天数填满
+                  {M.nightsSync}
                 </button>
               </div>
-              {nightsWarn ? <p className="mt-2 text-xs text-amber-600">{nightsWarn}</p> : null}
+              {nightsWarn ? (
+                <p className="mt-2 flex items-start gap-1 text-xs text-amber-600">
+                  <TriangleAlert className="mt-px h-4 w-4 shrink-0" />
+                  <span>{nightsWarn}</span>
+                </p>
+              ) : null}
             </div>
           </div>
         ) : (
-          <p className="mt-3 text-xs text-muted-foreground">
-            暂不预订：不会记录住宿信息，之后可在路线编辑页补充
-          </p>
+          <p className="text-xs text-stone-400">{M.placeholder}</p>
         )}
       </div>
     </div>

@@ -1,8 +1,29 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Check, Link2, Sparkles, Trash2 } from 'lucide-react';
+import {
+  ArrowLeft,
+  BadgeCheck,
+  Bookmark,
+  Bot,
+  Camera,
+  Check,
+  CheckCheck,
+  Lightbulb,
+  ListChecks,
+  ListPlus,
+  Loader2,
+  MapPin,
+  MapPinPlus,
+  Plus,
+  Sparkles,
+  SquarePen,
+  Trash2,
+  Undo2,
+  Utensils,
+} from 'lucide-react';
 import { BUSINESS } from '@/config/business';
 import { PLACE_TYPE, PLACE_TYPE_LABEL } from '@/config/enums';
 import { MESSAGES } from '@/config/messages';
@@ -22,26 +43,36 @@ interface Candidate {
   name: string;
   type: PlaceType;
   checked: boolean;
+  /** 由手动添加而来 */
+  manual?: boolean;
 }
 
 type PlaceTab = 'all' | PlaceType;
 type ImportTab = 'text' | 'link';
-type Notice = { text: string; tone: 'info' | 'ok' | 'err' };
+/** 导入卡状态：normal 输入 / loading 识别中 / success 候选确认 / empty 未识别 / error 失败 */
+type Status = 'normal' | 'loading' | 'success' | 'empty' | 'error';
+type Toast = { text: string; tone: 'ok' | 'info' | 'err' };
 
-const URL_ONLY_PATTERN = /^https?:\/\/\S+$/i;
+const M = MESSAGES.ROUTE_ADD;
 
-const cardCls = 'rounded-2xl border border-border bg-background p-5';
-const inputCls =
-  'h-11 w-full rounded-xl border border-border px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
-const tabCls = (on: boolean) =>
-  `flex-1 rounded-lg px-3 py-2 text-sm font-medium ${on ? 'bg-background shadow-sm' : 'text-muted-foreground'}`;
+const cardCls = 'rounded-2xl bg-white border border-stone-200 p-5 md:p-6';
+const gradBtnCls =
+  'bg-gradient-to-r from-primary-from to-primary-to hover:brightness-110 text-white font-semibold';
+const softBtnCls =
+  'border border-primary/30 bg-primary/5 hover:bg-primary/10 text-primary font-semibold';
+const segTabCls = (on: boolean) =>
+  `flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-semibold ${
+    on ? 'bg-white shadow-sm text-stone-900' : 'text-stone-500'
+  }`;
+const typeIconCls = (type: PlaceType) =>
+  type === PLACE_TYPE.FOOD ? 'bg-amber-50 text-amber-600' : 'bg-teal-50 text-teal-600';
 const typeBadgeCls = (type: PlaceType) =>
-  `rounded-full px-2 py-0.5 text-[11px] ${
+  `text-[11px] px-2 py-0.5 rounded-full ${
     type === PLACE_TYPE.FOOD ? 'bg-amber-50 text-amber-700' : 'bg-teal-50 text-teal-700'
   }`;
 
 /**
- * U06 添加地点：左侧「当前城市收藏」「导入文案」，右侧小贴士。
+ * U06 添加地点（六步流程第 3 步）：左侧「当前城市收藏」「导入文案」，右侧小贴士。
  * AI 提取结果经确认后由 /api/places 落库，随后进入 U07 勾选。
  */
 export function RouteAddClient({
@@ -60,34 +91,64 @@ export function RouteAddClient({
 }) {
   const router = useRouter();
 
-  const [placeTab, setPlaceTab] = useState<PlaceTab>('all');
+  const [favTab, setFavTab] = useState<PlaceTab>('all');
   const [addedSet, setAddedSet] = useState<Set<string>>(() => new Set(addedPlaceIds));
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const [importTab, setImportTab] = useState<ImportTab>('text');
   const [text, setText] = useState('');
-  const [extracting, setExtracting] = useState(false);
+  const [status, setStatus] = useState<Status>('normal');
   const [candidates, setCandidates] = useState<Candidate[]>([]);
-  const [showManual, setShowManual] = useState(false);
   const [manualName, setManualName] = useState('');
   const [manualType, setManualType] = useState<PlaceType>(PLACE_TYPE.ATTRACTION);
+  const [manualErr, setManualErr] = useState('');
+  const [inputErr, setInputErr] = useState('');
+  const [needText, setNeedText] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [notice, setNotice] = useState<Notice | null>(null);
+  const [toast, setToast] = useState<Toast | null>(null);
 
   const tooLong = text.length > BUSINESS.MAX_IMPORT_TEXT_LENGTH;
+  const importedCount = addedSet.size;
+  const spotCount = cityPlaces.filter((p) => p.type === PLACE_TYPE.ATTRACTION).length;
+  const foodCount = cityPlaces.filter((p) => p.type === PLACE_TYPE.FOOD).length;
 
-  const visiblePlaces = useMemo(
-    () => cityPlaces.filter((p) => (placeTab === 'all' ? true : p.type === placeTab)),
-    [cityPlaces, placeTab],
+  const visibleFav = useMemo(
+    () => cityPlaces.filter((p) => (favTab === 'all' ? true : p.type === favTab)),
+    [cityPlaces, favTab],
   );
 
-  const selectedCandidates = candidates.filter((c) => c.checked && c.name.trim().length > 0);
+  const importedNames = useMemo(
+    () => cityPlaces.filter((p) => addedSet.has(p.id)).map((p) => p.name),
+    [cityPlaces, addedSet],
+  );
 
-  function showNotice(text: string, tone: Notice['tone'] = 'info') {
-    setNotice({ text, tone });
+  const selectableCandidates = candidates.filter(
+    (c) => c.checked && c.name.trim().length >= 2 && !importedNames.includes(c.name),
+  );
+
+  function showToast(text2: string, tone: Toast['tone'] = 'info') {
+    setToast({ text: text2, tone });
+    setTimeout(() => setToast(null), 2600);
   }
 
-  async function addToRoute(placeId: string) {
+  function switchTab(next: ImportTab) {
+    setImportTab(next);
+  }
+
+  function onInput(value: string) {
+    setText(value);
+    setInputErr(value.length > BUSINESS.MAX_IMPORT_TEXT_LENGTH ? MESSAGES.IMPORT_TEXT_TOO_LONG : '');
+    setNeedText(false);
+  }
+
+  function fillSample(index: number) {
+    setText(M.samples[index].value);
+    switchTab(index === 1 || index === 2 ? 'link' : 'text');
+    setInputErr('');
+    setNeedText(false);
+  }
+
+  async function addToRoute(placeId: string, placeName: string) {
     setBusyId(placeId);
     try {
       const res = await fetch('/api/collected', {
@@ -97,30 +158,75 @@ export function RouteAddClient({
       });
       const data = (await res.json()) as { ok: boolean; message?: string };
       if (!data.ok) {
-        showNotice(data.message ?? MESSAGES.NETWORK_ERROR, 'err');
+        showToast(data.message ?? MESSAGES.NETWORK_ERROR, 'err');
         return;
       }
       setAddedSet((prev) => new Set(prev).add(placeId));
-      showNotice('已加入当前路线，可在「勾选地点」里确认', 'ok');
+      showToast(M.toastAdded(placeName), 'ok');
     } catch {
-      showNotice(MESSAGES.NETWORK_ERROR, 'err');
+      showToast(MESSAGES.NETWORK_ERROR, 'err');
     } finally {
       setBusyId(null);
     }
   }
 
+  async function addAllFav() {
+    const pending = cityPlaces.filter((p) => !addedSet.has(p.id));
+    if (pending.length === 0) {
+      showToast(cityPlaces.length === 0 ? M.toastFavNone : M.toastFavAllAlready, 'info');
+      return;
+    }
+    let added = 0;
+    let skipped = 0;
+    for (const place of pending) {
+      try {
+        const res = await fetch('/api/collected', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ placeId: place.id, routeId }),
+        });
+        const data = (await res.json()) as { ok: boolean };
+        if (data.ok) {
+          added += 1;
+          setAddedSet((prev) => new Set(prev).add(place.id));
+        } else {
+          skipped += 1;
+        }
+      } catch {
+        skipped += 1;
+      }
+    }
+    showToast(M.toastFavAll(added, skipped), added > 0 ? 'ok' : 'info');
+  }
+
+  function backToInput() {
+    setStatus('normal');
+    if (typeof document !== 'undefined') {
+      document.getElementById('import-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+
   async function extract() {
     const value = text.trim();
-    if (!value || URL_ONLY_PATTERN.test(value)) {
-      showNotice(MESSAGES.LINK_NEED_TEXT, 'err');
+    if (!value) {
+      setStatus('normal');
+      setInputErr(M.emptyInput);
       return;
     }
     if (tooLong) {
-      showNotice(MESSAGES.IMPORT_TEXT_TOO_LONG, 'err');
+      setStatus('normal');
+      setInputErr(MESSAGES.IMPORT_TEXT_TOO_LONG);
       return;
     }
-    setExtracting(true);
-    setNotice(null);
+    const stripped = value.replace(/https?:\/\/\S+/g, '').replace(/[\s\p{P}\p{S}]/gu, '');
+    if (/https?:\/\//.test(value) && stripped.length < 6) {
+      setStatus('normal');
+      setNeedText(true);
+      return;
+    }
+    setInputErr('');
+    setNeedText(false);
+    setStatus('loading');
     try {
       const res = await fetch('/api/ai/extract', {
         method: 'POST',
@@ -133,13 +239,13 @@ export function RouteAddClient({
         error?: string;
       };
       if (!data.ok) {
-        showNotice(data.error ?? MESSAGES.AI_FAILED, 'err');
+        setStatus('error');
         return;
       }
       const places = data.places ?? [];
       if (places.length === 0) {
         setCandidates([]);
-        showNotice(MESSAGES.AI_FAILED, 'err');
+        setStatus('empty');
         return;
       }
       setCandidates(
@@ -150,43 +256,66 @@ export function RouteAddClient({
           checked: true,
         })),
       );
-      showNotice(`识别到 ${places.length} 个地点，请确认`, 'ok');
+      setStatus('success');
     } catch {
-      showNotice(MESSAGES.NETWORK_ERROR, 'err');
-    } finally {
-      setExtracting(false);
+      setStatus('error');
     }
+  }
+
+  function manualOnly() {
+    setCandidates([]);
+    setStatus('success');
+    if (typeof document !== 'undefined') {
+      document.getElementById('manual-name')?.focus();
+    }
+  }
+
+  function toggleKeep(key: string) {
+    setCandidates((prev) => prev.map((c) => (c.key === key ? { ...c, checked: !c.checked } : c)));
+  }
+
+  function rename(key: string, value: string) {
+    const next = value.trim();
+    if (!next) {
+      showToast(M.renameEmpty, 'err');
+      return;
+    }
+    setCandidates((prev) => prev.map((c) => (c.key === key ? { ...c, name: next } : c)));
+  }
+
+  function retype(key: string, type: PlaceType) {
+    setCandidates((prev) => prev.map((c) => (c.key === key ? { ...c, type } : c)));
+  }
+
+  function removeCand(key: string) {
+    setCandidates((prev) => prev.filter((c) => c.key !== key));
   }
 
   function addManual() {
     const name = manualName.trim();
     if (name.length < 2) {
-      showNotice(MESSAGES.PLACE_NAME_TOO_SHORT, 'err');
+      setManualErr(M.manualNameTooShort);
       return;
     }
-    const exists =
-      cityPlaces.some((p) => p.name === name) || candidates.some((c) => c.name === name);
-    if (exists) {
-      showNotice(MESSAGES.PLACE_NAME_DUPLICATE, 'err');
+    if (
+      candidates.some((c) => c.name === name) ||
+      importedNames.includes(name)
+    ) {
+      setManualErr(M.manualDuplicate(name));
       return;
     }
+    setManualErr('');
     setCandidates((prev) => [
       ...prev,
-      { key: `manual-${Date.now()}`, name, type: manualType, checked: true },
+      { key: `manual-${Date.now()}`, name, type: manualType, checked: true, manual: true },
     ]);
     setManualName('');
-    showNotice('已加入待确认列表，点下方按钮确认添加', 'info');
   }
 
   async function confirmAdd() {
-    if (selectedCandidates.length === 0) return;
-    const tooShort = selectedCandidates.some((c) => c.name.trim().length < 2);
-    if (tooShort) {
-      showNotice(MESSAGES.PLACE_NAME_TOO_SHORT, 'err');
-      return;
-    }
+    const adds = selectableCandidates;
+    if (adds.length === 0) return;
     setSubmitting(true);
-    setNotice(null);
     try {
       const res = await fetch('/api/places', {
         method: 'POST',
@@ -195,321 +324,528 @@ export function RouteAddClient({
           routeId,
           cityId,
           rawText: text.trim() || undefined,
-          items: selectedCandidates.map((c) => ({
-            name: c.name.trim(),
-            type: c.type,
-          })),
+          items: adds.map((c) => ({ name: c.name.trim(), type: c.type })),
         }),
       });
       const data = (await res.json()) as { ok: boolean; inserted?: number; message?: string };
       if (!data.ok) {
-        showNotice(data.message ?? MESSAGES.NETWORK_ERROR, 'err');
+        showToast(data.message ?? MESSAGES.NETWORK_ERROR, 'err');
         return;
       }
-      showNotice(MESSAGES.PLACES_ADDED(data.inserted ?? 0), 'ok');
       router.push(ROUTES.ROUTE_PLACES(routeId));
     } catch {
-      showNotice(MESSAGES.NETWORK_ERROR, 'err');
+      showToast(MESSAGES.NETWORK_ERROR, 'err');
     } finally {
       setSubmitting(false);
     }
   }
 
+  const favBody = (() => {
+    if (cityPlaces.length === 0) {
+      return (
+        <div className="rounded-xl border border-dashed border-stone-300 p-6 text-center">
+          <span className="w-14 h-14 mx-auto rounded-2xl bg-primary/5 text-primary grid place-items-center">
+            <Bookmark className="h-7 w-7" />
+          </span>
+          <p className="mt-3 font-semibold text-stone-800">{M.favEmptyTitle}</p>
+          <p className="mt-1 text-sm text-stone-500">{M.favEmptyDesc}</p>
+          <div className="mt-4 flex flex-col sm:flex-row gap-3 justify-center">
+            <button
+              type="button"
+              onClick={backToInput}
+              className={`h-10 px-5 rounded-xl text-sm flex items-center justify-center gap-1.5 ${gradBtnCls}`}
+            >
+              <Sparkles className="h-4 w-4" />
+              {M.favEmptyImport}
+            </button>
+            <Link
+              href={ROUTES.COLLECTED}
+              className="h-10 px-5 rounded-xl border border-stone-300 hover:bg-stone-50 text-sm font-medium flex items-center justify-center gap-1.5"
+            >
+              <Bookmark className="h-4 w-4" />
+              {M.favEmptyGo}
+            </Link>
+          </div>
+        </div>
+      );
+    }
+    if (visibleFav.length === 0) {
+      return <p className="text-sm text-stone-500 py-6 text-center">{M.favEmptyFilter}</p>;
+    }
+    return (
+      <div className="space-y-2">
+        {visibleFav.map((p) => {
+          const added = addedSet.has(p.id);
+          return (
+            <div
+              key={p.id}
+              className="flex flex-wrap md:flex-nowrap items-center gap-3 p-3 rounded-xl border border-stone-200 bg-white"
+            >
+              <span
+                className={`w-10 h-10 rounded-xl grid place-items-center shrink-0 ${typeIconCls(p.type)}`}
+              >
+                {p.type === PLACE_TYPE.FOOD ? (
+                  <Utensils className="h-5 w-5" />
+                ) : (
+                  <Camera className="h-5 w-5" />
+                )}
+              </span>
+              <div className="flex-1 min-w-[160px]">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium text-stone-900">{p.name}</span>
+                  <span className={typeBadgeCls(p.type)}>{PLACE_TYPE_LABEL[p.type]}</span>
+                  {added ? (
+                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">
+                      {M.favInRoute}
+                    </span>
+                  ) : null}
+                </div>
+                <p className="mt-1 text-xs text-stone-500 flex flex-wrap gap-x-3 gap-y-1">
+                  <span className="flex items-center gap-1">
+                    <MapPin className="h-3.5 w-3.5" />
+                    {p.address ?? M.noAddress}
+                  </span>
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={busyId === p.id}
+                onClick={() => addToRoute(p.id, p.name)}
+                className={`h-9 px-4 rounded-xl text-sm font-medium flex items-center gap-1.5 shrink-0 disabled:opacity-50 ${
+                  added
+                    ? 'border border-stone-300 text-stone-500 hover:bg-stone-50'
+                    : gradBtnCls
+                }`}
+              >
+                {added ? <Check className="h-4 w-4" /> : <MapPinPlus className="h-4 w-4" />}
+                {added ? M.favInRouteBtn : M.favAddOne}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    );
+  })();
+
+  const importCard = (
+    <section
+      id="import-card"
+      className="mt-6 rounded-2xl bg-white border border-stone-200 p-5 md:p-6"
+      data-state="normal"
+    >
+      <div className="flex bg-stone-100 rounded-xl p-1 w-full sm:w-fit">
+        <button type="button" onClick={() => switchTab('text')} className={segTabCls(importTab === 'text')}>
+          {M.tabText}
+        </button>
+        <button type="button" onClick={() => switchTab('link')} className={segTabCls(importTab === 'link')}>
+          {M.tabLink}
+        </button>
+      </div>
+      {importTab === 'link' ? (
+        <div className="mt-4 rounded-xl bg-sky-50 border border-sky-200 text-sky-800 text-sm px-4 py-3">
+          {M.linkTip}
+        </div>
+      ) : null}
+      <textarea
+        value={text}
+        onChange={(e) => onInput(e.target.value)}
+        rows={8}
+        placeholder={importTab === 'link' ? M.placeholderLink : M.placeholderText}
+        className="mt-4 w-full rounded-xl border border-stone-300 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none p-4 text-sm leading-relaxed resize-y"
+      />
+      <div className="mt-1 flex items-center justify-between text-xs">
+        <p className="text-red-600">{inputErr}</p>
+        <span className={tooLong ? 'text-red-600' : 'text-stone-400'}>
+          {text.length} / {BUSINESS.MAX_IMPORT_TEXT_LENGTH}
+        </span>
+      </div>
+      {needText ? (
+        <div className="mt-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-sm px-4 py-3">
+          <p className="font-semibold flex items-center gap-1.5">
+            <SquarePen className="h-4 w-4" />
+            {M.needTextTitle}
+          </p>
+          <p className="mt-1">{M.needTextDesc}</p>
+        </div>
+      ) : null}
+      <div className="mt-4 flex flex-wrap gap-2 text-xs">
+        <span className="text-stone-400 py-1.5">{M.sampleLabel}</span>
+        {M.samples.map((sample, index) => (
+          <button
+            key={sample.label}
+            type="button"
+            onClick={() => fillSample(index)}
+            className={
+              index === 0
+                ? 'px-3 py-1.5 rounded-full bg-primary/5 text-primary hover:bg-primary/10'
+                : 'px-3 py-1.5 rounded-full bg-stone-100 text-stone-700 hover:bg-stone-200'
+            }
+          >
+            {sample.label}
+          </button>
+        ))}
+      </div>
+      <div className="mt-6 flex flex-col sm:flex-row gap-3">
+        <button
+          type="button"
+          onClick={extract}
+          className={`h-11 px-6 rounded-xl text-sm flex items-center justify-center gap-2 ${gradBtnCls}`}
+        >
+          <Sparkles className="h-4 w-4" />
+          {M.extract}
+        </button>
+        <button
+          type="button"
+          onClick={manualOnly}
+          className="h-11 px-6 rounded-xl border border-stone-300 hover:bg-stone-50 text-stone-700 text-sm font-medium flex items-center justify-center gap-2"
+        >
+          <SquarePen className="h-4 w-4" />
+          {M.manual}
+        </button>
+      </div>
+      <div className="mt-5 pt-4 border-t border-dashed border-stone-200 flex flex-wrap items-center gap-3">
+        <p className="text-xs text-stone-500 flex items-center gap-1.5">
+          <ListChecks className="h-4 w-4 text-stone-400" />
+          {M.importedPre} <span className="font-semibold text-stone-700">{importedCount}</span>{' '}
+          {M.importedPost}
+        </p>
+        <Link
+          href={ROUTES.ROUTE_PLACES(routeId)}
+          className={`ml-auto h-10 px-4 rounded-xl text-sm flex items-center gap-1.5 ${softBtnCls}`}
+        >
+          <CheckCheck className="h-4 w-4" />
+          {M.goSelect}
+        </Link>
+      </div>
+    </section>
+  );
+
+  const loadingBlock = (
+    <section className="rounded-2xl bg-white border border-stone-200 p-6" data-state="loading">
+      <div className="flex items-center gap-3">
+        <span className="w-10 h-10 rounded-xl bg-primary/5 text-primary grid place-items-center">
+          <Sparkles className="h-5 w-5 animate-pulse" />
+        </span>
+        <div>
+          <p className="font-semibold">{M.loadingTitle}</p>
+          <p className="text-xs text-stone-500">{M.loadingDesc}</p>
+        </div>
+      </div>
+      <div className="mt-6 space-y-3">
+        <div className="h-14 rounded-xl bg-stone-100 animate-pulse" />
+        <div className="h-14 rounded-xl bg-stone-100 animate-pulse" />
+        <div className="h-14 rounded-xl bg-stone-100 animate-pulse" />
+      </div>
+    </section>
+  );
+
+  const successBlock = (
+    <section className="rounded-2xl bg-white border border-stone-200 p-5 md:p-6" data-state="success">
+      <div className="flex flex-wrap items-center gap-3 justify-between">
+        <div>
+          <h2 className="font-semibold text-stone-900 flex items-center gap-2">
+            <BadgeCheck className="h-4 w-4 text-emerald-500" />
+            {M.successTitlePre} <span>{candidates.length}</span> {M.successTitlePost}
+          </h2>
+          <p className="mt-1 text-xs text-stone-500">{M.successDesc}</p>
+        </div>
+        <button
+          type="button"
+          onClick={backToInput}
+          className="text-sm text-stone-500 hover:text-stone-800 flex items-center gap-1"
+        >
+          <Undo2 className="h-4 w-4" />
+          {M.repaste}
+        </button>
+      </div>
+      <div className="mt-4 space-y-2">
+        {candidates.length === 0 ? (
+          <p className="text-sm text-stone-500 py-4 text-center">{M.candEmpty}</p>
+        ) : (
+          candidates.map((c) => {
+            const dup = importedNames.includes(c.name);
+            return (
+              <div
+                key={c.key}
+                className={`flex flex-wrap sm:flex-nowrap items-center gap-2 p-2.5 rounded-xl border ${
+                  c.checked && !dup
+                    ? 'border-stone-200 bg-white'
+                    : 'border-stone-100 bg-stone-50 opacity-70'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={c.checked && !dup}
+                  disabled={dup}
+                  onChange={() => toggleKeep(c.key)}
+                  aria-label="保留该地点"
+                  className="w-4 h-4 accent-primary shrink-0"
+                />
+                <span
+                  className={`w-8 h-8 rounded-lg grid place-items-center shrink-0 ${typeIconCls(c.type)}`}
+                >
+                  {c.type === PLACE_TYPE.FOOD ? (
+                    <Utensils className="h-4 w-4" />
+                  ) : (
+                    <Camera className="h-4 w-4" />
+                  )}
+                </span>
+                <input
+                  value={c.name}
+                  maxLength={30}
+                  onChange={(e) => rename(c.key, e.target.value)}
+                  aria-label="地点名称"
+                  className="flex-1 min-w-[120px] h-9 px-2 rounded-lg border border-transparent hover:border-stone-200 focus:border-primary outline-none text-sm font-medium"
+                />
+                <select
+                  value={c.type}
+                  onChange={(e) => retype(c.key, e.target.value as PlaceType)}
+                  className="h-9 px-2 rounded-lg border border-stone-200 text-xs bg-white"
+                >
+                  <option value={PLACE_TYPE.ATTRACTION}>
+                    {PLACE_TYPE_LABEL[PLACE_TYPE.ATTRACTION]}
+                  </option>
+                  <option value={PLACE_TYPE.FOOD}>{PLACE_TYPE_LABEL[PLACE_TYPE.FOOD]}</option>
+                </select>
+                {dup ? (
+                  <span className="text-[11px] px-2 py-1 rounded bg-stone-200 text-stone-600 shrink-0">
+                    {M.candDup}
+                  </span>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => removeCand(c.key)}
+                  aria-label="删除"
+                  className="w-8 h-8 rounded-lg text-stone-400 hover:text-red-600 hover:bg-red-50 grid place-items-center shrink-0"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            );
+          })
+        )}
+      </div>
+      <div className="mt-4 rounded-xl border border-dashed border-stone-300 p-3">
+        <p className="text-xs font-semibold text-stone-500 mb-2">{M.manualTitle}</p>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <input
+            id="manual-name"
+            value={manualName}
+            maxLength={30}
+            onChange={(e) => setManualName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') addManual();
+            }}
+            placeholder={M.manualNamePlaceholder}
+            className="flex-1 h-10 px-3 rounded-lg border border-stone-300 focus:border-primary outline-none text-sm"
+          />
+          <select
+            value={manualType}
+            onChange={(e) => setManualType(e.target.value as PlaceType)}
+            className="h-10 px-3 rounded-lg border border-stone-300 text-sm bg-white"
+          >
+            <option value={PLACE_TYPE.ATTRACTION}>{PLACE_TYPE_LABEL[PLACE_TYPE.ATTRACTION]}</option>
+            <option value={PLACE_TYPE.FOOD}>{PLACE_TYPE_LABEL[PLACE_TYPE.FOOD]}</option>
+          </select>
+          <button
+            type="button"
+            onClick={addManual}
+            className="h-10 px-4 rounded-lg bg-stone-900 text-white text-sm flex items-center justify-center gap-1"
+          >
+            <Plus className="h-4 w-4" />
+            {M.manualAdd}
+          </button>
+        </div>
+        <p className="mt-1 text-xs text-red-600">{manualErr}</p>
+      </div>
+      <div className="mt-6 flex flex-col sm:flex-row gap-3 sm:items-center">
+        <button
+          type="button"
+          disabled={submitting || selectableCandidates.length === 0}
+          onClick={confirmAdd}
+          className={`h-11 px-6 rounded-xl text-sm flex items-center justify-center gap-2 disabled:bg-stone-300 disabled:brightness-100 ${gradBtnCls}`}
+        >
+          {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          <span>{M.confirmCount(selectableCandidates.length)}</span>
+        </button>
+        <p className="text-xs text-stone-500">{M.confirmNote}</p>
+      </div>
+    </section>
+  );
+
+  const emptyBlock = (
+    <section className="rounded-2xl bg-white border border-stone-200 p-8 text-center" data-state="empty">
+      <span className="w-16 h-16 mx-auto rounded-2xl bg-stone-100 text-stone-400 grid place-items-center">
+        <MapPin className="h-[34px] w-[34px]" />
+      </span>
+      <p className="mt-4 font-semibold">{M.emptyTitle}</p>
+      <p className="mt-1 text-sm text-stone-500">{M.emptyDesc}</p>
+      <div className="mt-5 flex flex-col sm:flex-row gap-3 justify-center">
+        <button
+          type="button"
+          onClick={backToInput}
+          className="h-10 px-5 rounded-lg border border-stone-300 text-sm"
+        >
+          {M.emptyChange}
+        </button>
+        <button
+          type="button"
+          onClick={manualOnly}
+          className="h-10 px-5 rounded-lg bg-primary text-white text-sm font-semibold"
+        >
+          {M.emptyManual}
+        </button>
+      </div>
+    </section>
+  );
+
+  const errorBlock = (
+    <section className="rounded-2xl bg-red-50 border border-red-200 p-8 text-center" data-state="error">
+      <span className="w-16 h-16 mx-auto rounded-2xl bg-white text-red-500 grid place-items-center">
+        <Bot className="h-[34px] w-[34px]" />
+      </span>
+      <p className="mt-4 font-semibold text-red-700">{M.errorTitle}</p>
+      <p className="mt-1 text-sm text-red-600">{M.errorDesc}</p>
+      <div className="mt-5 flex flex-col sm:flex-row gap-3 justify-center">
+        <button
+          type="button"
+          onClick={extract}
+          className="h-10 px-5 rounded-lg bg-primary text-white text-sm font-semibold"
+        >
+          {M.errorRetry}
+        </button>
+        <button
+          type="button"
+          onClick={manualOnly}
+          className="h-10 px-5 rounded-lg border border-red-300 bg-white text-sm"
+        >
+          {M.errorManual}
+        </button>
+      </div>
+    </section>
+  );
+
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">导入地点 · {cityName ?? '未指定城市'}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          粘贴小红书 / 抖音分享文案，AI 帮你找出里面的景点和美食，确认后再进入勾选。
-        </p>
+      <div className="flex items-center gap-3">
+        <Link
+          href={ROUTES.ROUTE_NEW}
+          aria-label="返回路线设置"
+          className="w-9 h-9 rounded-lg border border-stone-200 bg-white grid place-items-center"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </Link>
+        <div>
+          <h1 className="text-xl md:text-2xl font-bold text-stone-900">
+            {M.titlePrefix} <span className="text-primary">{cityName ?? M.noCity}</span>
+          </h1>
+          <p className="text-sm text-stone-500">{M.desc}</p>
+        </div>
       </div>
 
-      {notice ? (
-        <p
-          className={`mb-4 rounded-xl border px-4 py-3 text-sm ${
-            notice.tone === 'ok'
-              ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-              : notice.tone === 'err'
-                ? 'border-red-200 bg-red-50 text-red-700'
-                : 'border-amber-200 bg-amber-50 text-amber-800'
-          }`}
-        >
-          {notice.text}
-        </p>
-      ) : null}
-
-      <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_300px]">
-        <div className="space-y-5">
-          {/* 卡片① 当前城市的收藏地点和美食 */}
-          <section className={cardCls}>
-            <h2 className="text-sm font-semibold">当前城市的收藏地点和美食</h2>
-            <div className="mt-3 flex rounded-xl bg-muted p-1">
-              {(
-                [
-                  ['all', '全部'],
-                  [PLACE_TYPE.ATTRACTION, PLACE_TYPE_LABEL[PLACE_TYPE.ATTRACTION]],
-                  [PLACE_TYPE.FOOD, PLACE_TYPE_LABEL[PLACE_TYPE.FOOD]],
-                ] as const
-              ).map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setPlaceTab(value)}
-                  className={tabCls(placeTab === value)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-
-            {cityPlaces.length === 0 ? (
-              <p className="mt-3 rounded-xl bg-muted px-4 py-3 text-xs text-muted-foreground">
-                这座城市还没有收藏地点，可用下方的导入卡粘贴文案，或手动输入地点。
-              </p>
-            ) : visiblePlaces.length === 0 ? (
-              <p className="mt-3 rounded-xl bg-muted px-4 py-3 text-xs text-muted-foreground">
-                当前分类下没有收藏地点。
-              </p>
-            ) : (
-              <ul className="mt-3 space-y-2">
-                {visiblePlaces.map((p) => {
-                  const added = addedSet.has(p.id);
-                  return (
-                    <li
-                      key={p.id}
-                      className="flex items-center gap-3 rounded-xl border border-border px-3 py-2"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="truncate text-sm font-medium">{p.name}</span>
-                          <span className={typeBadgeCls(p.type)}>{PLACE_TYPE_LABEL[p.type]}</span>
-                        </div>
-                        <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                          {p.address ?? '待定位'}
-                        </p>
-                      </div>
-                      {added ? (
-                        <span className="shrink-0 text-xs text-muted-foreground">已在当前路线</span>
-                      ) : (
-                        <button
-                          type="button"
-                          disabled={busyId === p.id}
-                          onClick={() => addToRoute(p.id)}
-                          className="h-9 shrink-0 rounded-lg border border-border px-3 text-xs font-medium hover:bg-muted disabled:opacity-50"
-                        >
-                          加入当前路线
-                        </button>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </section>
-
-          {/* 卡片② 导入文案 */}
-          <section className={cardCls}>
-            <h2 className="text-sm font-semibold">导入文案</h2>
-            <div className="mt-3 flex rounded-xl bg-muted p-1">
-              {(
-                [
-                  ['text', '粘贴分享文案'],
-                  ['link', '粘贴链接'],
-                ] as const
-              ).map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setImportTab(value)}
-                  className={tabCls(importTab === value)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-
-            {importTab === 'link' ? (
-              <p className="mt-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-2.5 text-xs text-sky-800">
-                第一版不会直接打开或读取小红书 / 抖音页面；请同时粘贴分享时自动生成的文案，否则无法提取。
-              </p>
-            ) : null}
-
-            <textarea
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              rows={5}
-              placeholder="把小红书 / 抖音的分享文案整段粘贴到这里"
-              className="mt-3 w-full rounded-xl border border-border p-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-            />
-            <div className="mt-1.5 flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">只识别文案中的景点和美食，不会打开外部链接</span>
-              <span className={tooLong ? 'text-red-600' : 'text-muted-foreground'}>
-                {text.length} / {BUSINESS.MAX_IMPORT_TEXT_LENGTH}
-              </span>
-            </div>
-            {tooLong ? <p className="mt-1 text-xs text-red-600">{MESSAGES.IMPORT_TEXT_TOO_LONG}</p> : null}
-
-            <div className="mt-3 flex flex-wrap gap-2">
-              <button
-                type="button"
-                disabled={extracting || tooLong || text.trim().length === 0}
-                onClick={extract}
-                className="flex h-11 items-center gap-1.5 rounded-xl bg-gradient-to-r from-primary-from to-primary-to px-5 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50"
+      <div className="mt-6 grid lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          {/* 当前城市的收藏地点和美食 */}
+          <section className={cardCls} id="favorites">
+            <div className="flex flex-wrap items-start gap-3 justify-between">
+              <div>
+                <h2 className="font-semibold text-stone-900 flex items-center gap-2">
+                  <Bookmark className="h-4 w-4 text-primary" />
+                  {M.favTitle}
+                </h2>
+                <p className="mt-1 text-xs text-stone-500">{M.favDesc}</p>
+              </div>
+              <Link
+                href={ROUTES.COLLECTED}
+                className="text-sm text-primary hover:underline flex items-center gap-1"
               >
-                <Sparkles className="h-4 w-4" />
-                {extracting ? '提取中…' : 'AI 提取地点'}
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowManual((v) => !v)}
-                className="flex h-11 items-center gap-1.5 rounded-xl border border-border px-5 text-sm font-medium hover:bg-muted"
-              >
-                不识别，手动输入地点
-              </button>
+                <Bookmark className="h-4 w-4" />
+                {M.favManage}
+              </Link>
             </div>
-
-            {showManual ? (
-              <div className="mt-4 rounded-xl bg-muted p-3">
-                <div className="flex flex-wrap gap-2">
-                  <input
-                    value={manualName}
-                    onChange={(e) => setManualName(e.target.value)}
-                    placeholder="地点名称"
-                    className={`${inputCls} flex-1 bg-background`}
-                  />
-                  <select
-                    value={manualType}
-                    onChange={(e) => setManualType(e.target.value as PlaceType)}
-                    className="h-11 rounded-xl border border-border bg-background px-3 text-sm outline-none focus:border-primary"
-                  >
-                    <option value={PLACE_TYPE.ATTRACTION}>{PLACE_TYPE_LABEL[PLACE_TYPE.ATTRACTION]}</option>
-                    <option value={PLACE_TYPE.FOOD}>{PLACE_TYPE_LABEL[PLACE_TYPE.FOOD]}</option>
-                  </select>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <div className="flex bg-stone-100 rounded-xl p-1">
+                {(
+                  [
+                    ['all', M.favTabAll],
+                    [PLACE_TYPE.ATTRACTION, PLACE_TYPE_LABEL[PLACE_TYPE.ATTRACTION]],
+                    [PLACE_TYPE.FOOD, PLACE_TYPE_LABEL[PLACE_TYPE.FOOD]],
+                  ] as const
+                ).map(([value, label]) => (
                   <button
+                    key={value}
                     type="button"
-                    onClick={addManual}
-                    className="h-11 shrink-0 rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground hover:brightness-110"
+                    onClick={() => setFavTab(value)}
+                    className={`px-3.5 py-1.5 rounded-lg text-sm font-semibold ${
+                      favTab === value ? 'bg-white shadow-sm text-stone-900' : 'text-stone-500'
+                    }`}
                   >
-                    加入列表
+                    {label}
                   </button>
-                </div>
+                ))}
               </div>
-            ) : null}
+              <span className="text-xs text-stone-500">
+                {M.favSum(cityPlaces.length, spotCount, foodCount)}
+              </span>
+              <button
+                type="button"
+                disabled={cityPlaces.length === 0}
+                onClick={addAllFav}
+                className={`ml-auto h-10 px-4 rounded-xl text-sm flex items-center gap-1.5 disabled:opacity-50 ${softBtnCls}`}
+              >
+                <ListPlus className="h-4 w-4" />
+                {M.favAddAll}
+              </button>
+            </div>
+            <div className="mt-4">{favBody}</div>
           </section>
 
-          {/* 提取 / 手动结果区 */}
-          {candidates.length > 0 ? (
-            <section className={cardCls}>
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-sm font-semibold">识别到 {candidates.length} 个地点，请确认</h2>
-                <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] text-amber-700">
-                  AI 解析结果仅供参考，可修改名称、类型，或删除
-                </span>
-              </div>
-              <ul className="mt-3 space-y-2">
-                {candidates.map((c) => (
-                  <li key={c.key} className="flex flex-wrap items-center gap-2 rounded-xl border border-border px-3 py-2">
-                    <button
-                      type="button"
-                      aria-label="勾选"
-                      onClick={() =>
-                        setCandidates((prev) =>
-                          prev.map((x) => (x.key === c.key ? { ...x, checked: !x.checked } : x)),
-                        )
-                      }
-                      className={`grid h-6 w-6 shrink-0 place-items-center rounded-md border ${
-                        c.checked ? 'border-primary bg-primary text-white' : 'border-border'
-                      }`}
-                    >
-                      {c.checked ? <Check className="h-3.5 w-3.5" /> : null}
-                    </button>
-                    <input
-                      value={c.name}
-                      onChange={(e) =>
-                        setCandidates((prev) =>
-                          prev.map((x) => (x.key === c.key ? { ...x, name: e.target.value } : x)),
-                        )
-                      }
-                      className="h-9 min-w-0 flex-1 rounded-lg border border-border px-2 text-sm outline-none focus:border-primary"
-                    />
-                    <select
-                      value={c.type}
-                      onChange={(e) =>
-                        setCandidates((prev) =>
-                          prev.map((x) =>
-                            x.key === c.key ? { ...x, type: e.target.value as PlaceType } : x,
-                          ),
-                        )
-                      }
-                      className="h-9 shrink-0 rounded-lg border border-border bg-background px-2 text-sm outline-none focus:border-primary"
-                    >
-                      <option value={PLACE_TYPE.ATTRACTION}>{PLACE_TYPE_LABEL[PLACE_TYPE.ATTRACTION]}</option>
-                      <option value={PLACE_TYPE.FOOD}>{PLACE_TYPE_LABEL[PLACE_TYPE.FOOD]}</option>
-                    </select>
-                    <button
-                      type="button"
-                      aria-label="删除"
-                      onClick={() => setCandidates((prev) => prev.filter((x) => x.key !== c.key))}
-                      className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-border text-muted-foreground hover:bg-muted"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-
-              <div className="mt-4 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <button
-                  type="button"
-                  onClick={() => { setCandidates([]); setText(''); }}
-                  className="h-11 rounded-xl border border-border px-5 text-sm font-medium hover:bg-muted"
-                >
-                  重新粘贴
-                </button>
-                <button
-                  type="button"
-                  disabled={submitting || selectedCandidates.length === 0}
-                  onClick={confirmAdd}
-                  className="flex h-11 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-primary-from to-primary-to px-6 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50"
-                >
-                  {submitting ? '添加中…' : `确认添加 ${selectedCandidates.length} 个地点`}
-                </button>
-              </div>
-            </section>
-          ) : null}
+          {/* 导入文案 / 识别中 / 候选确认 / 未识别 / 失败 */}
+          {status === 'loading' ? loadingBlock : null}
+          {status === 'success' ? successBlock : null}
+          {status === 'empty' ? emptyBlock : null}
+          {status === 'error' ? errorBlock : null}
+          {status === 'normal' ? importCard : null}
         </div>
 
-        {/* 右栏小贴士 */}
-        <aside className="space-y-5">
-          <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
-            <h2 className="flex items-center gap-1.5 text-sm font-semibold text-amber-800">
-              <Link2 className="h-4 w-4" />
-              导入小贴士
-            </h2>
-            <ul className="mt-3 space-y-2 text-xs text-amber-800">
-              <li>一次最多 {BUSINESS.MAX_IMPORT_TEXT_LENGTH} 字，超长请分次粘贴。</li>
-              <li>同名地点会自动去重，不会重复保存。</li>
-              <li>只识别当前城市（{cityName ?? '未指定城市'}）范围内的地点。</li>
-              <li>已在当前路线中的地点重复加入会自动跳过。</li>
+        {/* 右侧：提示 */}
+        <aside className="space-y-4">
+          <div className="rounded-2xl bg-amber-50 border border-amber-200 p-5 text-sm text-amber-900">
+            <h3 className="font-semibold flex items-center gap-1.5">
+              <Lightbulb className="h-4 w-4" />
+              {M.asideTitle}
+            </h3>
+            <ul className="mt-2 space-y-1.5 list-disc pl-5">
+              {M.asideTips.map((tip) => (
+                <li key={tip}>{tip}</li>
+              ))}
             </ul>
-          </section>
-          <section className={cardCls}>
-            <p className="text-xs text-muted-foreground">
-              完成导入后，进入「勾选地点」挑选这次想去的地点，再生成路线。
-            </p>
-          </section>
+            <div className="mt-4 pt-3 border-t border-amber-200 flex items-center gap-2">
+              <span className="text-xs text-amber-800">
+                {M.asideImportedPre} <span className="font-semibold">{importedCount}</span>{' '}
+                {M.asideImportedPost}
+              </span>
+              <Link
+                href={ROUTES.ROUTE_PLACES(routeId)}
+                className="ml-auto h-9 px-3.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold flex items-center gap-1"
+              >
+                <CheckCheck className="h-4 w-4" />
+                {M.asideGo}
+              </Link>
+            </div>
+          </div>
         </aside>
       </div>
 
-      <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
-        <button
-          type="button"
-          onClick={() => router.push(ROUTES.ROUTE_PLACES(routeId))}
-          className="flex h-11 items-center justify-center rounded-xl border border-border px-6 text-sm font-medium hover:bg-muted"
+      {toast ? (
+        <div
+          className={`fixed left-1/2 top-20 z-50 -translate-x-1/2 rounded-xl px-4 py-2.5 text-sm text-white shadow-lg ${
+            toast.tone === 'ok' ? 'bg-emerald-600' : toast.tone === 'err' ? 'bg-red-600' : 'bg-foreground'
+          }`}
         >
-          去勾选地点
-        </button>
-      </div>
+          {toast.text}
+        </div>
+      ) : null}
     </div>
   );
 }

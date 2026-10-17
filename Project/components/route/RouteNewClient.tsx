@@ -3,11 +3,29 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Lock, MapPin, Minus, Plus } from 'lucide-react';
+import {
+  ArrowLeft,
+  ArrowLeftRight,
+  Bike,
+  CalendarRange,
+  CheckCircle2,
+  CircleAlert,
+  ClipboardList,
+  Footprints,
+  Info,
+  Lock,
+  LoaderCircle,
+  MapPinned,
+  MapPinPlus,
+  Minus,
+  Plus,
+  Type,
+} from 'lucide-react';
 import { BUSINESS } from '@/config/business';
+import { TRANSPORT, TRANSPORT_LABEL } from '@/config/enums';
 import { MESSAGES } from '@/config/messages';
 import { ROUTES } from '@/config/routes';
-import { TRANSPORT, TRANSPORT_LABEL } from '@/config/enums';
+import { cn } from '@/lib/utils';
 import { parseTripSettings } from '@/lib/route-settings';
 import {
   EMPTY_TRIP_SETTINGS,
@@ -16,23 +34,36 @@ import {
 } from '@/components/route/TripSettingsFields';
 import type { Transport } from '@/types';
 
-const cardCls = 'rounded-2xl border border-border bg-background p-5';
-const inputCls =
-  'h-11 w-full rounded-xl border border-border px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
-const chipCls = (on: boolean) =>
-  `flex h-12 items-center justify-center gap-1.5 rounded-xl border-2 text-sm font-medium ${
-    on ? 'border-primary bg-primary/5 text-primary' : 'border-border hover:bg-muted'
-  }`;
+const CARD_CLS = 'mt-5 rounded-2xl border border-stone-200 bg-white p-5 md:p-6';
+const LABEL_CLS = 'flex items-center gap-1.5 text-sm font-semibold text-stone-900';
+const BADGE_OPT = 'rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-normal text-stone-600';
+const INPUT_CLS =
+  'h-11 w-full rounded-xl border border-stone-300 bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
+
+/** 单日 / 多日、步行 / 骑行 等 2 列候选块 */
+function bigChipCls(on: boolean, layout = 'items-center justify-center gap-1.5') {
+  return cn(
+    'flex h-12 rounded-xl border-2 text-sm font-medium',
+    layout,
+    on
+      ? 'border-primary bg-primary/5 text-primary'
+      : 'border-stone-200 text-stone-600 hover:border-stone-300',
+  );
+}
 
 /** U05 新建路线：城市 → 出行设置 → 标题 / 天数 / 市内交通，保存后进入导入地点（U06）。 */
 export function RouteNewClient({
   cities,
   initialCityParam,
+  initialDestParam,
 }: {
   cities: { id: string; name: string }[];
   /** 来自 /city 的跳转参数，允许是城市 id 或城市名 */
   initialCityParam: string | null;
+  /** 来自 /city 的二级目的地参数（城市内地名，或作为旅行城市的周边城市） */
+  initialDestParam: string | null;
 }) {
+  const M = MESSAGES;
   const router = useRouter();
 
   const cityNames = useMemo(() => cities.map((c) => c.name), [cities]);
@@ -40,47 +71,52 @@ export function RouteNewClient({
     if (!initialCityParam) return null;
     const hit = cities.find((c) => c.id === initialCityParam);
     if (hit) return hit.name;
-    return cities.find((c) => c.name === initialCityParam)?.name ?? null;
+    // 未命中字典表（如周边城市 / 县镇）时按原型直接用参数作为旅行城市名
+    return initialCityParam;
   }, [cities, initialCityParam]);
 
-  const [cityName, setCityName] = useState<string | null>(initialCity);
-  const [cityPickerOpen, setCityPickerOpen] = useState(!initialCity);
-  const [cityKeyword, setCityKeyword] = useState('');
-  const [title, setTitle] = useState('');
-  const [days, setDays] = useState<number>(BUSINESS.MIN_DAYS);
+  const [cityName] = useState<string | null>(initialCity);
+  const [destName] = useState<string | null>(initialDestParam);
+  const [title, setTitle] = useState<string>(MESSAGES.TRIP_TITLE.defaultTitle ?? '');
+  const [days, setDays] = useState<number>(1);
   const [transport, setTransport] = useState<Transport>(TRANSPORT.WALK);
   const [trip, setTrip] = useState<TripSettingsValue>(EMPTY_TRIP_SETTINGS);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ city?: string; title?: string; origin?: string }>({});
   const [notice, setNotice] = useState('');
 
-  const cityMatches = useMemo(() => {
-    const kw = cityKeyword.trim();
-    return (kw ? cities.filter((c) => c.name.includes(kw)) : cities).slice(0, 12);
-  }, [cities, cityKeyword]);
-
   const fullTitle = cityName ? `${cityName} · ${title.trim()}` : title.trim();
   const isMultiDay = days > 1;
+  /** 旅行城市卡片显示名：带二级目的地时按原型标注（周边城市 / 所属城市） */
+  const cityCardName = cityName
+    ? destName
+      ? destName === cityName
+        ? `${destName}${M.TRIP_CITY.nearbyTag}`
+        : M.TRIP_CITY.cardDest(destName, cityName)
+      : cityName
+    : M.TRIP_CITY.none;
+  /** 出发城市卡片说明里的「旅行目的地」标签（原型 destLabel：目的地与城市同名时标注“周边城市”） */
+  const destHint = destName
+    ? destName === cityName
+      ? `${destName}${M.TRIP_CITY.nearbyTag}`
+      : destName
+    : M.TRIP_CITY.destFallback;
+  const titleLength = title.trim().length;
+  const titleNearLimit =
+    titleLength >= BUSINESS.MAX_ROUTE_TITLE_LENGTH - 5 && titleLength < BUSINESS.MAX_ROUTE_TITLE_LENGTH;
 
   function patchTrip(patch: Partial<TripSettingsValue>) {
     setTrip((prev) => ({ ...prev, ...patch }));
   }
 
-  function pickCity(name: string) {
-    setCityName(name);
-    setCityPickerOpen(false);
-    setCityKeyword('');
-    setErrors((prev) => ({ ...prev, city: undefined }));
-  }
-
   async function submit() {
     const nextErrors: typeof errors = {};
-    if (!cityName) nextErrors.city = MESSAGES.TRIP_CITY_REQUIRED;
-    if (!title.trim()) nextErrors.title = MESSAGES.ROUTE_TITLE_REQUIRED;
+    if (!cityName) nextErrors.city = M.TRIP_CITY_REQUIRED;
+    if (!title.trim()) nextErrors.title = M.ROUTE_TITLE_REQUIRED;
 
     const parsed = parseTripSettings(trip);
     if (!parsed.ok) nextErrors.origin = parsed.message;
-    else if (!parsed.value.origin_city) nextErrors.origin = MESSAGES.ORIGIN_CITY_REQUIRED;
+    else if (!parsed.value.origin_city) nextErrors.origin = M.ORIGIN_CITY_REQUIRED;
 
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0 || !parsed.ok) return;
@@ -106,13 +142,13 @@ export function RouteNewClient({
       });
       const data = (await res.json()) as { ok: boolean; id?: string; message?: string };
       if (!data.ok || !data.id) {
-        setNotice(data.message ?? MESSAGES.NETWORK_ERROR);
+        setNotice(data.message ?? M.TRIP_SAVE_ERROR.desc);
         return;
       }
-      setNotice(MESSAGES.ROUTE_SETTINGS_SAVED);
+      setNotice(M.ROUTE_SETTINGS_SAVED);
       router.push(ROUTES.ROUTE_ADD(data.id));
     } catch {
-      setNotice(MESSAGES.NETWORK_ERROR);
+      setNotice(M.TRIP_SAVE_ERROR.desc);
     } finally {
       setSubmitting(false);
     }
@@ -120,195 +156,263 @@ export function RouteNewClient({
 
   return (
     <div className="mx-auto max-w-3xl">
-      {/* 步骤条 */}
-      <ol className="mb-6 flex items-center gap-2 overflow-x-auto text-xs whitespace-nowrap">
-        <li className="text-muted-foreground">1 选城市</li>
-        <li className="h-px w-6 bg-border" />
-        <li className="font-semibold text-primary">2 设置路线</li>
-        <li className="h-px w-6 bg-border" />
-        <li className="text-muted-foreground">3 导入地点</li>
-        <li className="h-px w-6 bg-border" />
-        <li className="text-muted-foreground">4 勾选地点</li>
-        <li className="h-px w-6 bg-border" />
-        <li className="text-muted-foreground">5 调整路线</li>
-        <li className="h-px w-6 bg-border" />
-        <li className="text-muted-foreground">6 查看结果</li>
-      </ol>
-
-      <h1 className="text-2xl font-bold">设置这条路线</h1>
-      <p className="mt-2 text-sm text-muted-foreground">
-        先给路线起个名字，再决定从哪出发、怎么去、玩几天、到了住哪儿。这些设置之后都能在路线编辑页里随时改。
-      </p>
-
-      {notice ? (
-        <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+      {/* 保存成功提示（真实流程会立即跳转到导入地点） */}
+      {notice === M.ROUTE_SETTINGS_SAVED ? (
+        <div className="mb-5 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          <CheckCircle2 className="h-4 w-4" />
           {notice}
-        </p>
+        </div>
+      ) : null}
+      {notice && notice !== M.ROUTE_SETTINGS_SAVED ? (
+        <div className="mb-5 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>
+            <span className="font-semibold">{M.TRIP_SAVE_ERROR.title}</span>
+            <span className="mt-0.5 block">{notice}</span>
+          </span>
+        </div>
       ) : null}
 
-      {/* 旅行城市 */}
-      <div className={`mt-5 ${cardCls}`}>
-        <div className="flex items-center gap-3">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-teal-50 text-teal-600">
-            <MapPin className="h-5 w-5" />
+      {/* 未选城市时的引导提示（未登录也可先体验流程） */}
+      {!cityName ? (
+        <div
+          role="alert"
+          className={cn(
+            'mb-5 flex items-start gap-2 rounded-2xl px-4 py-3 text-sm',
+            errors.city
+              ? 'border border-red-300 bg-red-50 text-red-700'
+              : 'border border-amber-200 bg-amber-50 text-amber-800',
+          )}
+        >
+          {errors.city ? (
+            <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+          ) : (
+            <MapPinned className="mt-0.5 h-5 w-5 shrink-0" />
+          )}
+          <span>
+            {errors.city ? M.TRIP_CITY.guideBadPre : M.TRIP_CITY.guidePre}
+            <Link href={ROUTES.CITY} className="font-semibold underline">
+              {M.TRIP_CITY.guideLink}
+            </Link>
+            {errors.city ? M.TRIP_CITY.guideBadPost : M.TRIP_CITY.guidePost}
           </span>
-          <div className="min-w-0 flex-1">
-            <p className="text-xs text-muted-foreground">旅行城市（目的地）</p>
-            <p className="truncate font-semibold">{cityName ?? '—'}</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setCityPickerOpen((v) => !v)}
-            className="h-9 shrink-0 rounded-lg border border-border px-3 text-sm hover:bg-muted"
-          >
-            {cityName ? '更换城市' : '选择城市'}
-          </button>
         </div>
+      ) : null}
 
-        {cityPickerOpen ? (
-          <div className="mt-3">
-            <input
-              value={cityKeyword}
-              onChange={(e) => setCityKeyword(e.target.value)}
-              placeholder="搜索旅行城市，如：成都"
-              className={inputCls}
-            />
-            <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
-              {cityMatches.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => pickCity(c.name)}
-                  className={chipCls(cityName === c.name)}
-                >
-                  {c.name}
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : null}
+      <h1 className="text-2xl font-bold text-stone-900 md:text-3xl">{M.TRIP_HERO.title}</h1>
+      <p className="mt-2 text-sm text-stone-500">{M.TRIP_HERO.desc}</p>
 
-        {errors.city ? (
-          <p className="mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {errors.city}
+      {/* 本期新增范围说明（超出 PRD P0） */}
+      <div className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+        <ClipboardList className="mt-0.5 h-[22px] w-[22px] shrink-0 text-amber-600" />
+        <div className="text-sm text-amber-900">
+          <p className="font-semibold">{M.TRIP_HERO.newInfoTitle}</p>
+          <p className="mt-1 text-amber-800">
+            {M.TRIP_HERO.newInfoDesc1}
+            <strong>{M.TRIP_HERO.newInfoDescStrong}</strong>
+            {M.TRIP_HERO.newInfoDesc2}
           </p>
-        ) : null}
+        </div>
+      </div>
+
+      {/* 旅行城市（来自 /city） */}
+      <div
+        tabIndex={-1}
+        className={cn(
+          'mt-5 flex items-center gap-3 rounded-2xl p-4 outline-none transition focus:ring-2 focus:ring-primary/20',
+          errors.city ? 'border-2 border-red-400 bg-red-50' : 'border border-stone-200 bg-white',
+        )}
+      >
+        <span
+          className={cn(
+            'grid h-11 w-11 place-items-center rounded-xl',
+            errors.city ? 'bg-red-100 text-red-600' : 'bg-teal-50 text-teal-600',
+          )}
+        >
+          <MapPinned className="h-6 w-6" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs text-stone-500">{M.TRIP_CITY.label}</p>
+          <p className="truncate font-semibold text-stone-900">{cityCardName}</p>
+          {errors.city ? (
+            <p className="mt-1 flex items-center gap-1 text-xs text-red-600" role="alert">
+              <CircleAlert className="h-4 w-4 shrink-0" />
+              <span>{errors.city}</span>
+            </p>
+          ) : null}
+        </div>
+        <Link
+          href={ROUTES.CITY}
+          className={cn(
+            'flex h-9 shrink-0 items-center gap-1 whitespace-nowrap rounded-lg px-3 text-sm',
+            errors.city
+              ? 'bg-gradient-to-r from-primary-from to-primary-to font-semibold text-white hover:brightness-110'
+              : 'border border-stone-300 hover:bg-stone-50',
+          )}
+        >
+          {cityName ? (
+            <>
+              <ArrowLeftRight className="h-4 w-4" />
+              {M.TRIP_CITY.change}
+            </>
+          ) : (
+            <>
+              <MapPinPlus className="h-4 w-4" />
+              {M.TRIP_CITY.pick}
+            </>
+          )}
+        </Link>
       </div>
 
       {/* 出行设置（本期新增） */}
-      <div className="mt-5">
-        <TripSettingsFields
-          value={trip}
-          onChange={patchTrip}
-          cityOptions={cityNames}
-          destCity={cityName}
-          days={days}
-          originError={errors.origin}
-        />
-      </div>
+      <TripSettingsFields
+        value={trip}
+        onChange={patchTrip}
+        cityOptions={cityNames}
+        destCity={cityName}
+        destHint={destHint}
+        days={days}
+        originError={errors.origin}
+      />
 
       {/* 标题 / 天数 / 市内交通 */}
-      <div className={`mt-5 space-y-7 ${cardCls}`}>
+      <div className={cn(CARD_CLS, 'space-y-7')}>
         <div>
-          <p className="text-sm font-semibold">路线标题</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            标题会自动带上当前城市名，你只需要填写城市名后面的部分，最多 {BUSINESS.MAX_ROUTE_TITLE_LENGTH} 字
-          </p>
-          <div className="mt-3 flex h-11 items-stretch overflow-hidden rounded-xl border border-border bg-background focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
-            <span className="flex shrink-0 items-center gap-1 border-r border-border bg-muted px-3 text-sm font-semibold text-muted-foreground">
-              <Lock className="h-3.5 w-3.5" /> {cityName ?? '—'} ·
+          <label htmlFor="routeTitle" className={LABEL_CLS}>
+            <Type className="h-4 w-4 text-primary" />
+            {M.TRIP_TITLE.label}
+          </label>
+          <p className="mt-1 text-xs text-stone-500">{M.TRIP_TITLE.desc}</p>
+          <div
+            className={cn(
+              'mt-3 flex h-11 w-full items-stretch overflow-hidden rounded-xl border bg-white',
+              errors.title
+                ? 'border-red-400 bg-red-50'
+                : 'border-stone-300 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20',
+            )}
+          >
+            <span
+              title={M.TRIP_TITLE.prefixTitle}
+              className="flex shrink-0 items-center gap-1 whitespace-nowrap border-r border-stone-200 bg-stone-100 pl-3 pr-2.5 text-sm font-semibold text-stone-700"
+            >
+              <Lock className="h-4 w-4 text-stone-400" />
+              {cityName ?? M.TRIP_TITLE.prefixEmpty} ·
             </span>
             <input
+              id="routeTitle"
               value={title}
               maxLength={BUSINESS.MAX_ROUTE_TITLE_LENGTH}
               onChange={(e) => {
                 setTitle(e.target.value);
                 setErrors((prev) => ({ ...prev, title: undefined }));
               }}
-              placeholder="例如：老城区半日骑行"
+              placeholder={M.TRIP_TITLE.placeholder}
               className="h-full min-w-0 flex-1 bg-transparent px-3 text-sm outline-none"
             />
           </div>
-          <div className="mt-1.5 flex justify-between text-xs text-muted-foreground">
-            <span>前缀是当前城市，不可直接修改；重新选择城市后前缀会自动同步</span>
-            <span>
-              {title.trim().length} / {BUSINESS.MAX_ROUTE_TITLE_LENGTH}
+          <div className="mt-1.5 flex items-start gap-3">
+            <p className="flex flex-1 items-start gap-1 text-xs text-stone-500">
+              <Info className="mt-px h-3.5 w-3.5 shrink-0" />
+              <span>{M.TRIP_TITLE.prefixHint}</span>
+            </p>
+            <span
+              className={cn(
+                'shrink-0 text-xs',
+                titleLength >= BUSINESS.MAX_ROUTE_TITLE_LENGTH
+                  ? 'font-semibold text-red-600'
+                  : titleNearLimit
+                    ? 'font-semibold text-amber-600'
+                    : 'text-stone-400',
+              )}
+            >
+              {M.TRIP_TITLE.count(titleLength, BUSINESS.MAX_ROUTE_TITLE_LENGTH)}
             </span>
           </div>
-          {fullTitle ? <p className="mt-1 text-xs text-muted-foreground">预览：{fullTitle}</p> : null}
+          {titleNearLimit ? (
+            <p className="mt-1 text-xs text-amber-600">
+              {M.TRIP_TITLE.warnNear(BUSINESS.MAX_ROUTE_TITLE_LENGTH - titleLength)}
+            </p>
+          ) : null}
           {errors.title ? <p className="mt-1 text-xs text-red-600">{errors.title}</p> : null}
         </div>
 
         <div>
-          <p className="text-sm font-semibold">行程天数</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            多日路线会先按距离聚类，再把每天的地点均匀分配
+          <p className={LABEL_CLS}>
+            <CalendarRange className="h-4 w-4 text-primary" />
+            {M.TRIP_DAYS.label}
           </p>
+          <p className="mt-1 text-xs text-stone-500">{M.TRIP_DAYS.desc}</p>
           <div className="mt-3 grid grid-cols-2 gap-3">
             <button
               type="button"
               onClick={() => setDays(1)}
-              className={chipCls(days === 1)}
+              className={bigChipCls(days === 1, 'flex-col items-center justify-center leading-tight')}
             >
-              单日 · 1 天走完
+              <span className="font-semibold">{M.TRIP_DAYS.single}</span>
+              <span className="text-[11px] opacity-70">{M.TRIP_DAYS.singleSub}</span>
             </button>
             <button
               type="button"
               onClick={() => setDays(BUSINESS.MIN_DAYS)}
-              className={chipCls(isMultiDay)}
+              className={bigChipCls(isMultiDay, 'flex-col items-center justify-center leading-tight')}
             >
-              多日 · {BUSINESS.MIN_DAYS}–{BUSINESS.MAX_DAYS} 天
+              <span className="font-semibold">{M.TRIP_DAYS.many}</span>
+              <span className="text-[11px] opacity-70">{M.TRIP_DAYS.manySub}</span>
             </button>
           </div>
           {isMultiDay ? (
-            <div className="mt-3 flex items-center justify-between rounded-xl bg-muted px-4 py-3">
-              <span className="text-sm text-muted-foreground">共</span>
+            <div className="mt-3 flex items-center justify-between rounded-xl bg-stone-100 px-4 py-3">
+              <span className="text-sm text-stone-600">{M.TRIP_DAYS.unitPre}</span>
               <div className="flex items-center gap-3">
                 <button
                   type="button"
-                  aria-label="减少天数"
+                  aria-label={M.TRIP_DAYS.minus}
                   onClick={() => setDays(Math.max(BUSINESS.MIN_DAYS, days - 1))}
-                  className="grid h-9 w-9 place-items-center rounded-lg border border-border bg-background"
+                  className="grid h-9 w-9 place-items-center rounded-lg border border-stone-300 bg-white"
                 >
                   <Minus className="h-4 w-4" />
                 </button>
                 <span className="w-8 text-center text-lg font-semibold">{days}</span>
                 <button
                   type="button"
-                  aria-label="增加天数"
+                  aria-label={M.TRIP_DAYS.plus}
                   onClick={() => setDays(Math.min(BUSINESS.MAX_DAYS, days + 1))}
-                  className="grid h-9 w-9 place-items-center rounded-lg border border-border bg-background"
+                  className="grid h-9 w-9 place-items-center rounded-lg border border-stone-300 bg-white"
                 >
                   <Plus className="h-4 w-4" />
                 </button>
               </div>
-              <span className="text-sm text-muted-foreground">天</span>
+              <span className="text-sm text-stone-600">{M.TRIP_DAYS.unitPost}</span>
             </div>
           ) : null}
         </div>
 
         <div>
-          <p className="flex flex-wrap items-center gap-1.5 text-sm font-semibold">
-            市内交通
-            <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
-              默认步行
-            </span>
+          <p className={LABEL_CLS}>
+            <Footprints className="h-4 w-4 text-primary" />
+            {M.TRIP_TRANSPORT.label}
+            <span className={BADGE_OPT}>{M.TRIP_TRANSPORT.badge}</span>
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            整条路线在<strong className="font-semibold">旅行城市内</strong>
-            统一使用一种交通方式，用于估算距离和时间；与上面的「城际交通 · 去程」不是同一件事。
+          <p className="mt-1 text-xs text-stone-500">
+            {M.TRIP_TRANSPORT.desc1}
+            <strong>{M.TRIP_TRANSPORT.descStrong}</strong>
+            {M.TRIP_TRANSPORT.desc2}
           </p>
           <div className="mt-3 grid grid-cols-2 gap-3">
-            {Object.values(TRANSPORT).map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                onClick={() => setTransport(mode)}
-                className={chipCls(transport === mode)}
-              >
-                {TRANSPORT_LABEL[mode]}
-              </button>
-            ))}
+            {Object.values(TRANSPORT).map((mode) => {
+              const Icon = mode === TRANSPORT.BIKE ? Bike : Footprints;
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setTransport(mode)}
+                  className={bigChipCls(transport === mode)}
+                >
+                  <Icon className="h-5 w-5" />
+                  {TRANSPORT_LABEL[mode]}
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -317,18 +421,28 @@ export function RouteNewClient({
       <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
         <Link
           href={ROUTES.CITY}
-          className="flex h-12 items-center justify-center rounded-xl border border-border px-6 text-sm font-medium hover:bg-muted"
+          className="flex h-12 items-center justify-center gap-1.5 truncate whitespace-nowrap rounded-xl border border-stone-300 px-6 text-sm font-medium hover:bg-stone-50"
         >
-          去选择城市
+          <ArrowLeft className="h-4 w-4" />
+          {M.TRIP_FOOTER.back}
         </Link>
-        <button
-          type="button"
-          disabled={submitting}
-          onClick={submit}
-          className="flex h-12 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary-from to-primary-to px-7 font-semibold text-white hover:brightness-110 disabled:opacity-50"
-        >
-          {submitting ? '保存中…' : '下一步：导入地点'}
-        </button>
+        <div className="flex flex-col items-stretch gap-1.5 sm:items-end">
+          <button
+            type="button"
+            disabled={submitting}
+            onClick={submit}
+            className="flex h-12 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary-from to-primary-to px-7 font-semibold text-white hover:brightness-110 disabled:opacity-60"
+          >
+            {submitting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
+            {M.TRIP_FOOTER.next}
+          </button>
+          {errors.origin ? (
+            <p className="flex items-center gap-1 text-xs text-red-600 sm:justify-end">
+              <CircleAlert className="h-4 w-4 shrink-0" />
+              <span>{M.TRIP_FOOTER.nextErr}</span>
+            </p>
+          ) : null}
+        </div>
       </div>
     </div>
   );

@@ -1,12 +1,16 @@
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/server';
-import { ROUTES } from '@/config/routes';
+import { ArrowLeft, CloudOff } from 'lucide-react';
 import {
   CollectedClient,
   type CollectedItem,
   type RouteOption,
 } from '@/components/collected/CollectedClient';
+import { MESSAGES } from '@/config/messages';
+import { ROUTES } from '@/config/routes';
+import { createClient } from '@/lib/supabase/server';
 import type { ImportSource, PlaceType } from '@/types';
+
+const M = MESSAGES.COLLECTED;
 
 /**
  * U11 我的收藏地点（本期新增）
@@ -23,7 +27,11 @@ export default async function CollectedPage() {
   if (!user) {
     return (
       <p className="text-sm text-muted-foreground">
-        请先<Link href={ROUTES.LOGIN} className="text-primary underline">登录</Link>后查看收藏地点。
+        请先
+        <Link href={ROUTES.LOGIN} className="text-primary underline">
+          登录
+        </Link>
+        后查看收藏地点。
       </p>
     );
   }
@@ -44,11 +52,45 @@ export default async function CollectedPage() {
       .limit(20),
   ]);
 
+  const header = (
+    <div className="flex items-start gap-3">
+      <Link
+        href={ROUTES.HOME}
+        aria-label={M.backAria}
+        className="mt-1 grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-stone-200 bg-white hover:bg-stone-100"
+      >
+        <ArrowLeft className="h-4 w-4" />
+      </Link>
+      <div>
+        <h1 className="text-2xl font-bold text-stone-900 md:text-3xl">{M.title}</h1>
+        <p className="mt-1 text-sm text-stone-600">{M.desc}</p>
+      </div>
+    </div>
+  );
+
   if (placesRes.error) {
     return (
-      <div className="rounded-2xl border border-red-200 bg-red-50 p-8 text-center">
-        <p className="font-semibold text-red-800">收藏地点加载失败</p>
-        <p className="mt-1 text-sm text-red-700">{placesRes.error.message}</p>
+      <div>
+        {header}
+        <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-8 text-center">
+          <CloudOff className="mx-auto h-9 w-9 text-red-500" />
+          <p className="mt-3 font-semibold text-red-800">{M.errorTitle}</p>
+          <p className="mt-1 text-sm text-red-700">{M.errorDesc}</p>
+          <div className="mt-5 flex flex-col justify-center gap-3 sm:flex-row">
+            <Link
+              href={ROUTES.COLLECTED}
+              className="flex h-11 items-center justify-center rounded-xl bg-red-600 px-6 font-semibold text-white hover:bg-red-700"
+            >
+              {M.errorRetry}
+            </Link>
+            <Link
+              href={`${ROUTES.HOME}#importCollect`}
+              className="flex h-11 items-center justify-center rounded-xl border border-red-300 px-6 font-medium text-red-700 hover:bg-red-100"
+            >
+              {M.errorReimport}
+            </Link>
+          </div>
+        </div>
       </div>
     );
   }
@@ -89,14 +131,10 @@ export default async function CollectedPage() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">我的收藏地点</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          先从分享文案里收藏地点，再挑选加入路线。收藏库保存在你的账号下。
-        </p>
+      {header}
+      <div className="mt-6">
+        <CollectedClient items={items} routes={options} usedPlaceIds={usedPlaceIds} />
       </div>
-
-      <CollectedClient items={items} routes={options} usedPlaceIds={usedPlaceIds} />
     </div>
   );
 }

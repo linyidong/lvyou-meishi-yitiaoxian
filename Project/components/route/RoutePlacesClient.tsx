@@ -1,15 +1,26 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Check } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import {
+  Bike,
+  Camera,
+  Footprints,
+  Loader2,
+  MapPinOff,
+  MapPinPlus,
+  Plus,
+  Route as RouteIcon,
+  Utensils,
+  X,
+} from 'lucide-react';
 import { BUSINESS } from '@/config/business';
-import { PLACE_TYPE, PLACE_TYPE_LABEL } from '@/config/enums';
+import { PLACE_TYPE, PLACE_TYPE_LABEL, TRANSPORT_LABEL, TRANSPORT } from '@/config/enums';
 import { MESSAGES } from '@/config/messages';
 import { ROUTES } from '@/config/routes';
 import { buildRouteOrder } from '@/lib/route-order';
-import type { PlaceType } from '@/types';
+import type { PlaceType, Transport } from '@/types';
 
 /** 当前城市的已导入地点 */
 export interface RoutePlaceOption {
@@ -22,31 +33,35 @@ export interface RoutePlaceOption {
 }
 
 type PlaceTab = 'all' | PlaceType;
-type Notice = { text: string; tone: 'ok' | 'err' };
 
-const cardCls = 'rounded-2xl border border-border bg-background p-5';
-const tabCls = (on: boolean) =>
-  `flex-1 rounded-lg px-3 py-2 text-sm font-medium ${on ? 'bg-background shadow-sm' : 'text-muted-foreground'}`;
-const typeBadgeCls = (type: PlaceType) =>
-  `rounded-full px-2 py-0.5 text-[11px] ${
-    type === PLACE_TYPE.FOOD ? 'bg-amber-50 text-amber-700' : 'bg-teal-50 text-teal-700'
+const M = MESSAGES.ROUTE_PLACES;
+
+const filterTabCls = (on: boolean) =>
+  `px-3 py-1.5 rounded-lg text-sm ${on ? 'bg-white shadow-sm font-semibold text-stone-900' : 'text-stone-500'}`;
+const pickCls = (on: boolean) =>
+  `h-10 rounded-lg border text-sm flex items-center justify-center gap-1 ${
+    on ? 'border-primary bg-primary/5 text-primary font-semibold' : 'border-stone-200 text-stone-600 hover:bg-stone-50'
+  }`;
+const typeIconCls = (type: PlaceType) =>
+  `w-10 h-10 rounded-xl grid place-items-center shrink-0 ${
+    type === PLACE_TYPE.FOOD ? 'bg-amber-50 text-amber-600' : 'bg-teal-50 text-teal-600'
   }`;
 
 /**
- * U07 勾选地点：勾选后按最近邻排序并均匀分配到每天，写库后进入 U08 编辑页。
+ * U07 勾选地点（六步流程第 4 步）：勾选后按顺路顺序排路线，写库后进入 U08 调整。
  */
 export function RoutePlacesClient({
   routeId,
   cityName,
   days,
-  transportLabel,
+  transport,
   places,
   initialCheckedIds,
 }: {
   routeId: string;
   cityName: string | null;
   days: number;
-  transportLabel: string;
+  transport: Transport;
   places: RoutePlaceOption[];
   /** 已在当前路线中的 place_id，作为默认勾选 */
   initialCheckedIds: string[];
@@ -55,7 +70,10 @@ export function RoutePlacesClient({
   const [tab, setTab] = useState<PlaceTab>('all');
   const [checked, setChecked] = useState<Set<string>>(() => new Set(initialCheckedIds));
   const [generating, setGenerating] = useState(false);
-  const [notice, setNotice] = useState<Notice | null>(null);
+  const [genErr, setGenErr] = useState('');
+  const [failed, setFailed] = useState(false);
+  const [delTarget, setDelTarget] = useState<RoutePlaceOption | null>(null);
+  const [toastText, setToastText] = useState('');
 
   const visible = useMemo(
     () => places.filter((p) => (tab === 'all' ? true : p.type === tab)),
@@ -66,6 +84,26 @@ export function RoutePlacesClient({
   const checkedSpots = selected.filter((p) => p.type === PLACE_TYPE.ATTRACTION).length;
   const checkedFoods = selected.filter((p) => p.type === PLACE_TYPE.FOOD).length;
 
+  const mapPoints = useMemo(() => {
+    const withCoord = places.filter((p) => p.lat !== null && p.lng !== null);
+    if (withCoord.length === 0) return [];
+    const lats = withCoord.map((p) => p.lat as number);
+    const lngs = withCoord.map((p) => p.lng as number);
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+    const minLng = Math.min(...lngs);
+    const maxLng = Math.max(...lngs);
+    const spanLat = maxLat - minLat || 1;
+    const spanLng = maxLng - minLng || 1;
+    return withCoord.map((p) => ({
+      id: p.id,
+      type: p.type,
+      on: checked.has(p.id),
+      x: 15 + (((p.lng as number) - minLng) / spanLng) * 70,
+      y: 15 + (1 - ((p.lat as number) - minLat) / spanLat) * 70,
+    }));
+  }, [places, checked]);
+
   function toggle(id: string) {
     setChecked((prev) => {
       const next = new Set(prev);
@@ -73,34 +111,35 @@ export function RoutePlacesClient({
       else next.add(id);
       return next;
     });
-    setNotice(null);
   }
 
-  function selectAllVisible(on: boolean) {
+  function checkAllVisible(on: boolean) {
     setChecked((prev) => {
       const next = new Set(prev);
       visible.forEach((p) => (on ? next.add(p.id) : next.delete(p.id)));
       return next;
     });
-    setNotice(null);
   }
 
   async function generate() {
     if (selected.length < 2) {
-      setNotice({ text: MESSAGES.ROUTE_MIN_PLACES, tone: 'err' });
+      setGenErr(MESSAGES.ROUTE_MIN_PLACES);
+      return;
+    }
+    if (days > selected.length) {
+      setGenErr(M.dayMinPlaces(days));
+      return;
+    }
+    if (Math.ceil(selected.length / days) > BUSINESS.MAX_PLACES_PER_DAY) {
+      setGenErr(MESSAGES.ROUTE_DAY_LIMIT_EXCEEDED);
       return;
     }
     if (selected.length > BUSINESS.MAX_PLACES_PER_ROUTE) {
-      setNotice({ text: MESSAGES.ROUTE_PLACES_LIMIT_EXCEEDED, tone: 'err' });
-      return;
-    }
-    const capacity = days === 1 ? BUSINESS.MAX_PLACES_PER_DAY : days * BUSINESS.MAX_PLACES_PER_DAY;
-    if (selected.length > capacity) {
-      setNotice({ text: MESSAGES.ROUTE_DAY_LIMIT_EXCEEDED, tone: 'err' });
+      setGenErr(MESSAGES.ROUTE_PLACES_LIMIT_EXCEEDED);
       return;
     }
 
-    setNotice(null);
+    setGenErr('');
     setGenerating(true);
     try {
       const items = buildRouteOrder(
@@ -112,32 +151,93 @@ export function RoutePlacesClient({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ items }),
       });
-      const data = (await res.json()) as { ok: boolean; message?: string };
+      const data = (await res.json()) as { ok: boolean };
       if (!data.ok) {
-        setNotice({ text: data.message ?? MESSAGES.ROUTE_FAILED, tone: 'err' });
+        setFailed(true);
         return;
       }
       router.push(ROUTES.ROUTE_EDIT(routeId));
     } catch {
-      setNotice({ text: MESSAGES.NETWORK_ERROR, tone: 'err' });
+      setFailed(true);
     } finally {
       setGenerating(false);
     }
   }
 
+  function removePlace() {
+    if (!delTarget) return;
+    const name = delTarget.name;
+    const id = delTarget.id;
+    setChecked((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+    setDelTarget(null);
+    setToastText(M.toastRemoved(name));
+    setTimeout(() => setToastText(''), 2600);
+  }
+
+  const header = (
+    <div className="flex flex-col md:flex-row md:items-center gap-3 justify-between">
+      <div>
+        <h1 className="text-xl md:text-2xl font-bold text-stone-900">
+          {cityName ?? M.noCity} {M.titleSuffix}
+        </h1>
+        <p className="mt-1 text-sm text-stone-500">
+          {places.length > 0 && !failed
+            ? M.sum(places.length, selected.length, checkedSpots, checkedFoods)
+            : M.subtitle}
+        </p>
+      </div>
+      <Link
+        href={ROUTES.ROUTE_ADD(routeId)}
+        className="h-10 px-4 rounded-xl border border-stone-300 bg-white hover:bg-stone-50 text-sm font-medium flex items-center justify-center gap-1.5"
+      >
+        <Plus className="h-4 w-4" />
+        {M.continueAdd}
+      </Link>
+    </div>
+  );
+
+  if (failed) {
+    return (
+      <div>
+        {header}
+        <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 py-16 text-center">
+          <MapPinOff className="mx-auto h-12 w-12 text-red-400" />
+          <p className="mt-3 font-semibold text-red-700">{M.errorTitle}</p>
+          <p className="mt-1 text-sm text-red-600 px-6">{M.errorDesc}</p>
+          <button
+            type="button"
+            onClick={() => setFailed(false)}
+            className="mt-4 h-10 px-5 rounded-lg bg-primary hover:brightness-110 text-white text-sm font-semibold"
+          >
+            {M.errorBack}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (places.length === 0) {
     return (
       <div>
-        <h1 className="text-2xl font-bold">{cityName ?? '未指定城市'} · 已导入地点</h1>
-        <div className="mt-4 rounded-2xl border border-dashed border-border bg-background p-10 text-center">
-          <p className="font-semibold">还没有导入任何地点</p>
-          <p className="mt-1 text-sm text-muted-foreground">先粘贴分享文案或手动输入地点，再回到这里勾选。</p>
-          <Link
-            href={ROUTES.ROUTE_ADD(routeId)}
-            className="mt-5 inline-flex h-11 items-center justify-center rounded-xl bg-gradient-to-r from-primary-from to-primary-to px-6 font-semibold text-white hover:brightness-110"
-          >
-            去导入地点
-          </Link>
+        {header}
+        <div className="mt-6 rounded-2xl border border-dashed border-stone-300 bg-white py-16 text-center">
+          <span className="w-16 h-16 mx-auto rounded-2xl bg-amber-50 text-amber-500 grid place-items-center">
+            <MapPinPlus className="h-[34px] w-[34px]" />
+          </span>
+          <p className="mt-4 font-semibold">{M.emptyTitle}</p>
+          <p className="mt-1 text-sm text-stone-500">{M.emptyDesc}</p>
+          <div className="mt-5 flex flex-col sm:flex-row gap-3 justify-center px-6">
+            <Link
+              href={ROUTES.ROUTE_ADD(routeId)}
+              className="h-10 px-5 rounded-lg bg-gradient-to-r from-primary-from to-primary-to hover:brightness-110 text-white text-sm font-semibold flex items-center justify-center"
+            >
+              {M.emptyGo}
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -145,157 +245,226 @@ export function RoutePlacesClient({
 
   return (
     <div>
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">{cityName ?? '未指定城市'} · 已导入地点</h1>
-          <p className="mt-1 text-sm text-muted-foreground">勾选这次想去的地点，系统会按顺路顺序排好。</p>
-        </div>
-        <Link
-          href={ROUTES.ROUTE_ADD(routeId)}
-          className="flex h-10 items-center justify-center rounded-xl border border-border px-4 text-sm font-medium hover:bg-muted"
-        >
-          继续导入 / 添加
-        </Link>
-      </div>
+      {header}
 
-      {notice ? (
-        <p
-          className={`mb-4 rounded-xl border px-4 py-3 text-sm ${
-            notice.tone === 'ok'
-              ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-              : 'border-red-200 bg-red-50 text-red-700'
-          }`}
-        >
-          {notice.text}
-        </p>
-      ) : null}
-
-      <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_300px]">
-        <section className={cardCls}>
-          <div className="flex rounded-xl bg-muted p-1">
-            {(
-              [
-                ['all', '全部'],
-                [PLACE_TYPE.ATTRACTION, PLACE_TYPE_LABEL[PLACE_TYPE.ATTRACTION]],
-                [PLACE_TYPE.FOOD, PLACE_TYPE_LABEL[PLACE_TYPE.FOOD]],
-              ] as const
-            ).map(([value, label]) => (
-              <button key={value} type="button" onClick={() => setTab(value)} className={tabCls(tab === value)}>
-                {label}
-              </button>
-            ))}
-          </div>
-
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm text-muted-foreground">
-              共 {places.length} 个地点，已勾选 {selected.length} 个（景点 {checkedSpots} · 美食 {checkedFoods}）
-            </p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => selectAllVisible(true)}
-                className="h-8 rounded-lg border border-border px-3 text-xs hover:bg-muted"
-              >
-                全选
+      <div className="mt-6 grid lg:grid-cols-3 gap-6">
+        <section className="lg:col-span-2 rounded-2xl bg-white border border-stone-200">
+          <div className="p-4 border-b border-stone-100 flex flex-wrap items-center gap-2">
+            <div className="flex bg-stone-100 rounded-xl p-1">
+              {(
+                [
+                  ['all', M.tabAll],
+                  [PLACE_TYPE.ATTRACTION, PLACE_TYPE_LABEL[PLACE_TYPE.ATTRACTION]],
+                  [PLACE_TYPE.FOOD, PLACE_TYPE_LABEL[PLACE_TYPE.FOOD]],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setTab(value)}
+                  className={filterTabCls(tab === value)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className="ml-auto flex items-center gap-3 text-sm">
+              <button type="button" onClick={() => checkAllVisible(true)} className="text-primary hover:underline">
+                {M.checkAll}
               </button>
               <button
                 type="button"
-                onClick={() => selectAllVisible(false)}
-                className="h-8 rounded-lg border border-border px-3 text-xs hover:bg-muted"
+                onClick={() => checkAllVisible(false)}
+                className="text-stone-500 hover:underline"
               >
-                全不选
+                {M.checkNone}
               </button>
             </div>
           </div>
 
-          <ul className="mt-3 space-y-2">
+          <ul className="divide-y divide-stone-100">
             {visible.map((p) => {
               const on = checked.has(p.id);
               return (
-                <li key={p.id}>
+                <li key={p.id} className="flex items-center gap-3 px-4 py-3 hover:bg-stone-50">
+                  <label className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={on}
+                      onChange={() => toggle(p.id)}
+                      className="w-5 h-5 accent-primary shrink-0"
+                    />
+                    <span className={typeIconCls(p.type)}>
+                      {p.type === PLACE_TYPE.FOOD ? (
+                        <Utensils className="h-5 w-5" />
+                      ) : (
+                        <Camera className="h-5 w-5" />
+                      )}
+                    </span>
+                    <span className="min-w-0">
+                      <span
+                        className={`block font-medium truncate ${on ? 'text-stone-900' : 'text-stone-400'}`}
+                      >
+                        {p.name}
+                      </span>
+                      <span className="block text-xs text-stone-500 mt-0.5">
+                        {PLACE_TYPE_LABEL[p.type]} · {p.address ?? M.noAddress}
+                      </span>
+                    </span>
+                  </label>
                   <button
                     type="button"
-                    onClick={() => toggle(p.id)}
-                    className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2 text-left ${
-                      on ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted'
-                    }`}
+                    onClick={() => setDelTarget(p)}
+                    aria-label="移除"
+                    className="w-9 h-9 rounded-lg text-stone-400 hover:text-red-600 hover:bg-red-50 grid place-items-center shrink-0"
                   >
-                    <span
-                      className={`grid h-6 w-6 shrink-0 place-items-center rounded-md border ${
-                        on ? 'border-primary bg-primary text-white' : 'border-border'
-                      }`}
-                    >
-                      {on ? <Check className="h-3.5 w-3.5" /> : null}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="flex flex-wrap items-center gap-2">
-                        <span className="truncate text-sm font-medium">{p.name}</span>
-                        <span className={typeBadgeCls(p.type)}>{PLACE_TYPE_LABEL[p.type]}</span>
-                      </span>
-                      <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-                        {p.address ?? '待定位'}
-                      </span>
-                    </span>
+                    <X className="h-4 w-4" />
                   </button>
                 </li>
               );
             })}
           </ul>
+          {visible.length === 0 ? (
+            <div className="p-10 text-center text-sm text-stone-500">{M.filterEmpty}</div>
+          ) : null}
         </section>
 
-        <aside className="space-y-5">
-          <section className={cardCls}>
-            <h2 className="text-sm font-semibold">路线设置</h2>
-            <dl className="mt-3 space-y-2 text-sm">
-              <div className="flex items-center justify-between">
-                <dt className="text-muted-foreground">行程天数</dt>
-                <dd className="font-medium">{days} 天</dd>
+        <aside className="space-y-4">
+          <div className="rounded-2xl bg-white border border-stone-200 p-5">
+            <h3 className="font-semibold">{M.settingsTitle}</h3>
+            <p className="mt-3 text-xs font-medium text-stone-500">{M.daysLabel}</p>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <button type="button" disabled className={`h-10 rounded-lg border text-sm ${
+                days === 1 ? 'border-primary bg-primary/5 text-primary font-semibold' : 'border-stone-200 text-stone-600'
+              }`}>
+                {M.single}
+              </button>
+              <button type="button" disabled className={`h-10 rounded-lg border text-sm ${
+                days > 1 ? 'border-primary bg-primary/5 text-primary font-semibold' : 'border-stone-200 text-stone-600'
+              }`}>
+                {M.many}
+              </button>
+            </div>
+            {days > 1 ? (
+              <div className="mt-2 flex items-center justify-between rounded-lg bg-stone-50 px-3 py-2">
+                <span className="text-sm text-stone-600">{M.daysUnitPre}</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled
+                    aria-label={M.daysMinus}
+                    className="w-8 h-8 rounded-lg bg-white border border-stone-200"
+                  >
+                    −
+                  </button>
+                  <span className="w-6 text-center font-semibold">{days}</span>
+                  <button
+                    type="button"
+                    disabled
+                    aria-label={M.daysPlus}
+                    className="w-8 h-8 rounded-lg bg-white border border-stone-200"
+                  >
+                    +
+                  </button>
+                </div>
               </div>
-              <div className="flex items-center justify-between">
-                <dt className="text-muted-foreground">市内交通</dt>
-                <dd className="font-medium">{transportLabel}</dd>
-              </div>
-            </dl>
-            <p className="mt-2 text-xs text-muted-foreground">
-              天数和交通方式为只读展示，修改请到路线编辑页。
-            </p>
-            <Link
-              href={ROUTES.ROUTE_EDIT(routeId)}
-              className="mt-3 inline-flex h-9 items-center rounded-lg border border-border px-3 text-xs hover:bg-muted"
-            >
-              去改路线设置
-            </Link>
-
+            ) : null}
+            <p className="mt-1 text-[11px] text-stone-400">{M.daysNote}</p>
+            <p className="mt-1 text-[11px] text-stone-400">{M.limitNote}</p>
+            <p className="mt-4 text-xs font-medium text-stone-500">{M.transportLabel}</p>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <button type="button" disabled className={pickCls(transport === TRANSPORT.WALK)}>
+                <Footprints className="h-4 w-4" />
+                {TRANSPORT_LABEL[TRANSPORT.WALK]}
+              </button>
+              <button type="button" disabled className={pickCls(transport === TRANSPORT.BIKE)}>
+                <Bike className="h-4 w-4" />
+                {TRANSPORT_LABEL[TRANSPORT.BIKE]}
+              </button>
+            </div>
+            {genErr ? (
+              <div className="mt-4 rounded-lg bg-red-50 text-red-700 text-xs px-3 py-2">{genErr}</div>
+            ) : null}
             <button
               type="button"
-              disabled={generating || selected.length < 2}
               onClick={generate}
-              className="mt-4 flex h-11 w-full items-center justify-center rounded-xl bg-gradient-to-r from-primary-from to-primary-to px-5 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50"
+              className="mt-5 w-full h-12 rounded-xl bg-gradient-to-r from-primary-from to-primary-to hover:brightness-110 text-white font-semibold flex items-center justify-center gap-2"
             >
-              用 {selected.length} 个地点生成路线
+              <RouteIcon className="h-5 w-5" />
+              <span>{M.generateCount(selected.length)}</span>
             </button>
-          </section>
+          </div>
 
-          <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-xs text-amber-800">
-            <p className="font-semibold">生成规则</p>
-            <p className="mt-2">
-              多日先按距离聚类，再均匀分配到每天；每天独立排顺序，不做时间优化。
-            </p>
-            <p className="mt-2">
-              单日最多 {BUSINESS.MAX_PLACES_PER_DAY} 个地点，单条路线最多 {BUSINESS.MAX_PLACES_PER_ROUTE} 个地点。
-            </p>
-          </section>
+          <div className="rounded-2xl bg-teal-50 border border-teal-100 p-4">
+            <p className="text-xs font-semibold text-teal-800 mb-2">{M.mapTitle}</p>
+            <div
+              className="rounded-xl bg-white h-44"
+              style={{
+                backgroundImage:
+                  'linear-gradient(#e7f6f3 1px,transparent 1px),linear-gradient(90deg,#e7f6f3 1px,transparent 1px)',
+                backgroundSize: '14px 14px',
+              }}
+            >
+              <svg className="w-full h-full" viewBox="0 0 100 100">
+                {mapPoints.map((point) => (
+                  <circle
+                    key={point.id}
+                    cx={point.x}
+                    cy={point.y}
+                    r={point.on ? 3.2 : 2}
+                    fill={point.on ? (point.type === PLACE_TYPE.FOOD ? '#f59e0b' : '#14b8a6') : '#d6d3d1'}
+                    stroke="#fff"
+                    strokeWidth={0.8}
+                  />
+                ))}
+              </svg>
+            </div>
+          </div>
         </aside>
       </div>
 
       {generating ? (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
-          <div className="rounded-2xl bg-background px-6 py-5 text-center">
-            <p className="font-semibold">{MESSAGES.ROUTE_GENERATING}</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              多日先按距离聚类，再均匀分配到每天
-            </p>
+        <div className="fixed inset-0 z-50 bg-stone-900/50 items-center justify-center p-4 flex">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-xs text-center">
+            <Loader2 className="mx-auto h-10 w-10 animate-spin text-primary" />
+            <p className="mt-3 font-semibold">{MESSAGES.ROUTE_GENERATING}</p>
+            <p className="mt-1 text-xs text-stone-500">{M.genMaskDesc}</p>
           </div>
+        </div>
+      ) : null}
+
+      {delTarget ? (
+        <div className="fixed inset-0 z-50 bg-stone-900/50 items-center justify-center p-4 flex">
+          <div className="bg-white rounded-2xl w-full max-w-sm p-6">
+            <h3 className="text-lg font-semibold">{M.delTitle}</h3>
+            <p className="mt-2 text-sm text-stone-600">
+              {M.delPre}
+              <span>{delTarget.name}</span>
+              {M.delPost}
+            </p>
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setDelTarget(null)}
+                className="h-11 rounded-xl border border-stone-300 text-sm"
+              >
+                {M.delCancel}
+              </button>
+              <button
+                type="button"
+                onClick={removePlace}
+                className="h-11 rounded-xl bg-red-600 text-white text-sm font-semibold"
+              >
+                {M.delConfirm}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {toastText ? (
+        <div className="fixed left-1/2 top-20 z-50 -translate-x-1/2 rounded-xl bg-foreground px-4 py-2.5 text-sm text-white shadow-lg">
+          {toastText}
         </div>
       ) : null}
     </div>

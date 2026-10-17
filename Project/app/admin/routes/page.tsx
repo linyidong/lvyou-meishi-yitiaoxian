@@ -1,19 +1,16 @@
 import { BUSINESS } from '@/config/business';
-import {
-  INTERCITY_MODE_LABEL,
-  LODGING_TYPE_LABEL,
-  PLACE_TYPE_LABEL,
-  TRANSPORT_LABEL,
-} from '@/config/enums';
+import { INTERCITY_MODE_LABEL, LODGING_TYPE_LABEL, PLACE_TYPE_LABEL, TRANSPORT_LABEL } from '@/config/enums';
+import { MESSAGES } from '@/config/messages';
 import { ROUTES } from '@/config/routes';
 import {
   AdminRoutesClient,
   type AdminRouteItem,
   type AdminRoutePlace,
 } from '@/components/admin/AdminRoutesClient';
-import { PageHeader } from '@/components/common/PageHeader';
+import { AdminErrorState } from '@/components/admin/AdminState';
 import { AdminShell } from '@/components/layout/AdminShell';
 import { createClient } from '@/lib/supabase/server';
+import { DatabaseZap } from 'lucide-react';
 import type { IntercityMode, LodgingType, PlaceType, Transport } from '@/types';
 
 /** A06 路线列表：全站只读，详情抽屉含本期新增的出行设置 */
@@ -31,6 +28,18 @@ export default async function AdminRoutesPage() {
     supabase.from('users').select('id,email').limit(BUSINESS.ADMIN_LIST_LIMIT),
     supabase.from('cities').select('id,name').order('name'),
   ]);
+
+  if (routesRes.error) {
+    return (
+      <AdminShell
+        currentPath={ROUTES.ADMIN_ROUTES}
+        title={MESSAGES.ADMIN_SHELL.navRoutes}
+        badge={MESSAGES.ADMIN_SHELL.badgeReadonly}
+      >
+        <AdminErrorState icon={DatabaseZap} title={MESSAGES.ADMIN_ROUTES.errorTitle} />
+      </AdminShell>
+    );
+  }
 
   const routes = routesRes.data ?? [];
   const routeIds = routes.map((r) => r.id);
@@ -95,6 +104,7 @@ export default async function AdminRoutesPage() {
       cityName,
       title: r.title,
       days: r.days,
+      transport: r.transport as Transport,
       transportLabel: TRANSPORT_LABEL[r.transport as Transport],
       originCity,
       intercityLabel,
@@ -106,19 +116,12 @@ export default async function AdminRoutesPage() {
   });
 
   return (
-    <AdminShell currentPath={ROUTES.ADMIN_ROUTES}>
-      <PageHeader
-        title="A06 路线列表"
-        description={`全部用户的路线，按创建时间倒序 · 单次最多读取 ${BUSINESS.ADMIN_LIST_LIMIT} 条 · 管理员只读，不提供编辑 / 删除。`}
-      />
-      {routesRes.error ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-8 text-center">
-          <p className="font-semibold text-red-800">路线列表加载失败</p>
-          <p className="mt-1 text-sm text-red-700">{routesRes.error.message}</p>
-        </div>
-      ) : (
-        <AdminRoutesClient routes={items} />
-      )}
+    <AdminShell
+      currentPath={ROUTES.ADMIN_ROUTES}
+      title={MESSAGES.ADMIN_SHELL.navRoutes}
+      badge={MESSAGES.ADMIN_SHELL.badgeReadonly}
+    >
+      <AdminRoutesClient routes={items} />
     </AdminShell>
   );
 }

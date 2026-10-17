@@ -1,20 +1,14 @@
 import Link from 'next/link';
-import {
-  INTERCITY_MODE_LABEL,
-  LODGING_TYPE_LABEL,
-  TRANSPORT_LABEL,
-} from '@/config/enums';
+import { EyeOff } from 'lucide-react';
+import { FlowSteps } from '@/components/route/FlowSteps';
+import { RouteResultClient, type ResultDay, type ResultPlace } from '@/components/route/RouteResultClient';
+import { INTERCITY_MODE_LABEL, LODGING_TYPE_LABEL } from '@/config/enums';
 import { MESSAGES } from '@/config/messages';
 import { ROUTES } from '@/config/routes';
-import {
-  RouteResultClient,
-  type ResultDay,
-  type ResultPlace,
-} from '@/components/route/RouteResultClient';
 import { createClient } from '@/lib/supabase/server';
 import type { IntercityMode, LodgingType, PlaceType, Transport } from '@/types';
 
-/** U09 路线结果：按天顺序展示地点，地图暂不渲染 */
+/** U09 路线结果（第 6 步）：按天顺序展示地点 + 示意地图 */
 export default async function RouteDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
   const {
@@ -37,7 +31,7 @@ export default async function RouteDetailPage({ params }: { params: { id: string
   const { data: route } = await supabase
     .from('routes')
     .select(
-      'id,title,days,transport,city_id,origin_city,intercity_mode,lodging_type,lodging_area,lodging_name,lodging_nights',
+      'id,title,days,transport,city_id,origin_city,intercity_mode,lodging_type,lodging_area,lodging_name,lodging_nights,created_at',
     )
     .eq('id', params.id)
     .eq('user_id', user.id)
@@ -45,15 +39,22 @@ export default async function RouteDetailPage({ params }: { params: { id: string
 
   if (!route) {
     return (
-      <div className="rounded-2xl border border-dashed border-border bg-background p-10 text-center">
-        <p className="font-semibold">{MESSAGES.ROUTE_NOT_FOUND}</p>
-        <Link
-          href={ROUTES.MY_ROUTES}
-          className="mt-4 inline-flex h-10 items-center rounded-xl border border-border px-5 text-sm font-medium hover:bg-muted"
-        >
-          返回我的路线
-        </Link>
-      </div>
+      <>
+        <FlowSteps current={6} />
+        <div className="pt-6 md:pt-10">
+          <div className="rounded-2xl border border-stone-200 bg-white py-16 text-center">
+            <EyeOff className="mx-auto h-12 w-12 text-stone-400" />
+            <p className="mt-3 font-semibold">{MESSAGES.ROUTE_RESULT.deniedTitle}</p>
+            <p className="mt-1 text-sm text-stone-500">{MESSAGES.ROUTE_RESULT.deniedDesc}</p>
+            <Link
+              href={ROUTES.HOME}
+              className="mt-4 inline-flex h-10 items-center rounded-lg bg-gradient-to-r from-primary-from to-primary-to px-5 text-sm font-semibold text-white hover:brightness-110"
+            >
+              {MESSAGES.ROUTE_RESULT.deniedBack}
+            </Link>
+          </div>
+        </div>
+      </>
     );
   }
 
@@ -80,7 +81,7 @@ export default async function RouteDetailPage({ params }: { params: { id: string
   if (placeIds.length > 0) {
     const { data: places } = await supabase
       .from('places')
-      .select('id,name,type,address,note')
+      .select('id,name,type,address,note,lat,lng')
       .in('id', placeIds);
     for (const p of places ?? []) {
       placeById.set(p.id, {
@@ -88,6 +89,8 @@ export default async function RouteDetailPage({ params }: { params: { id: string
         type: p.type as PlaceType,
         address: p.address,
         note: p.note,
+        lat: p.lat,
+        lng: p.lng,
       });
     }
   }
@@ -103,10 +106,14 @@ export default async function RouteDetailPage({ params }: { params: { id: string
 
   const intercityLabel =
     route.origin_city && route.origin_city === cityName
-      ? '同城出发，无需城际交通'
+      ? MESSAGES.ROUTE_RESULT.intercitySame
       : route.intercity_mode
-        ? `${INTERCITY_MODE_LABEL[route.intercity_mode as IntercityMode]}（${route.origin_city ?? '出发城市'} → ${cityName ?? '旅行城市'}）`
-        : '暂不设置';
+        ? MESSAGES.ROUTE_RESULT.intercityRoute(
+            INTERCITY_MODE_LABEL[route.intercity_mode as IntercityMode],
+            route.origin_city ?? MESSAGES.ROUTE_RESULT.originNone,
+            cityName ?? MESSAGES.ROUTE_RESULT.noCity,
+          )
+        : MESSAGES.ROUTE_RESULT.intercityNone;
 
   const lodgingLabel = route.lodging_type
     ? [
@@ -117,20 +124,26 @@ export default async function RouteDetailPage({ params }: { params: { id: string
       ]
         .filter(Boolean)
         .join(' · ')
-    : '暂不预订';
+    : MESSAGES.ROUTE_RESULT.lodgingNone;
 
   return (
-    <RouteResultClient
-      routeId={route.id}
-      title={route.title}
-      cityName={cityName}
-      days={route.days}
-      transportLabel={TRANSPORT_LABEL[route.transport as Transport]}
-      originCity={route.origin_city}
-      intercityLabel={intercityLabel}
-      lodgingLabel={lodgingLabel}
-      resultDays={resultDays}
-      totalPlaces={rows.length}
-    />
+    <>
+      <FlowSteps current={6} />
+      <div className="pt-6 md:pt-10">
+        <RouteResultClient
+          routeId={route.id}
+          title={route.title}
+          cityName={cityName}
+          days={route.days}
+          transport={route.transport as Transport}
+          originCity={route.origin_city}
+          intercityLabel={intercityLabel}
+          lodgingLabel={lodgingLabel}
+          resultDays={resultDays}
+          totalPlaces={rows.length}
+          createdAt={route.created_at}
+        />
+      </div>
+    </>
   );
 }
