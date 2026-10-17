@@ -32,7 +32,7 @@ export default async function UserLayout({ children }: { children: React.ReactNo
     <HeartbeatProvider>
       <div className="flex min-h-screen flex-col">
         <Header displayName={displayName} isAdmin={isAdmin} />
-        <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6">{children}</main>
+        <main className="mx-auto w-full max-w-screen-2xl flex-1 px-4 py-6 lg:px-6">{children}</main>
         <Footer />
       </div>
     </HeartbeatProvider>

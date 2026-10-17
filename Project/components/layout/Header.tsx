@@ -17,7 +17,7 @@ const NAV_ITEMS = [
 export function Header({ displayName, isAdmin = false }: { displayName?: string | null; isAdmin?: boolean }) {
   return (
     <header className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur">
-      <div className="mx-auto flex h-14 w-full max-w-5xl items-center gap-3 px-4">
+      <div className="mx-auto flex h-14 w-full max-w-screen-2xl items-center gap-3 px-4 lg:px-6">
         <Link href={ROUTES.HOME} className="flex shrink-0 items-center gap-2">
           <Image src={PRODUCT.LOGO_PATH} alt={PRODUCT.NAME} width={28} height={28} />
           <span className="hidden text-sm font-semibold sm:inline">{PRODUCT.NAME}</span>
