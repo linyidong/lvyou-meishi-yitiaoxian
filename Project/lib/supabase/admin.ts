@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { ENV } from '@/config/env';
+import { noStoreFetch } from '@/lib/supabase/fetch';
 
 /**
  * 管理员客户端（service_role / secret key）。
@@ -12,5 +13,7 @@ export function createAdminClient() {
 
   return createClient(ENV.SUPABASE_URL, ENV.SUPABASE_SERVICE_ROLE_KEY, {
     auth: { autoRefreshToken: false, persistSession: false },
+    // 必须 no-store，否则查询会被 Next 的 Data Cache 冻结成永不过期的旧数据（见 lib/supabase/fetch.ts）
+    global: { fetch: noStoreFetch },
   });
 }

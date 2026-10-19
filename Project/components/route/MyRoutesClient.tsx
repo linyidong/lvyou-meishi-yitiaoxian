@@ -3,11 +3,25 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { BedDouble, CloudOff, Footprints, Lock, Map, MapPin, MapPinPlus, Plus, Bike } from 'lucide-react';
-import { TRANSPORT_LABEL } from '@/config/enums';
+import {
+  BedDouble,
+  Bike,
+  Bus,
+  Car,
+  CloudOff,
+  Footprints,
+  Lock,
+  Map,
+  MapPin,
+  MapPinPlus,
+  Plus,
+  type LucideIcon,
+} from 'lucide-react';
+import { TRANSPORT, TRANSPORT_LABEL } from '@/config/enums';
 import { MESSAGES } from '@/config/messages';
 import { PRODUCT } from '@/config/product';
 import { ROUTES } from '@/config/routes';
+import { AmapMap, type AmapLine } from '@/components/map/AmapMap';
 import { cn } from '@/lib/utils';
 import type { Transport } from '@/types';
 
@@ -51,6 +65,14 @@ const MAP_DAY_STROKES = [
   '#0284c7',
 ];
 
+/** 市内交通各方式的图标（与 TRANSPORT 取值一一对应） */
+const TRANSPORT_ICON: Record<Transport, LucideIcon> = {
+  [TRANSPORT.WALK]: Footprints,
+  [TRANSPORT.BIKE]: Bike,
+  [TRANSPORT.TRANSIT]: Bus,
+  [TRANSPORT.DRIVE]: Car,
+};
+
 /** YYYY-MM-DD HH:mm */
 function fmtTime(iso: string) {
   const d = new Date(iso);
@@ -58,51 +80,14 @@ function fmtTime(iso: string) {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
-/** 原型卡片头部的示意地图：真实坐标归一化到 100×70 画布，按天画虚线折线 */
-function MiniMap({ points }: { points: MyRoutePoint[] }) {
-  if (points.length === 0) return null;
-
-  const lngs = points.map((p) => p.lng);
-  const lats = points.map((p) => p.lat);
-  const minLng = Math.min(...lngs);
-  const maxLng = Math.max(...lngs);
-  const minLat = Math.min(...lats);
-  const maxLat = Math.max(...lats);
-  const spanLng = maxLng - minLng || 1;
-  const spanLat = maxLat - minLat || 1;
-  const x = (lng: number) => 6 + ((lng - minLng) / spanLng) * 88;
-  const y = (lat: number) => 62 - ((lat - minLat) / spanLat) * 50;
-
+/** 卡片头部的真实高德底图：坐标点按天拆成折线（颜色与原型一致），无坐标的点不参与 */
+function toLines(points: MyRoutePoint[]): AmapLine[] {
   const days = Array.from(new Set(points.map((p) => p.day))).sort((a, b) => a - b);
-
-  return (
-    <svg viewBox="0 0 100 70" className="h-full w-full">
-      {days.map((day) => {
-        const pts = points.filter((p) => p.day === day).map((p) => `${x(p.lng)},${y(p.lat)}`).join(' ');
-        return (
-          <polyline
-            key={day}
-            points={pts}
-            fill="none"
-            stroke={MAP_DAY_STROKES[day % MAP_DAY_STROKES.length]}
-            strokeWidth={1.4}
-            strokeDasharray="3 2"
-          />
-        );
-      })}
-      {points.map((p, i) => (
-        <circle
-          key={`${p.day}-${i}`}
-          cx={x(p.lng)}
-          cy={y(p.lat)}
-          r={2.2}
-          fill={p.food ? '#f59e0b' : '#14b8a6'}
-          stroke="#fff"
-          strokeWidth={0.6}
-        />
-      ))}
-    </svg>
-  );
+  return days.flatMap((day) => {
+    const path = points.filter((p) => p.day === day).map((p) => ({ lat: p.lat, lng: p.lng }));
+    if (path.length < 2) return [];
+    return [{ path, stroke: MAP_DAY_STROKES[day % MAP_DAY_STROKES.length] }];
+  });
 }
 
 /** U03 我的路线：只读列表 + 城市筛选 + 空态 / 失败重试 / 无权限，路线仅自己可见 */
@@ -203,7 +188,7 @@ export function MyRoutesClient({
 
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {filtered.map((r) => {
-              const TransportIcon = r.transport === 'bike' ? Bike : Footprints;
+              const TransportIcon = TRANSPORT_ICON[r.transport];
               return (
                 <article
                   key={r.id}
@@ -217,7 +202,11 @@ export function MyRoutesClient({
                       backgroundSize: '16px 16px',
                     }}
                   >
-                    <MiniMap points={r.points} />
+                    <AmapMap
+                      className="absolute inset-0"
+                      points={r.points.map((p) => ({ lat: p.lat, lng: p.lng, food: p.food }))}
+                      lines={toLines(r.points)}
+                    />
                     <span className="absolute left-3 top-3 rounded-lg bg-white/90 px-2 py-1 text-xs font-medium">
                       {r.cityName ?? MESSAGES.UNSPECIFIED_CITY}
                     </span>

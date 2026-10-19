@@ -40,10 +40,26 @@ export const ROUTES = {
   ADMIN_IMPORTS: '/admin/imports',
   /** R18 我的收藏地点（U11，本期新增） */
   COLLECTED: '/collected',
+  /** R19 管理员会员订单（阶段 3，A08） */
+  ADMIN_ORDERS: '/admin/orders',
+  /** R20 公开分享页（阶段 3，按分享令牌访问） */
+  SHARE: (token: string) => `/share/${token}`,
+  /** R21 游客试用 · 设置路线（免登录） */
+  TRY_NEW: '/try/new',
+  /** R22 游客试用 · 挑选地点（免登录） */
+  TRY_PICK: '/try/pick',
+  /** R23 游客试用 · 路线结果（免登录） */
+  TRY_RESULT: '/try/result',
 } as const;
 
 /** 需登录才能访问的前缀（middleware.ts 使用） */
 export const PROTECTED_ROUTES = [ROUTES.MY_ROUTES, '/route', ROUTES.PROFILE, ROUTES.COLLECTED];
+
+/**
+ * 额外免登录前缀（middleware.ts 放行）：游客试用链路 /try/*，
+ * 未登录也能走完「设置路线 → 挑选地点 → 查看结果」，只有保存路线时才需要登录。
+ */
+export const GUEST_TRY_ROUTES = [ROUTES.TRY_NEW, ROUTES.TRY_PICK, ROUTES.TRY_RESULT];
 
 /** 需登录且 role=admin 才能访问的前缀（middleware.ts 使用） */
 export const ADMIN_ROUTES = [
@@ -53,4 +69,5 @@ export const ADMIN_ROUTES = [
   ROUTES.ADMIN_PLACES,
   ROUTES.ADMIN_ROUTES,
   ROUTES.ADMIN_IMPORTS,
+  ROUTES.ADMIN_ORDERS,
 ];

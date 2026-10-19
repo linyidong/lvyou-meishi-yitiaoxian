@@ -1,4 +1,5 @@
 import { INTERCITY_MODE, LODGING_TYPE, TRANSPORT } from '@/config/enums';
+import type { PlaceType } from './place';
 
 /** 交通方式（E03/E04） */
 export type Transport = (typeof TRANSPORT)[keyof typeof TRANSPORT];
@@ -57,4 +58,48 @@ interface PlaceRef {
   address: string | null;
   lat: number | null;
   lng: number | null;
+}
+
+/** 分享快照里的一个地点（自包含，不引用原 places 主键） */
+export interface RouteSharePlace {
+  name: string;
+  type: PlaceType;
+  address: string | null;
+  lat: number | null;
+  lng: number | null;
+}
+
+/** 分享快照里的一天（dayIndex 为 0 基） */
+export interface RouteShareDay {
+  dayIndex: number;
+  places: RouteSharePlace[];
+}
+
+/**
+ * 路线分享快照（阶段 3）：写库时一次性组装好，分享页 / 长图 / 导入都只看它，
+ * 不依赖原路线的归属与 RLS 权限。
+ */
+export interface RouteShareSnapshot {
+  title: string;
+  cityName: string | null;
+  /** 天数（数字） */
+  days: number;
+  transport: Transport;
+  totalPlaces: number;
+  originCity: string | null;
+  /** 城际交通·去程（结构化，导入时还原到新路线） */
+  intercityMode: IntercityMode | null;
+  /** 城际交通展示文案（服务端按 U09 口径预生成） */
+  intercityLabel: string;
+  /** 住宿类型 / 区域 / 名称 / 晚数（结构化，导入时还原到新路线） */
+  lodgingType: LodgingType | null;
+  lodgingArea: string | null;
+  lodgingName: string | null;
+  lodgingNights: number | null;
+  /** 住宿展示文案（服务端按 U09 口径预生成） */
+  lodgingLabel: string;
+  /** 逐天地点清单 */
+  dayPlans: RouteShareDay[];
+  /** 快照生成时间（ISO） */
+  exportedAt: string;
 }

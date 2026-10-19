@@ -6,6 +6,8 @@ import {
   ArrowDown,
   ArrowUp,
   Bike,
+  Bus,
+  Car,
   Footprints,
   BedDouble,
   CheckCircle2,
@@ -19,6 +21,7 @@ import {
   SquarePen,
   TrainFront,
   Waypoints,
+  type LucideIcon,
 } from 'lucide-react';
 import { BUSINESS } from '@/config/business';
 import {
@@ -52,6 +55,22 @@ type Toast = { text: string; tone: 'ok' | 'err' };
 const M = MESSAGES.ROUTE_EDIT;
 /** 每天的分组标签底色（原型为 rose/teal/amber/indigo/sky 循环，产品色位改用 primary token） */
 const DAY_COLORS = ['bg-primary', 'bg-teal-600', 'bg-amber-500', 'bg-indigo-600', 'bg-sky-600'];
+
+/** 市内交通各方式的图标（与 TRANSPORT 取值一一对应） */
+const TRANSPORT_ICON: Record<Transport, LucideIcon> = {
+  [TRANSPORT.WALK]: Footprints,
+  [TRANSPORT.BIKE]: Bike,
+  [TRANSPORT.TRANSIT]: Bus,
+  [TRANSPORT.DRIVE]: Car,
+};
+
+/** 市内交通各方式的时间估算速度（km/h，取自 BUSINESS） */
+const TRANSPORT_SPEED_KMH: Record<Transport, number> = {
+  [TRANSPORT.WALK]: BUSINESS.WALK_SPEED_KMH,
+  [TRANSPORT.BIKE]: BUSINESS.BIKE_SPEED_KMH,
+  [TRANSPORT.TRANSIT]: BUSINESS.TRANSIT_SPEED_KMH,
+  [TRANSPORT.DRIVE]: BUSINESS.DRIVE_SPEED_KMH,
+};
 
 /** 两点间直线距离（公里），无坐标按 0 处理 */
 function legKm(a: RouteEditPlace | undefined, b: RouteEditPlace): number {
@@ -124,7 +143,7 @@ export function RouteEditClient({
 
   /** 时间估算：km ÷ 速度换算为分钟，≥60 分钟折成「X 小时 Y 分」 */
   function fmtMin(km: number): string {
-    const speed = mode === TRANSPORT.BIKE ? BUSINESS.BIKE_SPEED_KMH : BUSINESS.WALK_SPEED_KMH;
+    const speed = TRANSPORT_SPEED_KMH[mode];
     const minutes = Math.round((km / speed) * 60);
     if (minutes >= 60) return `${Math.floor(minutes / 60)} 小时 ${minutes % 60} 分`;
     return `${minutes} 分钟`;
@@ -202,6 +221,8 @@ export function RouteEditClient({
   const city = cityName ?? '';
   const many = plan.length > 1;
   const totalCount = plan.reduce((sum, day) => sum + day.length, 0);
+  /** 当前市内交通方式的图标（用于路段行） */
+  const ModeIcon = TRANSPORT_ICON[mode];
 
   /** 每天内的里程（公里），下标与 plan 一致 */
   const dayKms = useMemo(
@@ -368,11 +389,7 @@ export function RouteEditClient({
                     <div key={id}>
                       {i > 0 ? (
                         <div className="pl-[46px] py-1 text-[11px] text-stone-400 flex items-center gap-1">
-                          {mode === TRANSPORT.BIKE ? (
-                            <Bike className="h-3.5 w-3.5" />
-                          ) : (
-                            <Footprints className="h-3.5 w-3.5" />
-                          )}
+                          <ModeIcon className="h-3.5 w-3.5" />
                           {M.legMeta(km.toFixed(1), fmtMin(km))}
                         </div>
                       ) : null}
@@ -438,30 +455,24 @@ export function RouteEditClient({
             <h3 className="font-semibold">{M.transportTitle}</h3>
             <p className="mt-1 text-[11px] text-stone-400">{M.transportNote}</p>
             <div className="mt-3 grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setMode(TRANSPORT.WALK)}
-                className={`h-10 rounded-lg border text-sm flex items-center justify-center gap-1 ${
-                  mode === TRANSPORT.WALK
-                    ? 'border-primary bg-primary/5 text-primary font-semibold'
-                    : 'border-stone-200 text-stone-600 hover:bg-stone-50'
-                }`}
-              >
-                <Footprints className="h-4 w-4" />
-                {TRANSPORT_LABEL[TRANSPORT.WALK]}
-              </button>
-              <button
-                type="button"
-                onClick={() => setMode(TRANSPORT.BIKE)}
-                className={`h-10 rounded-lg border text-sm flex items-center justify-center gap-1 ${
-                  mode === TRANSPORT.BIKE
-                    ? 'border-primary bg-primary/5 text-primary font-semibold'
-                    : 'border-stone-200 text-stone-600 hover:bg-stone-50'
-                }`}
-              >
-                <Bike className="h-4 w-4" />
-                {TRANSPORT_LABEL[TRANSPORT.BIKE]}
-              </button>
+              {Object.values(TRANSPORT).map((m) => {
+                const Icon = TRANSPORT_ICON[m];
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setMode(m)}
+                    className={`h-10 rounded-lg border text-sm flex items-center justify-center gap-1 ${
+                      mode === m
+                        ? 'border-primary bg-primary/5 text-primary font-semibold'
+                        : 'border-stone-200 text-stone-600 hover:bg-stone-50'
+                    }`}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {TRANSPORT_LABEL[m]}
+                  </button>
+                );
+              })}
             </div>
             <div className="mt-5 rounded-xl bg-stone-50 p-4 grid grid-cols-2 gap-3 text-center">
               <div>

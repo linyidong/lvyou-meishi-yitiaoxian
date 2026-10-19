@@ -41,4 +41,6 @@ export interface AmapPlaceResult {
   address: string;
   lat: number;
   lng: number;
+  /** 高德 POI 首张照片地址（extensions=all 才有），无图时为 null */
+  imageUrl: string | null;
 }

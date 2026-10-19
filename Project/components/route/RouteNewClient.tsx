@@ -7,7 +7,9 @@ import {
   ArrowLeft,
   ArrowLeftRight,
   Bike,
+  Bus,
   CalendarRange,
+  Car,
   CheckCircle2,
   CircleAlert,
   ClipboardList,
@@ -20,6 +22,7 @@ import {
   Minus,
   Plus,
   Type,
+  type LucideIcon,
 } from 'lucide-react';
 import { BUSINESS } from '@/config/business';
 import { TRANSPORT, TRANSPORT_LABEL } from '@/config/enums';
@@ -27,6 +30,7 @@ import { MESSAGES } from '@/config/messages';
 import { ROUTES } from '@/config/routes';
 import { cn } from '@/lib/utils';
 import { parseTripSettings } from '@/lib/route-settings';
+import type { MemberTier } from '@/lib/member-quota';
 import {
   EMPTY_TRIP_SETTINGS,
   TripSettingsFields,
@@ -40,7 +44,15 @@ const BADGE_OPT = 'rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-normal
 const INPUT_CLS =
   'h-11 w-full rounded-xl border border-stone-300 bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
 
-/** 单日 / 多日、步行 / 骑行 等 2 列候选块 */
+/** 市内交通各方式的图标（与 TRANSPORT 取值一一对应） */
+const TRANSPORT_ICON: Record<Transport, LucideIcon> = {
+  [TRANSPORT.WALK]: Footprints,
+  [TRANSPORT.BIKE]: Bike,
+  [TRANSPORT.TRANSIT]: Bus,
+  [TRANSPORT.DRIVE]: Car,
+};
+
+/** 单日 / 多日、市内交通等候选块 */
 function bigChipCls(on: boolean, layout = 'items-center justify-center gap-1.5') {
   return cn(
     'flex h-12 rounded-xl border-2 text-sm font-medium',
@@ -56,15 +68,34 @@ export function RouteNewClient({
   cities,
   initialCityParam,
   initialDestParam,
+  tier,
+  trialMultiDayUsed,
 }: {
   cities: { id: string; name: string }[];
   /** 来自 /city 的跳转参数，允许是城市 id 或城市名 */
   initialCityParam: string | null;
   /** 来自 /city 的二级目的地参数（城市内地名，或作为旅行城市的周边城市） */
   initialDestParam: string | null;
+  /** 当前用户会员档位（admin / member / free），用于动态展示配额说明 */
+  tier: MemberTier;
+  /** 免费用户「永久 1 次多日试用额度」是否已用 */
+  trialMultiDayUsed: boolean;
 }) {
   const M = MESSAGES;
   const router = useRouter();
+
+  /** 本档位允许的最大天数：免费用户试用额度已用则仅单日；其余沿用现有上限 */
+  const maxDaysAllowed =
+    tier === 'free' ? (trialMultiDayUsed ? 1 : BUSINESS.MEMBER_MAX_DAYS) : BUSINESS.MAX_DAYS;
+  /** 档位配额说明文案（全部取自 config/messages.ts） */
+  const tierHint =
+    tier === 'admin'
+      ? M.TRIP_TIER.admin
+      : tier === 'member'
+        ? M.TRIP_TIER.member(BUSINESS.MEMBER_MAX_DAYS, BUSINESS.MEMBER_MAX_PLACES_PER_DAY)
+        : [M.TRIP_TIER.free(BUSINESS.FREE_MAX_PLACES_PER_DAY), trialMultiDayUsed ? null : M.TRIP_TIER.freeTrial]
+            .filter(Boolean)
+            .join('；');
 
   const cityNames = useMemo(() => cities.map((c) => c.name), [cities]);
   const initialCity = useMemo(() => {
@@ -215,6 +246,20 @@ export function RouteNewClient({
         </div>
       </div>
 
+      {/* 阶段 2 会员分层：按角色动态展示当前配额（免费用户另给升级入口） */}
+      <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-2xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-800">
+        <Info className="h-4 w-4 shrink-0 text-teal-600" />
+        <span className="font-medium">{tierHint}</span>
+        {tier === 'free' ? (
+          <Link
+            href={ROUTES.PROFILE}
+            className="ml-auto flex h-8 shrink-0 items-center rounded-lg bg-gradient-to-r from-primary-from to-primary-to px-3 text-xs font-semibold text-white hover:brightness-110"
+          >
+            {M.TRIP_TIER.upgrade}
+          </Link>
+        ) : null}
+      </div>
+
       {/* 旅行城市（来自 /city） */}
       <div
         tabIndex={-1}
@@ -353,8 +398,14 @@ export function RouteNewClient({
             </button>
             <button
               type="button"
-              onClick={() => setDays(BUSINESS.MIN_DAYS)}
-              className={bigChipCls(isMultiDay, 'flex-col items-center justify-center leading-tight')}
+              disabled={maxDaysAllowed < 2}
+              onClick={() => {
+                if (maxDaysAllowed >= 2) setDays(BUSINESS.MIN_DAYS);
+              }}
+              className={cn(
+                bigChipCls(isMultiDay, 'flex-col items-center justify-center leading-tight'),
+                maxDaysAllowed < 2 && 'cursor-not-allowed opacity-50',
+              )}
             >
               <span className="font-semibold">{M.TRIP_DAYS.many}</span>
               <span className="text-[11px] opacity-70">{M.TRIP_DAYS.manySub}</span>
@@ -376,7 +427,7 @@ export function RouteNewClient({
                 <button
                   type="button"
                   aria-label={M.TRIP_DAYS.plus}
-                  onClick={() => setDays(Math.min(BUSINESS.MAX_DAYS, days + 1))}
+                  onClick={() => setDays(Math.min(maxDaysAllowed, days + 1))}
                   className="grid h-9 w-9 place-items-center rounded-lg border border-stone-300 bg-white"
                 >
                   <Plus className="h-4 w-4" />
@@ -398,9 +449,9 @@ export function RouteNewClient({
             <strong>{M.TRIP_TRANSPORT.descStrong}</strong>
             {M.TRIP_TRANSPORT.desc2}
           </p>
-          <div className="mt-3 grid grid-cols-2 gap-3">
+          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {Object.values(TRANSPORT).map((mode) => {
-              const Icon = mode === TRANSPORT.BIKE ? Bike : Footprints;
+              const Icon = TRANSPORT_ICON[mode];
               return (
                 <button
                   key={mode}

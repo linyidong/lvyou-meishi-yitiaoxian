@@ -2,6 +2,8 @@
  * 产品常量（P01-P06、S01-S06、D01-D06）
  * 修改流程见 docs/同步清单参数-v1.0.md §9.3：先改 docs 清单，再改本文件。
  */
+import { BUSINESS } from './business';
+
 export const PRODUCT = {
   /** P01 产品名称 */
   NAME: '旅行美食一条线',
@@ -37,12 +39,34 @@ export const PRODUCT = {
   /** S06 Favicon 文件（public 目录） */
   FAVICON_PATH: '/favicon.ico',
 
-  /** S07 会员权益文案（U10 升级卡 / A03 开通确认弹窗共用，第一版为模拟开通） */
+  /**
+   * S07 会员权益文案（U10 会员卡 / A03 开通确认弹窗共用）。
+   * 数量一律引用 BUSINESS 的配额常量，避免与 lib/member-quota.ts 的实际限额实现漂移。
+   */
   MEMBER_BENEFITS: [
-    '单条路线不限地点数',
-    '按营业时间智能排序',
-    '公交 / 驾车混合交通',
-    '高清路线长图导出',
+    `每月 ${BUSINESS.MEMBER_MONTHLY_ROUTE_LIMIT} 条路线，最长 ${BUSINESS.MEMBER_MAX_DAYS} 天行程`,
+    `单日 ${BUSINESS.MEMBER_MAX_PLACES_PER_DAY} 个地点，文案识别 ${BUSINESS.MEMBER_AI_EXTRACT_DAILY_LIMIT} 次/日`,
+    '手机高德导航一键唤起，全程带路',
+    '高清长图导出 + 二维码分享与导入',
+  ],
+
+  /**
+   * S08 免费版权益文案（U10 个人中心：普通用户看到的是自己档位的规则，
+   * 会员权益放在升级按钮下方作为引导，不混进权益列表）。
+   */
+  FREE_BENEFITS: [
+    `每天 ${BUSINESS.FREE_DAILY_ROUTE_LIMIT} 条路线，单日行程`,
+    `单日最多 ${BUSINESS.FREE_MAX_PLACES_PER_DAY} 个地点，文案识别 ${BUSINESS.FREE_AI_EXTRACT_DAILY_LIMIT} 次/日`,
+    '可试用 1 次多日行程（永久额度）',
+    '收藏夹地点可一键加入路线',
+  ],
+
+  /** S09 管理员权益文案（U10 个人中心：管理员为最高级会员，配额不限） */
+  ADMIN_BENEFITS: [
+    '路线条数、行程天数、单日地点数均不限',
+    'AI 提取地点次数不限',
+    '手机高德导航一键唤起，全程带路',
+    '高清长图导出 + 二维码分享与导入',
   ],
 
   /** C08 Vercel 项目名（子域名前缀） */

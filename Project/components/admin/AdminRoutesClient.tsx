@@ -117,8 +117,11 @@ export function AdminRoutesClient({ routes }: { routes: AdminRouteItem[] }) {
           className={selectCls}
         >
           <option value="all">{M.transportAll}</option>
-          <option value={TRANSPORT.WALK}>{TRANSPORT_LABEL[TRANSPORT.WALK]}</option>
-          <option value={TRANSPORT.BIKE}>{TRANSPORT_LABEL[TRANSPORT.BIKE]}</option>
+          {Object.values(TRANSPORT).map((m) => (
+            <option key={m} value={m}>
+              {TRANSPORT_LABEL[m]}
+            </option>
+          ))}
         </select>
         <select
           value={days}

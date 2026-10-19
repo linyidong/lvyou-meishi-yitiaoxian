@@ -5,6 +5,8 @@ import { RouteResultClient, type ResultDay, type ResultPlace } from '@/component
 import { INTERCITY_MODE_LABEL, LODGING_TYPE_LABEL } from '@/config/enums';
 import { MESSAGES } from '@/config/messages';
 import { ROUTES } from '@/config/routes';
+import { resolveLodgingCoords } from '@/lib/amap';
+import { getQuotaProfile } from '@/lib/member-quota';
 import { createClient } from '@/lib/supabase/server';
 import type { IntercityMode, LodgingType, PlaceType, Transport } from '@/types';
 
@@ -59,13 +61,16 @@ export default async function RouteDetailPage({ params }: { params: { id: string
   }
 
   let cityName: string | null = null;
+  let cityAdcode: string | null = null;
   if (route.city_id) {
     const { data: city } = await supabase
       .from('cities')
-      .select('name')
+      .select('name,adcode')
       .eq('id', route.city_id)
       .maybeSingle();
     cityName = city?.name ?? null;
+    // 公交地铁算路需要高德城市编码（adcode）
+    cityAdcode = city?.adcode ?? null;
   }
 
   const { data: rp } = await supabase
@@ -81,16 +86,18 @@ export default async function RouteDetailPage({ params }: { params: { id: string
   if (placeIds.length > 0) {
     const { data: places } = await supabase
       .from('places')
-      .select('id,name,type,address,note,lat,lng')
+      .select('id,name,type,address,note,lat,lng,image_url')
       .in('id', placeIds);
     for (const p of places ?? []) {
       placeById.set(p.id, {
+        id: p.id,
         name: p.name,
         type: p.type as PlaceType,
         address: p.address,
         note: p.note,
         lat: p.lat,
         lng: p.lng,
+        imageUrl: p.image_url,
       });
     }
   }
@@ -115,16 +122,27 @@ export default async function RouteDetailPage({ params }: { params: { id: string
           )
         : MESSAGES.ROUTE_RESULT.intercityNone;
 
-  const lodgingLabel = route.lodging_type
-    ? [
-        LODGING_TYPE_LABEL[route.lodging_type as LodgingType],
-        route.lodging_area,
-        route.lodging_name,
-        route.lodging_nights ? `${route.lodging_nights} 晚` : null,
-      ]
-        .filter(Boolean)
-        .join(' · ')
-    : MESSAGES.ROUTE_RESULT.lodgingNone;
+  const lodgingLabel =
+    route.lodging_type
+      ? [
+          LODGING_TYPE_LABEL[route.lodging_type as LodgingType],
+          route.lodging_area,
+          route.lodging_name,
+          route.lodging_nights ? `${route.lodging_nights} 晚` : null,
+        ]
+          .filter(Boolean)
+          .join(' · ')
+      : MESSAGES.ROUTE_RESULT.lodgingNone;
+
+  // 住宿坐标：用于地图上的住宿标记，以及「当天走完 → 可选交通方式回住宿」
+  const lodging = await resolveLodgingCoords({
+    name: route.lodging_name,
+    area: route.lodging_area,
+    city: cityName,
+  });
+
+  // 阶段 2 会员分层：只有会员 / 管理员可用「手机高德导航」，游客按钮转锁定态
+  const { tier } = await getQuotaProfile(user.id);
 
   return (
     <>
@@ -134,14 +152,18 @@ export default async function RouteDetailPage({ params }: { params: { id: string
           routeId={route.id}
           title={route.title}
           cityName={cityName}
+          cityAdcode={cityAdcode}
           days={route.days}
           transport={route.transport as Transport}
           originCity={route.origin_city}
           intercityLabel={intercityLabel}
           lodgingLabel={lodgingLabel}
+          lodging={lodging}
           resultDays={resultDays}
           totalPlaces={rows.length}
           createdAt={route.created_at}
+          canUseAmapNav={tier !== 'free'}
+          canExport={tier !== 'free'}
         />
       </div>
     </>

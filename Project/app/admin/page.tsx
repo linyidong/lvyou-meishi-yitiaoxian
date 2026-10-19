@@ -17,6 +17,8 @@ import { MESSAGES } from '@/config/messages';
 import { ROUTES } from '@/config/routes';
 import { AdminEmptyState, AdminErrorState } from '@/components/admin/AdminState';
 import { AdminShell } from '@/components/layout/AdminShell';
+import { getAmapUsage } from '@/lib/amap-usage';
+import { webKeyLabel } from '@/lib/amap-key-pool';
 import { createClient } from '@/lib/supabase/server';
 
 const M = MESSAGES.ADMIN_OVERVIEW;
@@ -127,6 +129,9 @@ export default async function AdminHomePage() {
     routeEventsRes,
   ];
   const hasError = results.some((r) => r.error);
+
+  // 本月高德用量（service_role 查询，进程内缓存 60 秒；查询失败静默降级为空用量）
+  const usage = await getAmapUsage();
 
   const totalUsers = usersRes.count ?? 0;
   const memberUsers = membersRes.count ?? 0;
@@ -268,6 +273,69 @@ export default async function AdminHomePage() {
             </Link>
           </div>
 
+          <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold text-slate-900">{M.usageTitle}</h2>
+              <span className="text-xs text-slate-400">{M.usagePercent(usage.percent)}</span>
+            </div>
+
+            {usage.monthTotal === 0 ? (
+              <p className="mt-3 text-sm text-slate-500">{M.usageEmpty}</p>
+            ) : (
+              <>
+                <div className="mt-3 flex flex-wrap items-end gap-x-6 gap-y-1">
+                  <p className="text-2xl font-bold text-slate-900">
+                    {M.usageMonth(usage.monthTotal, usage.quotaTotal)}
+                  </p>
+                  <p className="text-sm text-slate-500">{M.usageToday(usage.todayTotal)}</p>
+                </div>
+
+                {usage.critical ? (
+                  <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                    {M.usageCritical(usage.percent)}
+                  </p>
+                ) : usage.warn ? (
+                  <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                    {M.usageWarn(usage.percent)}
+                  </p>
+                ) : null}
+
+                <p className="mb-2 mt-4 text-xs text-slate-500">{M.usageServiceTitle}</p>
+                <ul className="space-y-1.5">
+                  {usage.services.map((s) => (
+                    <li key={s.service} className="flex items-center justify-between text-sm">
+                      <span className="font-mono text-xs text-slate-600">
+                        {M.usageServiceRow(s.service, s.calls)}
+                      </span>
+                      {s.failures > 0 ? (
+                        <span className="text-xs text-red-500">
+                          {M.usageServiceFailures(s.failures)}
+                        </span>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+
+                {/* 多账号 Key 池：按 Key 槽位分别展示用量，已耗尽的 Key 会被轮询跳过 */}
+                <p className="mb-2 mt-4 text-xs text-slate-500">{M.usageKeyTitle(usage.keyCount)}</p>
+                <ul className="space-y-1.5">
+                  {usage.keys.map((k) => (
+                    <li key={k.slot} className="flex items-center justify-between text-sm">
+                      <span className="font-mono text-xs text-slate-600">
+                        {M.usageKeyRow(webKeyLabel(k.slot), k.calls, k.percent)}
+                      </span>
+                      {k.critical ? (
+                        <span className="text-xs text-red-500">{M.usageKeyExhausted}</span>
+                      ) : k.percent >= BUSINESS.AMAP_QUOTA_WARN_PERCENT ? (
+                        <span className="text-xs text-amber-600">{M.usageKeyWarn}</span>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </section>
+
           <div className="mt-6 grid gap-4 lg:grid-cols-3">
             <section className="rounded-2xl border border-slate-200 bg-white p-5 lg:col-span-2">
               <div className="flex items-center justify-between">
@@ -313,7 +381,8 @@ export default async function AdminHomePage() {
               </div>
             </section>
 
-            <section className="rounded-2xl border border-slate-200 bg-white p-5">
+            {/* 桌面（≥ lg）展示快捷入口；移动端（< lg）由底部工具栏承担同一批路由，避免重复 */}
+            <section className="hidden rounded-2xl border border-slate-200 bg-white p-5 lg:block">
               <h2 className="font-semibold text-slate-900">{M.quickTitle}</h2>
               <div className="mt-4 space-y-2">
                 {QUICK_LINKS.map((l) => {

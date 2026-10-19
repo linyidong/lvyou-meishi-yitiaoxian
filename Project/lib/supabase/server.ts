@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { ENV } from '@/config/env';
+import { noStoreFetch } from '@/lib/supabase/fetch';
 
 type CookieToSet = { name: string; value: string; options: CookieOptions };
 
@@ -23,5 +24,7 @@ export function createClient() {
         }
       },
     },
+    // 必须 no-store，否则查询会被 Next 的 Data Cache 冻结成永不过期的旧数据（见 lib/supabase/fetch.ts）
+    global: { fetch: noStoreFetch },
   });
 }

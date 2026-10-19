@@ -1,11 +1,11 @@
 import Link from 'next/link';
 import { FlowSteps } from '@/components/route/FlowSteps';
+import { BUSINESS } from '@/config/business';
 import { MESSAGES } from '@/config/messages';
 import { ROUTES } from '@/config/routes';
-import {
-  RoutePlacesClient,
-  type RoutePlaceOption,
-} from '@/components/route/RoutePlacesClient';
+import { RoutePlacesClient, type RoutePlaceOption } from '@/components/route/RoutePlacesClient';
+import { resolveLodgingCoords } from '@/lib/amap';
+import { getQuotaProfile, limitsOf } from '@/lib/member-quota';
 import { createClient } from '@/lib/supabase/server';
 import type { PlaceType, Transport } from '@/types';
 
@@ -36,7 +36,7 @@ export default async function RoutePlacesPage({ params }: { params: { id: string
 
   const { data: route } = await supabase
     .from('routes')
-    .select('id,title,days,transport,city_id')
+    .select('id,title,days,transport,city_id,lodging_name,lodging_area')
     .eq('id', params.id)
     .eq('user_id', user.id)
     .maybeSingle();
@@ -74,6 +74,13 @@ export default async function RoutePlacesPage({ params }: { params: { id: string
     cityName = city?.name ?? null;
   }
 
+  // 住宿坐标：用于「起点默认离住宿最近」与地图上的住宿标记
+  const lodging = await resolveLodgingCoords({
+    name: route.lodging_name,
+    area: route.lodging_area,
+    city: cityName,
+  });
+
   let places: RoutePlaceOption[] = [];
   if (route.city_id) {
     const { data } = await supabase
@@ -98,6 +105,12 @@ export default async function RoutePlacesPage({ params }: { params: { id: string
     .eq('route_id', route.id);
   const initialCheckedIds = (rp ?? []).map((x) => x.place_id);
 
+  // 单日地点上限按当前档位算（免费 6 / 会员 12），提示与本地校验都跟服务端同一口径；
+  // 管理员不限，这里用单条路线上限兜底（Infinity 无法跨 RSC 传到客户端）。
+  const { tier } = await getQuotaProfile(user.id);
+  const perDay = limitsOf(tier).placesPerDay;
+  const placesPerDay = Number.isFinite(perDay) ? perDay : BUSINESS.MAX_PLACES_PER_ROUTE;
+
   return (
     <>
       <FlowSteps current={4} />
@@ -109,6 +122,8 @@ export default async function RoutePlacesPage({ params }: { params: { id: string
           transport={route.transport as Transport}
           places={places}
           initialCheckedIds={initialCheckedIds}
+          lodging={lodging}
+          placesPerDay={placesPerDay}
         />
       </div>
     </>

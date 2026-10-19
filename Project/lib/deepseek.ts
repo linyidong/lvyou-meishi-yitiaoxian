@@ -12,14 +12,23 @@ export interface ExtractedPlace {
   note?: string;
 }
 
+/** 提取结果：先给城市，再给地点（地点归属该城市） */
+export interface ExtractResult {
+  /** 文案里提到的城市名；识别不到时为空字符串 */
+  city: string;
+  places: ExtractedPlace[];
+}
+
 const SYSTEM_PROMPT = `你是旅行地点提取助手。用户会给你一段小红书/抖音的分享文案或链接。
-请从文案中提取出所有景点和美食地点，只输出 JSON，格式如下：
-{"places":[{"name":"地点名称","type":"attraction 或 food","note":"一句话说明，可空"}]}
+请先从文案里判断"这次要去（或所在地）的城市"，再提取出所有景点和美食地点，只输出 JSON，格式如下：
+{"city":"城市名称","places":[{"name":"地点名称","type":"attraction 或 food","note":"一句话说明，可空"}]}
 规则：
-1. type 只能是 attraction（景点）或 food（美食）。
-2. 地点名保持文案原文，不要翻译，不要补城市前缀。
-3. 提取不到地点时返回 {"places":[]}。
-4. 最多返回 ${BUSINESS.MAX_AI_EXTRACT} 个地点。`;
+1. city 只写城市本身（如"成都"），带"市"字要去掉，不要写省、区或商圈；文案里确实没有出现任何城市时返回空字符串 ""。
+2. 若文案出现多个城市，取标题或第一句里的那个主要行程城市。
+3. type 只能是 attraction（景点）或 food（美食）。
+4. 地点名保持文案原文，不要翻译，不要补城市前缀。
+5. 提取不到地点时 places 返回 []。
+6. 最多返回 ${BUSINESS.MAX_AI_EXTRACT} 个地点。`;
 
 function normalizePlaces(raw: unknown): ExtractedPlace[] {
   const list = (raw as { places?: unknown } | null)?.places;
@@ -38,8 +47,14 @@ function normalizePlaces(raw: unknown): ExtractedPlace[] {
     .slice(0, BUSINESS.MAX_AI_EXTRACT);
 }
 
-/** 调 DeepSeek 提取地点（技术方案 v1.1 §4.3） */
-export async function extractPlaces(text: string): Promise<ExtractedPlace[]> {
+/** 城市名归一化：去掉「成都市」这类后缀，只留城市名本身 */
+function normalizeCity(raw: unknown): string {
+  const city = String((raw as { city?: unknown } | null)?.city ?? '').trim();
+  return city.replace(/[市区县]$/, '').slice(0, 20);
+}
+
+/** 调 DeepSeek 提取「城市 + 地点」（技术方案 v1.1 §4.3） */
+export async function extractPlacesAndCity(text: string): Promise<ExtractResult> {
   if (!ENV.DEEPSEEK_API_KEY) {
     throw new Error('缺少 DEEPSEEK_API_KEY，请在 .env.local 中配置');
   }
@@ -70,7 +85,8 @@ export async function extractPlaces(text: string): Promise<ExtractedPlace[]> {
   const content = data.choices?.[0]?.message?.content ?? '';
 
   try {
-    return normalizePlaces(JSON.parse(content));
+    const parsed = JSON.parse(content) as unknown;
+    return { city: normalizeCity(parsed), places: normalizePlaces(parsed) };
   } catch {
     throw new Error('AI 返回内容不是合法 JSON');
   }

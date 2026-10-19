@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   LogOut,
   MapPinned,
+  ReceiptText,
   Route,
   Upload,
   Users,
@@ -20,37 +21,36 @@ import { PRODUCT } from '@/config/product';
 import { ROUTES } from '@/config/routes';
 import { cn } from '@/lib/utils';
 
-type NavItem = { href: string; label: string; icon: LucideIcon };
+export type NavItem = { href: string; label: string; icon: LucideIcon };
 
-const SIDEBAR_ITEMS: NavItem[] = [
+/**
+ * 管理端导航单一数据源（A02-A07）：桌面深色侧栏（本文件）与移动端底部工具栏（AdminShell）共用。
+ * 文案一律取自 MESSAGES.ADMIN_SHELL.nav*，禁止在组件内写死中文。
+ */
+export const ADMIN_NAV: NavItem[] = [
   { href: ROUTES.ADMIN_HOME, label: MESSAGES.ADMIN_SHELL.navOverview, icon: LayoutDashboard },
   { href: ROUTES.ADMIN_USERS, label: MESSAGES.ADMIN_SHELL.navUsers, icon: Users },
   { href: ROUTES.ADMIN_ONLINE, label: MESSAGES.ADMIN_SHELL.navOnline, icon: Wifi },
   { href: ROUTES.ADMIN_PLACES, label: MESSAGES.ADMIN_SHELL.navPlaces, icon: MapPinned },
   { href: ROUTES.ADMIN_ROUTES, label: MESSAGES.ADMIN_SHELL.navRoutes, icon: Route },
   { href: ROUTES.ADMIN_IMPORTS, label: MESSAGES.ADMIN_SHELL.navImports, icon: Upload },
+  { href: ROUTES.ADMIN_ORDERS, label: MESSAGES.ADMIN_SHELL.navOrders, icon: ReceiptText },
 ];
 
 /**
- * A02-A07 管理端侧边栏（对齐原型：深色固定侧栏 w-60）。
- * 底部保留「返回用户端」入口，管理员可在用户端 / 管理端来回切换。
+ * A02-A07 管理端侧边栏（对齐原型：深色固定侧栏 w-60），仅桌面（≥ lg）显示。
+ * 底部保留「返回用户端」入口；移动端（< lg）由 AdminShell 底部工具栏导航，
+ * 退出后台 / 返回用户端入口同时保留在 AdminShell 顶栏（lg:hidden）。
  */
-export function AdminSidebar({
-  currentPath,
-  open,
-  onClose,
-}: {
-  currentPath: string;
-  open: boolean;
-  onClose: () => void;
-}) {
+export function AdminSidebar({ currentPath }: { currentPath: string }) {
   const router = useRouter();
 
+  /** 退出后台后回管理端登录页（不回首页） */
   async function logout() {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
     } finally {
-      router.replace(ROUTES.HOME);
+      router.replace(ROUTES.ADMIN_LOGIN);
       router.refresh();
     }
   }
@@ -58,10 +58,7 @@ export function AdminSidebar({
   return (
     <aside
       id="sidebar"
-      className={cn(
-        'fixed top-0 left-0 z-40 h-screen w-60 shrink-0 flex-col bg-slate-900 text-slate-300 lg:sticky lg:flex',
-        open ? 'flex' : 'hidden lg:flex',
-      )}
+      className="fixed top-0 left-0 z-40 hidden h-screen w-60 shrink-0 flex-col bg-slate-900 text-slate-300 lg:sticky lg:flex"
     >
       <div className="flex h-16 items-center gap-2 border-b border-slate-800 px-5">
         <Image src={PRODUCT.LOGO_PATH} alt={PRODUCT.NAME} width={36} height={36} className="h-8 w-8" />
@@ -74,14 +71,13 @@ export function AdminSidebar({
       </div>
 
       <nav className="flex-1 space-y-1 p-3 text-sm">
-        {SIDEBAR_ITEMS.map((item) => {
+        {ADMIN_NAV.map((item) => {
           const Icon = item.icon;
           const active = currentPath === item.href;
           return (
             <Link
               key={item.href}
               href={item.href}
-              onClick={onClose}
               className={cn(
                 'flex h-10 items-center gap-3 rounded-lg px-3',
                 active ? 'bg-slate-800 text-white' : 'hover:bg-slate-800 hover:text-white',

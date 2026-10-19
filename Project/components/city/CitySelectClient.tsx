@@ -176,10 +176,16 @@ function DestPanel({
 export function CitySelectClient({
   cities,
   draft,
+  guest = false,
+  dataCityNames = [],
   error = false,
 }: {
   cities: CityOption[];
   draft?: CityDraft | null;
+  /** 游客模式（免登录试用）：只有库内已有数据的城市可点，其余置灰并标注「暂无数据」 */
+  guest?: boolean;
+  /** 游客模式下「有数据」（库内已有可勾选地点）的城市名清单 */
+  dataCityNames?: readonly string[];
   /** 城市字典查询失败 */
   error?: boolean;
 }) {
@@ -192,6 +198,9 @@ export function CitySelectClient({
 
   const kw = keyword.trim();
 
+  /** 游客态：库内已有数据的城市集合（不在其中的城市置灰且不可点击） */
+  const dataCities = useMemo(() => new Set(dataCityNames), [dataCityNames]);
+
   /** 只渲染 cities 表中存在的热门城市卡（真实数据源兜底） */
   const hotCards = useMemo(() => {
     const names = new Set(cities.map((c) => c.name));
@@ -201,12 +210,14 @@ export function CitySelectClient({
   const list = useMemo(() => (kw ? hotCards.filter((c) => matchCity(c, kw)) : hotCards), [hotCards, kw]);
 
   const nextHref = useMemo(() => {
+    // 游客：直接进免登录试用链路（带上所选城市），不走需登录的 /route/new
+    if (guest) return `${ROUTES.TRY_NEW}?city=${encodeURIComponent(selected ?? '')}`;
     const isNear = selectedDest?.scope === 'near';
     const cityName = isNear ? selectedDest!.name : selected;
     if (!cityName) return ROUTES.ROUTE_NEW;
     const dest = !isNear && selectedDest ? `&dest=${encodeURIComponent(selectedDest.name)}` : '';
     return `${ROUTES.ROUTE_NEW}?city=${encodeURIComponent(cityName)}${dest}`;
-  }, [selected, selectedDest]);
+  }, [guest, selected, selectedDest]);
 
   function pickCity(name: string) {
     if (selected === name) {
@@ -291,7 +302,9 @@ export function CitySelectClient({
           <div className="mt-8 flex flex-wrap items-end justify-between gap-3">
             <h2 className="text-sm font-semibold text-stone-500">
               {M.CITY_HERO.hotTitle}
-              <span className="ml-1 font-normal text-stone-400">{M.CITY_HERO.hotTitleNote}</span>
+              <span className="ml-1 font-normal text-stone-400">
+                {guest ? M.CITY_HERO.hotTitleNoteGuest : M.CITY_HERO.hotTitleNote}
+              </span>
             </h2>
             <p className="flex items-center gap-1 text-[11px] text-stone-400">
               <Database className="h-4 w-4" />
@@ -302,7 +315,9 @@ export function CitySelectClient({
           <div className="mt-3">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
               {list.map((card) => {
-                const on = selected === card.name;
+                // 游客态：库内没有数据的城市置灰且不可点（游客试用只能勾选库内已有地点）
+                const locked = guest && !dataCities.has(card.name);
+                const on = !locked && selected === card.name;
                 const CityIcon = card.icon;
                 return (
                   <div
@@ -311,42 +326,64 @@ export function CitySelectClient({
                   >
                     <button
                       type="button"
+                      disabled={locked}
+                      aria-disabled={locked}
                       onClick={() => pickCity(card.name)}
                       className={cn(
                         'w-full rounded-2xl border-2 bg-white p-4 text-left transition',
-                        on
-                          ? 'border-primary ring-4 ring-primary/30'
-                          : 'border-stone-200 hover:border-stone-300',
+                        locked
+                          ? 'cursor-not-allowed border-stone-200 opacity-60 grayscale'
+                          : on
+                            ? 'border-primary ring-4 ring-primary/30'
+                            : 'border-stone-200 hover:border-stone-300',
                       )}
                     >
                       <div className="flex items-center justify-between">
                         <span
                           className={cn(
                             'grid h-10 w-10 place-items-center rounded-xl',
-                            card.color,
+                            locked ? 'bg-stone-100 text-stone-400' : card.color,
                           )}
                         >
                           <CityIcon className="h-[22px] w-[22px]" />
                         </span>
                         {on ? (
                           <CheckCircle2 className="h-[22px] w-[22px] text-primary" />
+                        ) : guest ? (
+                          <span
+                            className={cn(
+                              'rounded px-1.5 py-0.5 text-[10px]',
+                              locked
+                                ? 'bg-stone-100 text-stone-500'
+                                : 'bg-amber-100 text-amber-700',
+                            )}
+                          >
+                            {locked ? M.CITY_HERO.badgeNoData : M.CITY_HERO.badgeHasData}
+                          </span>
                         ) : card.badge ? (
                           <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700">
                             {card.badge}
                           </span>
                         ) : null}
                       </div>
-                      <p className="mt-3 font-semibold text-stone-900">{card.name}</p>
-                      <p className="mt-0.5 text-xs text-stone-500">{card.keywords.join(' · ')}</p>
-                      <p
-                        className={cn(
-                          'mt-2 flex items-center gap-1 text-[11px]',
-                          on ? 'text-primary' : 'text-stone-400',
-                        )}
-                      >
-                        {on ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                        {on ? M.CITY_DEST.cardCollapse : M.CITY_DEST.cardExpand}
+                      <p className={cn('mt-3 font-semibold', locked ? 'text-stone-400' : 'text-stone-900')}>
+                        {card.name}
                       </p>
+                      <p className={cn('mt-0.5 text-xs', locked ? 'text-stone-300' : 'text-stone-500')}>
+                        {card.keywords.join(' · ')}
+                      </p>
+                      {/* 置灰的卡片没有可展开内容，不显示展开提示（正常卡片保留，与原型一致） */}
+                      {locked ? null : (
+                        <p
+                          className={cn(
+                            'mt-2 flex items-center gap-1 text-[11px]',
+                            on ? 'text-primary' : 'text-stone-400',
+                          )}
+                        >
+                          {on ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                          {on ? M.CITY_DEST.cardCollapse : M.CITY_DEST.cardExpand}
+                        </p>
+                      )}
                     </button>
                     {on ? (
                       <DestPanel

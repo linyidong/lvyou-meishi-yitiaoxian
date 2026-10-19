@@ -59,6 +59,8 @@ export async function POST(request: NextRequest) {
         member_since: body.grant ? now : null,
         // 取消会员后回到普通用户，来源一并清空
         member_source: body.grant ? MEMBER_SOURCE.ADMIN : null,
+        // 管理员开通一律为永久会员（清空到期时间，避免继承此前的付费到期时间）
+        member_until: null,
       })
       .eq('id', userId);
     if (error) {

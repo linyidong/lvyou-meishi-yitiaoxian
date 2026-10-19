@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { MESSAGES } from '@/config/messages';
-import { ADMIN_ROUTES, PROTECTED_ROUTES, ROUTES } from '@/config/routes';
+import { ADMIN_ROUTES, GUEST_TRY_ROUTES, PROTECTED_ROUTES, ROUTES } from '@/config/routes';
 import { USER_ROLE } from '@/config/enums';
 import { updateSession } from '@/lib/supabase/middleware';
 
@@ -23,6 +23,11 @@ export async function middleware(request: NextRequest) {
 
   // 登录页公开
   if (pathname === ROUTES.LOGIN || pathname === ROUTES.ADMIN_LOGIN) {
+    return response;
+  }
+
+  // 游客试用链路 /try/* 公开：未登录也能完整走一遍（放行，不做重定向；已登录用户同样不受影响）
+  if (GUEST_TRY_ROUTES.some((r) => matchesPrefix(pathname, r))) {
     return response;
   }
 

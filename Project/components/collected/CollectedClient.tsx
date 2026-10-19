@@ -8,6 +8,7 @@ import {
   BookmarkMinus,
   Building2,
   Camera,
+  ChevronDown,
   FilterX,
   Info,
   MapPin,
@@ -72,6 +73,8 @@ export function CollectedClient({
   const [toast, setToast] = useState<Toast | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [pending, setPending] = useState<CollectedItem | null>(null);
+  /** 已收起的城市分组（默认全部展开），key 为城市名 */
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   const usedSet = useMemo(() => new Set(usedPlaceIds), [usedPlaceIds]);
 
@@ -87,6 +90,31 @@ export function CollectedClient({
       );
     });
   }, [items, filter, keyword]);
+
+  /**
+   * 按城市分组：收藏地点先按城市归堆，点城市名可折叠 / 展开。
+   * 排序规则：收藏多的城市在前；「未指定城市」永远排最后。
+   */
+  const groups = useMemo(() => {
+    const map = new Map<string, CollectedItem[]>();
+    for (const it of filtered) {
+      const key = it.cityName ?? M.noCity;
+      map.set(key, [...(map.get(key) ?? []), it]);
+    }
+    return [...map.entries()]
+      .map(([city, list]) => ({ city, list }))
+      .sort((a, b) => {
+        const aNone = a.city === M.noCity ? 1 : 0;
+        const bNone = b.city === M.noCity ? 1 : 0;
+        if (aNone !== bNone) return aNone - bNone;
+        if (a.list.length !== b.list.length) return b.list.length - a.list.length;
+        return a.city.localeCompare(b.city, 'zh-Hans-CN');
+      });
+  }, [filtered]);
+
+  function toggleGroup(city: string) {
+    setCollapsed((prev) => ({ ...prev, [city]: !prev[city] }));
+  }
 
   const spotCount = items.filter((it) => it.type === PLACE_TYPE.ATTRACTION).length;
   const foodCount = items.filter((it) => it.type === PLACE_TYPE.FOOD).length;
@@ -188,7 +216,10 @@ export function CollectedClient({
           </Link>
         </div>
 
-        <p className="mt-3 text-xs text-stone-500">{M.sum(items.length, spotCount, foodCount)}</p>
+        <p className="mt-3 text-xs text-stone-500">
+          {M.sum(items.length, spotCount, foodCount)}
+          <span className="ml-3 text-stone-400">{M.groupHint}</span>
+        </p>
       </div>
 
       {/* 列表 */}
@@ -233,80 +264,51 @@ export function CollectedClient({
           </button>
         </div>
       ) : (
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
-          {filtered.map((it) => {
-            const isFood = it.type === PLACE_TYPE.FOOD;
-            const inRoute = usedSet.has(it.id);
+        <div className="mt-4 space-y-4">
+          {groups.map(({ city, list }) => {
+            const isCollapsed = collapsed[city] ?? false;
             return (
-              <div key={it.id} className="rounded-2xl border border-stone-200 bg-white p-4">
-                <div className="flex items-start gap-3">
-                  <span
-                    className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${
-                      isFood ? 'bg-amber-50 text-amber-600' : 'bg-teal-50 text-teal-600'
-                    }`}
-                  >
-                    {isFood ? (
-                      <Utensils className="h-[22px] w-[22px]" />
-                    ) : (
-                      <Camera className="h-[22px] w-[22px]" />
-                    )}
+              <section
+                key={city}
+                className="overflow-hidden rounded-2xl border border-stone-200 bg-white"
+              >
+                {/* 城市标题：点击折叠 / 展开 */}
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(city)}
+                  aria-expanded={!isCollapsed}
+                  aria-label={M.groupToggleAria(city, !isCollapsed)}
+                  className="flex w-full items-center gap-2 px-4 py-3 text-left hover:bg-stone-50"
+                >
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary/5 text-primary">
+                    <Building2 className="h-4 w-4" />
                   </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-semibold text-stone-900">{it.name}</span>
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-[11px] ${
-                          isFood ? 'bg-amber-50 text-amber-700' : 'bg-teal-50 text-teal-700'
-                        }`}
-                      >
-                        {PLACE_TYPE_LABEL[it.type]}
-                      </span>
-                      {inRoute ? (
-                        <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] text-stone-600">
-                          {M.inRoute}
-                        </span>
-                      ) : null}
-                    </div>
-                    <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-stone-500">
-                      <span className="flex items-center gap-1">
-                        <Building2 className="h-3.5 w-3.5" />
-                        {it.cityName ?? M.noCity}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <MapPin className="h-3.5 w-3.5" />
-                        {it.address ?? M.noAddress}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Share2 className="h-3.5 w-3.5" />
-                        {it.source ? IMPORT_SOURCE_LABEL[it.source] : M.manualSource}
-                      </span>
-                    </p>
-                    <p className="mt-1 text-xs text-stone-400">
-                      {M.note(it.note ?? M.noteEmpty, fmtTime(it.createdAt))}
-                    </p>
+                  <span className="font-semibold text-stone-900">{city}</span>
+                  <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] text-stone-600">
+                    {M.groupCount(list.length)}
+                  </span>
+                  <ChevronDown
+                    className={`ml-auto h-4 w-4 shrink-0 text-stone-400 transition-transform ${
+                      isCollapsed ? '-rotate-90' : ''
+                    }`}
+                  />
+                </button>
+
+                {isCollapsed ? null : (
+                  <div className="grid gap-3 border-t border-stone-100 p-4 md:grid-cols-2">
+                    {list.map((it) => (
+                      <CollectedCard
+                        key={it.id}
+                        item={it}
+                        inRoute={usedSet.has(it.id)}
+                        busy={busyId === it.id}
+                        onAdd={() => setPending(it)}
+                        onRemove={() => removeOne(it)}
+                      />
+                    ))}
                   </div>
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    disabled={busyId === it.id}
-                    onClick={() => setPending(it)}
-                    className="flex h-9 items-center gap-1.5 rounded-xl bg-gradient-to-r from-primary-from to-primary-to px-4 text-sm font-medium text-white hover:brightness-110 disabled:opacity-50"
-                  >
-                    <MapPinPlus className="h-4 w-4" />
-                    {M.addToRoute}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busyId === it.id}
-                    onClick={() => removeOne(it)}
-                    className="flex h-9 items-center gap-1.5 rounded-xl border border-stone-300 px-4 text-sm font-medium text-stone-600 hover:bg-stone-50 disabled:opacity-50"
-                  >
-                    <BookmarkMinus className="h-4 w-4" />
-                    {M.remove}
-                  </button>
-                </div>
-              </div>
+                )}
+              </section>
             );
           })}
         </div>
@@ -386,5 +388,94 @@ export function CollectedClient({
         </div>
       ) : null}
     </>
+  );
+}
+
+/** U11 收藏地点卡片（按城市分组后由分组渲染） */
+function CollectedCard({
+  item,
+  inRoute,
+  busy,
+  onAdd,
+  onRemove,
+}: {
+  item: CollectedItem;
+  /** 该地点已出现在某条路线中 */
+  inRoute: boolean;
+  busy: boolean;
+  onAdd: () => void;
+  onRemove: () => void;
+}) {
+  const isFood = item.type === PLACE_TYPE.FOOD;
+  return (
+    <div className="rounded-2xl border border-stone-200 bg-white p-4">
+      <div className="flex items-start gap-3">
+        <span
+          className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${
+            isFood ? 'bg-amber-50 text-amber-600' : 'bg-teal-50 text-teal-600'
+          }`}
+        >
+          {isFood ? (
+            <Utensils className="h-[22px] w-[22px]" />
+          ) : (
+            <Camera className="h-[22px] w-[22px]" />
+          )}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-semibold text-stone-900">{item.name}</span>
+            <span
+              className={`rounded-full px-2 py-0.5 text-[11px] ${
+                isFood ? 'bg-amber-50 text-amber-700' : 'bg-teal-50 text-teal-700'
+              }`}
+            >
+              {PLACE_TYPE_LABEL[item.type]}
+            </span>
+            {inRoute ? (
+              <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] text-stone-600">
+                {M.inRoute}
+              </span>
+            ) : null}
+          </div>
+          <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-stone-500">
+            <span className="flex items-center gap-1">
+              <Building2 className="h-3.5 w-3.5" />
+              {item.cityName ?? M.noCity}
+            </span>
+            <span className="flex items-center gap-1">
+              <MapPin className="h-3.5 w-3.5" />
+              {item.address ?? M.noAddress}
+            </span>
+            <span className="flex items-center gap-1">
+              <Share2 className="h-3.5 w-3.5" />
+              {item.source ? IMPORT_SOURCE_LABEL[item.source] : M.manualSource}
+            </span>
+          </p>
+          <p className="mt-1 text-xs text-stone-400">
+            {M.note(item.note ?? M.noteEmpty, fmtTime(item.createdAt))}
+          </p>
+        </div>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          type="button"
+          disabled={busy}
+          onClick={onAdd}
+          className="flex h-9 items-center gap-1.5 rounded-xl bg-gradient-to-r from-primary-from to-primary-to px-4 text-sm font-medium text-white hover:brightness-110 disabled:opacity-50"
+        >
+          <MapPinPlus className="h-4 w-4" />
+          {M.addToRoute}
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={onRemove}
+          className="flex h-9 items-center gap-1.5 rounded-xl border border-stone-300 px-4 text-sm font-medium text-stone-600 hover:bg-stone-50 disabled:opacity-50"
+        >
+          <BookmarkMinus className="h-4 w-4" />
+          {M.remove}
+        </button>
+      </div>
+    </div>
   );
 }

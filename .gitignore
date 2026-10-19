@@ -45,3 +45,8 @@ supabase/.temp
 *.pages.zip
 # 原型压缩包（Modao 导出，仅本地参考，不入库）
 *.zip
+
+# 收款码原图：未裁剪、含经营信息，仅本地留档。
+# 站点实际使用的是裁剪隐私后的公开副本 Project/public/pay-qr-wechat.png 与 pay-qr-alipay.png
+Project/public/pay-qr.jpeg
+Project/public/pay-qr.png

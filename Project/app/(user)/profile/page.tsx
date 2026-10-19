@@ -1,14 +1,31 @@
 import Link from 'next/link';
 import { ChevronRight, LayoutDashboard } from 'lucide-react';
-import { MemberCard } from '@/components/profile/MemberCard';
+import { MemberCard, type PendingOrderInfo } from '@/components/profile/MemberCard';
 import { ProfileMenu } from '@/components/profile/ProfileMenu';
-import { USER_ROLE } from '@/config/enums';
+import { ORDER_STATUS, USER_ROLE } from '@/config/enums';
 import { MESSAGES } from '@/config/messages';
 import { ROUTES } from '@/config/routes';
+import { isMemberActive } from '@/lib/member-quota';
 import { createClient } from '@/lib/supabase/server';
-import type { MemberSource } from '@/types';
+import type { MemberPlan, MemberSource } from '@/types';
 
 const M = MESSAGES.PROFILE;
+
+/**
+ * 本页用到的 users 列（只读展示）。
+ * member_until 依赖迁移 021，列不存在时由上面的降级查询补 null，故声明为可选。
+ */
+interface ProfileRow {
+  id: string;
+  email: string | null;
+  username: string | null;
+  role: string | null;
+  member: boolean | null;
+  member_since: string | null;
+  member_source: string | null;
+  member_until?: string | null;
+  created_at: string;
+}
 
 /** YYYY-MM-DD */
 function fmtDate(iso: string | null) {
@@ -38,11 +55,41 @@ export default async function ProfilePage() {
     );
   }
 
-  const { data: profile } = await supabase
+  // 会员有效期 member_until 依赖迁移 021：列不存在时降级为不含该列的查询，避免整页 500
+  let profile: ProfileRow | null = null;
+  const full = await supabase
     .from('users')
-    .select('id,email,username,role,member,member_since,member_source,created_at')
+    .select('id,email,username,role,member,member_since,member_source,member_until,created_at')
     .eq('id', user.id)
     .maybeSingle();
+  if (!full.error) {
+    profile = full.data as ProfileRow;
+  } else {
+    const base = await supabase
+      .from('users')
+      .select('id,email,username,role,member,member_since,member_source,created_at')
+      .eq('id', user.id)
+      .maybeSingle();
+    profile = base.data ? { ...(base.data as ProfileRow), member_until: null } : null;
+  }
+
+  // 最近一笔待核销订单（阶段 3）：查询失败（如迁移 021 未执行）时静默忽略
+  let pendingOrder: PendingOrderInfo | null = null;
+  try {
+    const { data: order, error } = await supabase
+      .from('member_orders')
+      .select('plan,created_at')
+      .eq('user_id', user.id)
+      .eq('status', ORDER_STATUS.PENDING)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!error && order) {
+      pendingOrder = { plan: order.plan as MemberPlan, createdAt: order.created_at };
+    }
+  } catch {
+    pendingOrder = null;
+  }
 
   const [routesRes, collectedRes, placesRes, routeCitiesRes] = await Promise.all([
     supabase.from('routes').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
@@ -60,8 +107,12 @@ export default async function ProfilePage() {
   ).size;
 
   const isAdmin = profile?.role === USER_ROLE.ADMIN;
-  // 管理员账号默认享有最高级会员（库侧由 015 触发器落库，此处同步派生，执行 SQL 前后表现一致）
-  const isMember = Boolean(profile?.member) || isAdmin;
+  // 管理员账号默认享有最高级会员（库侧由 015 触发器落库）；付费会员按 member_until 惰性判到期
+  const isMember = isMemberActive(
+    profile?.role ?? null,
+    profile?.member ?? null,
+    profile?.member_until ?? null,
+  );
   const displayName = profile?.username ?? profile?.email?.split('@')[0] ?? '旅行者';
   const stats: { label: string; value: number; href?: string }[] = [
     { label: M.statRoutes, value: routesRes.count ?? 0, href: ROUTES.MY_ROUTES },
@@ -137,8 +188,11 @@ export default async function ProfilePage() {
       {/* 会员卡 */}
       <MemberCard
         member={isMember}
+        isAdmin={isAdmin}
         memberSince={profile?.member_since ?? null}
         memberSource={(profile?.member_source as MemberSource | null) ?? null}
+        memberUntil={profile?.member_until ?? null}
+        pendingOrder={pendingOrder}
       />
 
       {/* 菜单 */}

@@ -1,7 +1,7 @@
 import { Header } from '@/components/layout/Header';
 import { HeartbeatProvider } from '@/components/layout/HeartbeatProvider';
 import { MobileNav } from '@/components/layout/MobileNav';
-import { USER_ROLE } from '@/config/enums';
+import { getQuotaProfile } from '@/lib/member-quota';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -18,24 +18,29 @@ export default async function UserLayout({ children }: { children: React.ReactNo
 
   let displayName: string | null = null;
   let isAdmin = false;
+  let isMember = false;
   if (user) {
     const { data: profile } = await supabase
       .from('users')
-      .select('username,email,role')
+      .select('username,email')
       .eq('id', user.id)
       .maybeSingle();
     displayName = profile?.username ?? profile?.email ?? user.email ?? null;
-    isAdmin = profile?.role === USER_ROLE.ADMIN;
+    // 档位统一由 lib/member-quota.ts 判定（含管理员最高级会员、付费会员 member_until 到期回落），
+    // 也顺带兼容迁移 021 未执行时 member_until 列不存在的降级查询。
+    const { tier } = await getQuotaProfile(user.id);
+    isAdmin = tier === 'admin';
+    isMember = tier !== 'free';
   }
 
   return (
     <HeartbeatProvider>
       <div className="flex min-h-screen flex-col bg-stone-50 text-stone-800">
-        <Header displayName={displayName} isAdmin={isAdmin} />
+        <Header displayName={displayName} isAdmin={isAdmin} isMember={isMember} />
         <main className="mx-auto w-full max-w-[1536px] flex-1 px-4 py-6 pb-24 md:px-6 md:py-10 md:pb-10">
           {children}
         </main>
-        <MobileNav />
+        <MobileNav guest={!displayName} />
       </div>
     </HeartbeatProvider>
   );

@@ -5,7 +5,9 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Bike,
+  Bus,
   Camera,
+  Car,
   Footprints,
   Loader2,
   MapPinOff,
@@ -14,13 +16,15 @@ import {
   Route as RouteIcon,
   Utensils,
   X,
+  type LucideIcon,
 } from 'lucide-react';
 import { BUSINESS } from '@/config/business';
 import { PLACE_TYPE, PLACE_TYPE_LABEL, TRANSPORT_LABEL, TRANSPORT } from '@/config/enums';
 import { MESSAGES } from '@/config/messages';
 import { ROUTES } from '@/config/routes';
-import { buildRouteOrder } from '@/lib/route-order';
-import type { PlaceType, Transport } from '@/types';
+import type { LodgingCoords } from '@/lib/amap';
+import { distributeByDays, orderByStraightLine, straightDist2 } from '@/lib/route-order';
+import type { NavMode, PlaceType, Transport } from '@/types';
 
 /** 当前城市的已导入地点 */
 export interface RoutePlaceOption {
@@ -36,6 +40,9 @@ type PlaceTab = 'all' | PlaceType;
 
 const M = MESSAGES.ROUTE_PLACES;
 
+/** 起点选择里代表「从离住宿最近的地点出发」的哨兵值 */
+const START_FROM_LODGING = 'lodging';
+
 const filterTabCls = (on: boolean) =>
   `px-3 py-1.5 rounded-lg text-sm ${on ? 'bg-white shadow-sm font-semibold text-stone-900' : 'text-stone-500'}`;
 const pickCls = (on: boolean) =>
@@ -46,6 +53,13 @@ const typeIconCls = (type: PlaceType) =>
   `w-10 h-10 rounded-xl grid place-items-center shrink-0 ${
     type === PLACE_TYPE.FOOD ? 'bg-amber-50 text-amber-600' : 'bg-teal-50 text-teal-600'
   }`;
+/** 市内交通各方式的图标（与 TRANSPORT 取值一一对应） */
+const TRANSPORT_ICON: Record<Transport, LucideIcon> = {
+  [TRANSPORT.WALK]: Footprints,
+  [TRANSPORT.BIKE]: Bike,
+  [TRANSPORT.TRANSIT]: Bus,
+  [TRANSPORT.DRIVE]: Car,
+};
 
 /**
  * U07 勾选地点（六步流程第 4 步）：勾选后按顺路顺序排路线，写库后进入 U08 调整。
@@ -57,6 +71,8 @@ export function RoutePlacesClient({
   transport,
   places,
   initialCheckedIds,
+  lodging,
+  placesPerDay,
 }: {
   routeId: string;
   cityName: string | null;
@@ -65,6 +81,10 @@ export function RoutePlacesClient({
   places: RoutePlaceOption[];
   /** 已在当前路线中的 place_id，作为默认勾选 */
   initialCheckedIds: string[];
+  /** 终点城市的住宿（已解析坐标），用于「起点默认离住宿最近」与地图标记 */
+  lodging: LodgingCoords | null;
+  /** 当前档位单日地点上限（免费 6 / 会员 12 / 管理员按单条上限兜底），用于勾选前本地校验与提示 */
+  placesPerDay: number;
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<PlaceTab>('all');
@@ -74,6 +94,8 @@ export function RoutePlacesClient({
   const [failed, setFailed] = useState(false);
   const [delTarget, setDelTarget] = useState<RoutePlaceOption | null>(null);
   const [toastText, setToastText] = useState('');
+  /** 起点：'' = 不指定（服务端自动挑），START_FROM_LODGING = 离住宿最近的点，其余为 place id */
+  const [startAt, setStartAt] = useState(lodging ? START_FROM_LODGING : '');
 
   const visible = useMemo(
     () => places.filter((p) => (tab === 'all' ? true : p.type === tab)),
@@ -83,26 +105,11 @@ export function RoutePlacesClient({
   const selected = useMemo(() => places.filter((p) => checked.has(p.id)), [places, checked]);
   const checkedSpots = selected.filter((p) => p.type === PLACE_TYPE.ATTRACTION).length;
   const checkedFoods = selected.filter((p) => p.type === PLACE_TYPE.FOOD).length;
-
-  const mapPoints = useMemo(() => {
-    const withCoord = places.filter((p) => p.lat !== null && p.lng !== null);
-    if (withCoord.length === 0) return [];
-    const lats = withCoord.map((p) => p.lat as number);
-    const lngs = withCoord.map((p) => p.lng as number);
-    const minLat = Math.min(...lats);
-    const maxLat = Math.max(...lats);
-    const minLng = Math.min(...lngs);
-    const maxLng = Math.max(...lngs);
-    const spanLat = maxLat - minLat || 1;
-    const spanLng = maxLng - minLng || 1;
-    return withCoord.map((p) => ({
-      id: p.id,
-      type: p.type,
-      on: checked.has(p.id),
-      x: 15 + (((p.lng as number) - minLng) / spanLng) * 70,
-      y: 15 + (1 - ((p.lat as number) - minLat) / spanLat) * 70,
-    }));
-  }, [places, checked]);
+  /** 已勾选且已有坐标的点：只有它们能参与真实路网排序与算路 */
+  const selectedWithCoord = useMemo(
+    () => selected.filter((p) => p.lat !== null && p.lng !== null),
+    [selected],
+  );
 
   function toggle(id: string) {
     setChecked((prev) => {
@@ -121,6 +128,59 @@ export function RoutePlacesClient({
     });
   }
 
+  /** 调一次「只排序」接口（按该方式的高德距离矩阵排），失败返回 null */
+  async function postOrder(points: string[], startIndex: number): Promise<number[] | null> {
+    try {
+      const res = await fetch('/api/amap/order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ points, mode: transport as NavMode, startIndex }),
+      });
+      const data = (await res.json()) as { ok?: boolean; order?: number[] };
+      if (!data.ok || !Array.isArray(data.order)) return null;
+      return data.order;
+    } catch {
+      return null;
+    }
+  }
+
+  /** 起点在 selectedWithCoord 里的下标；-1 = 不指定，交给服务端自动挑最顺的起点 */
+  function resolveStartIndex(): number {
+    if (startAt === START_FROM_LODGING && lodging) {
+      let best = -1;
+      let bestDist = Number.POSITIVE_INFINITY;
+      selectedWithCoord.forEach((p, i) => {
+        const d = straightDist2({ lat: p.lat as number, lng: p.lng as number }, lodging);
+        if (d < bestDist) {
+          bestDist = d;
+          best = i;
+        }
+      });
+      return best;
+    }
+    if (startAt) {
+      const idx = selectedWithCoord.findIndex((p) => p.id === startAt);
+      return idx >= 0 ? idx : -1;
+    }
+    return -1;
+  }
+
+  /**
+   * 排好所选地点的顺序：优先用高德真实路网矩阵（最近邻 + 2-opt 去交叉），
+   * 拿不到矩阵（额度用尽 / 网络异常）时退回 cos 纬度校正后的直线距离。
+   */
+  async function orderSelected(): Promise<string[]> {
+    const tail = selected.filter((p) => p.lat === null || p.lng === null).map((p) => p.id);
+    if (selectedWithCoord.length >= 3) {
+      const order = await postOrder(
+        selectedWithCoord.map((p) => `${p.lng},${p.lat}`),
+        resolveStartIndex(),
+      );
+      if (order) return [...order.map((i) => selectedWithCoord[i].id), ...tail];
+    }
+    return orderByStraightLine(selected.map((p) => ({ placeId: p.id, lat: p.lat, lng: p.lng })));
+  }
+
   async function generate() {
     if (selected.length < 2) {
       setGenErr(MESSAGES.ROUTE_MIN_PLACES);
@@ -130,8 +190,8 @@ export function RoutePlacesClient({
       setGenErr(M.dayMinPlaces(days));
       return;
     }
-    if (Math.ceil(selected.length / days) > BUSINESS.MAX_PLACES_PER_DAY) {
-      setGenErr(MESSAGES.ROUTE_DAY_LIMIT_EXCEEDED);
+    if (Math.ceil(selected.length / days) > placesPerDay) {
+      setGenErr(MESSAGES.ROUTE_DAY_LIMIT_EXCEEDED(placesPerDay));
       return;
     }
     if (selected.length > BUSINESS.MAX_PLACES_PER_ROUTE) {
@@ -142,10 +202,7 @@ export function RoutePlacesClient({
     setGenErr('');
     setGenerating(true);
     try {
-      const items = buildRouteOrder(
-        selected.map((p) => ({ placeId: p.id, lat: p.lat, lng: p.lng })),
-        days,
-      );
+      const items = distributeByDays(await orderSelected(), days);
       const res = await fetch(`/api/routes/${routeId}/places`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -370,18 +427,41 @@ export function RoutePlacesClient({
               </div>
             ) : null}
             <p className="mt-1 text-[11px] text-stone-400">{M.daysNote}</p>
-            <p className="mt-1 text-[11px] text-stone-400">{M.limitNote}</p>
+            <p className="mt-1 text-[11px] text-stone-400">{M.limitNote(placesPerDay)}</p>
             <p className="mt-4 text-xs font-medium text-stone-500">{M.transportLabel}</p>
             <div className="mt-2 grid grid-cols-2 gap-2">
-              <button type="button" disabled className={pickCls(transport === TRANSPORT.WALK)}>
-                <Footprints className="h-4 w-4" />
-                {TRANSPORT_LABEL[TRANSPORT.WALK]}
-              </button>
-              <button type="button" disabled className={pickCls(transport === TRANSPORT.BIKE)}>
-                <Bike className="h-4 w-4" />
-                {TRANSPORT_LABEL[TRANSPORT.BIKE]}
-              </button>
+              {Object.values(TRANSPORT).map((m) => {
+                const Icon = TRANSPORT_ICON[m];
+                return (
+                  <button key={m} type="button" disabled className={pickCls(transport === m)}>
+                    <Icon className="h-4 w-4" />
+                    {TRANSPORT_LABEL[m]}
+                  </button>
+                );
+              })}
             </div>
+            {selectedWithCoord.length >= 2 ? (
+              <div className="mt-4">
+                <p className="text-xs font-medium text-stone-500">{M.startLabel}</p>
+                <select
+                  value={startAt}
+                  onChange={(e) => setStartAt(e.target.value)}
+                  aria-label={M.startLabel}
+                  className="mt-2 h-10 w-full rounded-lg border border-stone-200 bg-white px-2 text-sm text-stone-700"
+                >
+                  {lodging ? (
+                    <option value={START_FROM_LODGING}>{M.startFromLodging(lodging.name)}</option>
+                  ) : null}
+                  <option value="">{M.startAuto}</option>
+                  {selectedWithCoord.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {M.startFrom(p.name)}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-[11px] text-stone-400">{M.startNote}</p>
+              </div>
+            ) : null}
             {genErr ? (
               <div className="mt-4 rounded-lg bg-red-50 text-red-700 text-xs px-3 py-2">{genErr}</div>
             ) : null}
@@ -393,32 +473,6 @@ export function RoutePlacesClient({
               <RouteIcon className="h-5 w-5" />
               <span>{M.generateCount(selected.length)}</span>
             </button>
-          </div>
-
-          <div className="rounded-2xl bg-teal-50 border border-teal-100 p-4">
-            <p className="text-xs font-semibold text-teal-800 mb-2">{M.mapTitle}</p>
-            <div
-              className="rounded-xl bg-white h-44"
-              style={{
-                backgroundImage:
-                  'linear-gradient(#e7f6f3 1px,transparent 1px),linear-gradient(90deg,#e7f6f3 1px,transparent 1px)',
-                backgroundSize: '14px 14px',
-              }}
-            >
-              <svg className="w-full h-full" viewBox="0 0 100 100">
-                {mapPoints.map((point) => (
-                  <circle
-                    key={point.id}
-                    cx={point.x}
-                    cy={point.y}
-                    r={point.on ? 3.2 : 2}
-                    fill={point.on ? (point.type === PLACE_TYPE.FOOD ? '#f59e0b' : '#14b8a6') : '#d6d3d1'}
-                    stroke="#fff"
-                    strokeWidth={0.8}
-                  />
-                ))}
-              </svg>
-            </div>
           </div>
         </aside>
       </div>

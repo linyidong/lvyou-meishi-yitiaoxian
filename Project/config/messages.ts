@@ -28,6 +28,8 @@ export const MESSAGES = {
   UPGRADE_TOAST: '感谢反馈，第一版暂不收费',
   /** M11 无权限访问 */
   FORBIDDEN: '无权限访问',
+  /** M11a 未登录（API 服务端兜底） */
+  LOGIN_FIRST: '请先登录',
   /** M12 出行设置：出发城市必填（U05） */
   ORIGIN_CITY_REQUIRED: '出发城市为必填项，请先选择或手动输入你这次出发的城市',
   /** M13 出行设置：旅行城市必填（U05） */
@@ -77,7 +79,7 @@ export const MESSAGES = {
   /** M35 生成路线至少 2 个地点（U07） */
   ROUTE_MIN_PLACES: '至少勾选 2 个地点才能生成路线',
   /** M36 单日地点数超上限（U07，上限取自 B01） */
-  ROUTE_DAY_LIMIT_EXCEEDED: `单日最多 ${BUSINESS.MAX_PLACES_PER_DAY} 个地点，请减少勾选后再生成`,
+  ROUTE_DAY_LIMIT_EXCEEDED: (limit: number) => `单日最多 ${limit} 个地点，请减少勾选后再生成`,
   /** M37 单条路线地点数超上限（U07，上限取自 B13） */
   ROUTE_PLACES_LIMIT_EXCEEDED: `单条路线最多 ${BUSINESS.MAX_PLACES_PER_ROUTE} 个地点，请减少勾选后再生成`,
   /** M38 正在生成路线（U07） */
@@ -94,6 +96,40 @@ export const MESSAGES = {
   PLACES_ADDED: (count: number) => `已成功添加 ${count} 个地点`,
   /** M44 注册失败兜底（D4，其余情况不再回显 GoTrue 英文原文） */
   AUTH_REGISTER_FAILED: '注册失败，请稍后重试或联系管理员',
+  /**
+   * 阶段 2 会员分层：服务端限额校验提示（错误码见 config/enums.ts QUOTA_ERROR）。
+   * 服务端返回 message 时直接取这些函数渲染好的文案。
+   */
+  /** 当天「生成路线」次数用完（免费用户按天，limit 为每天上限） */
+  ROUTE_DAILY_LIMIT_REACHED: (limit: number) =>
+    `今天的路线生成次数已用完（免费版每天最多 ${limit} 次），升级会员可提高上限`,
+  /** 当月「生成路线」次数用完（会员按月，limit 为每月上限） */
+  ROUTE_MONTHLY_LIMIT_REACHED: (limit: number) =>
+    `本月的路线生成次数已用完（会员每月最多 ${limit} 条），下个月 1 号自动恢复`,
+  /** 多日行程仅会员可用（免费用户永久 1 次试用额度已用） */
+  ROUTE_MULTI_DAY_MEMBER_ONLY:
+    '多日行程为会员功能：免费版仅支持单日，你的 1 次多日试用额度已用完，升级会员后可创建多日行程',
+  /** 单日地点数超当前角色上限（limit 为当前角色单日上限） */
+  ROUTE_DAY_PLACES_LIMIT: (limit: number) => `单日最多 ${limit} 个地点，升级会员可提升上限`,
+  /** 当天 AI 提取地点次数用完（limit 为当前角色每天上限） */
+  AI_EXTRACT_DAILY_LIMIT_REACHED: (limit: number) =>
+    `今天的 AI 提取次数已用完（当前每天最多 ${limit} 次），升级会员可提高上限`,
+  /** 未登录访客的 AI 提取日限流提示（B08 允许试用，但需限次避免被刷额度） */
+  AI_EXTRACT_GUEST_LIMIT_REACHED: `未登录试用的 AI 提取次数已用完（每天最多 ${BUSINESS.GUEST_TRY_RATE_LIMIT_PER_DAY} 次），注册后可每天提取 ${BUSINESS.FREE_AI_EXTRACT_DAILY_LIMIT} 次`,
+  /** U05 新建路线页按角色展示的配额说明 */
+  TRIP_TIER: {
+    /** 免费用户：单日 · 单日地点上限 */
+    free: (placesPerDay: number) => `免费版：单日行程 · 单日最多 ${placesPerDay} 个地点`,
+    /** 免费用户的 1 次永久多日试用额度说明 */
+    freeTrial: '免费用户可试用 1 次多日行程（永久额度，用完后需升级会员）',
+    /** 会员：多日天数上限 · 单日地点上限 */
+    member: (maxDays: number, placesPerDay: number) =>
+      `会员版：多日最多 ${maxDays} 天 · 单日最多 ${placesPerDay} 个地点`,
+    /** 管理员：不限 */
+    admin: '管理员：不限次数、天数与地点数',
+    /** 升级会员入口按钮 */
+    upgrade: '升级为会员',
+  },
   /** M45 删除用户账号成功（A03） */
   USER_DELETED: '该账号已删除',
   /** M46 删除用户账号失败（A03） */
@@ -156,8 +192,8 @@ export const MESSAGES = {
   NAV_NEW_ROUTE: '新建路线',
   /** M73 顶部导航：我的路线 */
   NAV_MY_ROUTES: '我的路线',
-  /** M74 顶部导航：我的收藏 */
-  NAV_COLLECTED: '我的收藏',
+  /** M74 顶部导航：收藏夹（原「我的收藏」，按 2026-10-18 需求改为「收藏夹」） */
+  NAV_COLLECTED: '收藏夹',
   /** M75 顶部导航：个人中心 */
   NAV_PROFILE: '个人中心',
   /** M76 底部导航（移动端）：新建 */
@@ -166,12 +202,18 @@ export const MESSAGES = {
   NAV_PROFILE_SHORT: '我的',
   /** M78 顶部导航未登录时的登录/注册按钮 */
   NAV_LOGIN_REGISTER: '登录 / 注册',
-  /** M79 顶部导航未登录时的身份提示 */
-  NAV_GUEST: '试用中',
+  /** M79 顶部导航未登录时的身份提示（游客模式） */
+  NAV_GUEST: '游客模式',
+  /** M79b 顶部导航游客态下需登录入口的提示（置灰不可点） */
+  NAV_GUEST_LOCKED: '登录后即可使用',
   /** M80 头像菜单：退出登录 */
   MENU_LOGOUT: '退出登录',
   /** M81 头像菜单：退出中 */
   MENU_LOGGING_OUT: '退出中…',
+  /** M82 头像右侧会员徽章（member=true 的普通用户） */
+  MENU_BADGE_VIP: 'VIP',
+  /** M83 头像右侧管理员徽章（role=admin，默认最高级会员，比 vip 更醒目） */
+  MENU_BADGE_ADMIN: '超级 VIP',
 
   /** M100 U01 / U02 示例路线（成都首日：站点名、距离、图例） */
   SAMPLE_ROUTE: {
@@ -188,7 +230,7 @@ export const MESSAGES = {
   /** M101 U01 左侧渐变面板文案 */
   LOGIN_HERO: {
     titleLines: ['收藏夹里的景点和美食，', '一键排成顺路的一条线'],
-    desc: '从小红书、抖音粘贴分享文案，自由勾选想去的地点，系统按顺路顺序排好路线，你只需微调。',
+    desc: '从小红书粘贴分享文案、从抖音粘贴文案或链接，自由勾选想去的地点，系统按顺路顺序排好路线，你只需微调。',
     tagline: '适合大学生、情侣、宝妈、家庭出游和旅游博主',
   },
   /** M102 U01 表单文案（含找回密码提示、登录中 / 注册中） */
@@ -219,7 +261,10 @@ export const MESSAGES = {
   HOME_HERO: {
     badge: '公开测试版 · 国内城市',
     titleLines: ['把收藏的景点和美食', '排成顺路的一条线'],
-    desc: '粘贴小红书、抖音的分享文案，AI 帮你找出地点。想去哪些自己勾，系统按顺路顺序排好，不再来回绕路。',
+    descLines: [
+      '小红书分享文案粘贴，抖音文案与链接，AI 帮你找出地点。',
+      '想去哪里自己勾，帮你按就近顺路排好路线，尽量不再来回绕路留遗憾',
+    ],
     ctaPrimary: '开始排路线',
   },
   /** M104 U02 草稿提示条文案（infoImported 用于本地草稿，infoUnfinished 用于账号内未生成路线的草稿） */
@@ -234,31 +279,30 @@ export const MESSAGES = {
     title: '导入地点美食先收藏',
     badgeNew: '本期新增',
     badgePrd: '超出 PRD P0，待产品确认',
-    desc: '先把小红书 / 抖音的分享文案粘贴进来，AI 提取地点后存进你的收藏地点，暂时不用建路线。',
+    desc: '小红书请粘贴笔记文案（链接读不到正文），抖音可粘贴分享文案或链接。AI 提取地点后存进你的收藏地点，暂时不用建路线。',
     count: (n: number) => `我的收藏地点：${n} 个`,
-    hintEmpty: '还没有收藏，先粘贴一段分享文案试试',
+    hintEmpty: '还没有收藏，先粘贴一段小红书文案或抖音文案/链接试试',
     hintHas: '详情见“我的收藏地点”',
-    btnImport: '粘贴文案导入',
+    btnImport: '粘贴文案 / 链接导入',
     btnCollected: '我的收藏地点',
   },
   /** M106 U02「粘贴分享文案 · AI 提取收藏」流程文案 */
   HOME_IMPORT: {
-    summary: '粘贴分享文案，AI 提取后直接收藏',
+    summary: '小红书粘贴分享文案，抖音可粘贴文案或链接，AI 提取后直接收藏',
     tabText: '粘贴分享文案',
-    tabLink: '粘贴链接',
+    tabLink: '粘贴链接（抖音等）',
     linkTip:
-      '不会直接打开或读取小红书 / 抖音页面。若只有链接，请同时粘贴分享时自动生成的文案（标题与正文），AI 才能识别地点。',
+      '小红书：链接读不到正文，只能粘贴分享文案；抖音等平台：可粘贴分享链接，系统会尝试读取链接里的内容，读不到时再补充分享文案。',
     placeholderText: '例如：成都两天一夜吃喝攻略🐼 第一站宽窄巷子拍照，中午去陈麻婆豆腐……',
-    placeholderLink:
-      '粘贴链接，并在后面补充分享文案，例如：https://v.douyin.com/xxxx 成都必吃的 5 家店……',
-    needText: '请先粘贴链接或分享文案',
-    needTextTitle: '只识别到链接，请补充分享文案',
+    placeholderLink: '粘贴分享链接（抖音等可读），例如：https://v.douyin.com/xxxx',
+    needText: '请先粘贴分享文案，或抖音等平台的分享链接',
+    needTextTitle: '没能读到这个链接的内容，请改用「粘贴分享文案」',
     needTextDesc:
-      '在小红书 / 抖音点击“分享 → 复制链接”时，会一并复制一段文字。请把整段文字粘贴进来，或手动输入笔记里提到的地点。',
+      '小红书链接因需要登录、正文由前端动态渲染，服务端读不到，请直接用「粘贴分享文案」：在小红书里长按复制笔记正文粘贴进来。抖音等平台的链接可以尝试直接读取，读不到时再补充分享文案；也可以手动输入笔记里提到的地点。',
     sampleLabel: '试试示例：',
     samples: [
       {
-        label: '小红书文案',
+        label: '小红书文案（链接无效）',
         value:
           '成都两天一夜吃喝攻略🐼 第一站宽窄巷子拍照，中午去陈麻婆豆腐，下午人民公园喝盖碗茶，晚上春熙路+太古里逛街，宵夜钟水饺和贺记蛋烘糕！第二天武侯祠、锦里古街，晚饭蜀九香火锅 📍王妈手撕烤兔 #成都美食 #成都旅行',
       },
@@ -268,8 +312,8 @@ export const MESSAGES = {
           '成都本地人私藏的 5 家苍蝇馆子！洞子口张老二凉粉、龙抄手、冒椒火辣、马旺子川菜，吃完去九眼桥吹风～ 复制打开抖音，看看【小满吃遍成都的作品】 https://v.douyin.com/iRkM8sQx/',
       },
       {
-        label: '只有链接',
-        value: 'https://www.xiaohongshu.com/discovery/item/66f1c0a2000000001e03b7d4',
+        label: '只有链接（抖音）',
+        value: 'https://v.douyin.com/iRkM8sQx/',
       },
       {
         label: '无地点文案',
@@ -278,6 +322,8 @@ export const MESSAGES = {
     ],
     extract: 'AI 提取地点',
     extractBusy: 'AI 正在识别…',
+    /** 粘贴的是链接时，先读取链接内容的中间态（U02） */
+    linkBusy: '正在读取链接内容…',
     manual: '不识别，手动输入地点',
     manualTitle: '手动输入地点',
     manualNamePlaceholder: '输入地点名称，如：鹤鸣茶社',
@@ -286,11 +332,29 @@ export const MESSAGES = {
     manualDuplicate: (name: string) => `「${name}」已在列表中`,
     resultTitle: (n: number) => `识别到 ${n} 个地点，勾选后收藏`,
     resultNote: 'AI 解析仅供参考，可修改名称与类型；重复地点会提示合并或跳过',
+    /** 城市识别：AI 先从文案里取城市，地点与美食按该城市收藏 */
+    cityLabel: '收藏城市',
+    cityHint: 'AI 会先识别文案里的城市，下面的地点和美食都收藏到这个城市下',
+    cityPick: '请选择城市',
+    cityAuto: (name: string) => `AI 识别到城市：${name}`,
+    cityMissing: (name: string) => `“${name}”不在内置城市列表中，请手动选择`,
+    cityMissingSaved: (name: string) =>
+      `“${name}”不在内置城市列表中，地点已收藏但未指定城市`,
+    cityUnknown: 'AI 没识别出城市，请手动选择（不选则收藏时城市为空）',
     repaste: '重新粘贴',
     save: (n: number) => `确认收藏 ${n} 个地点`,
     saveNote: '收藏后可在“我的收藏地点”随时加入路线',
     noResult: '没有识别到地点，可换一段文案或手动输入',
-    saved: (n: number) => `已收藏 ${n} 个地点，可在“我的收藏地点”加入路线`,
+    /** 0 结果时展开的说明：小红书只有标题、链接读不到；抖音链接可读 */
+    noResultTitle: '这段内容里没有可识别的地点名',
+    noResultDesc:
+      '这段内容通常只有笔记标题，没有具体地点名。小红书正文在 App 内、链接也读不到，请长按复制笔记正文再粘贴；抖音链接能直接读，读不到时请补充分享文案。也可以手动输入地点。',
+    linkFailNote:
+      '说明：小红书链接读不到正文是正常现象（需登录才能查看），并非故障；小红书请改用粘贴文案，抖音链接才支持直接读取。',
+    goManual: '去手动输入地点',
+    savedWithCity: (n: number, city: string) =>
+      `已收藏 ${n} 个地点到「${city}」，可在“我的收藏地点”加入路线`,
+    savedNoCity: (n: number) => `已收藏 ${n} 个地点（未指定城市），可在“我的收藏地点”加入路线`,
   },
   /** M107 U02「四步排好一条线」 */
   HOME_STEPS: {
@@ -299,8 +363,8 @@ export const MESSAGES = {
       { no: '01', title: '选城市', desc: '先定这次要去的城市，地点只在该城市内规划。' },
       {
         no: '02',
-        title: '粘贴文案导入',
-        desc: '粘贴小红书/抖音分享文案，AI 提取地点，你来确认和修改。',
+        title: '粘贴文案 / 抖音链接导入',
+        desc: '小红书粘贴分享文案，抖音可粘贴文案或链接；AI 提取地点，你来确认和修改。',
       },
       {
         no: '03',
@@ -344,6 +408,18 @@ export const MESSAGES = {
   },
   /** M112 未填写城市时的占位文案（U02 最近路线卡） */
   UNSPECIFIED_CITY: '未指定城市',
+
+  /** M120 真实高德地图区块（U03 / U08 / U09 共用） */
+  MAP: {
+    /** 有坐标的地点不足 2 个，画不出路线时的占位文案 */
+    NO_COORDS: '这些地点还没有坐标，补全后这里会显示真实地图',
+    /** 高德 JS API 正在加载 */
+    LOADING: '地图加载中…',
+    /** 高德 JS API 加载失败（网络或 Key 配置问题） */
+    LOAD_FAILED: '地图加载失败，请检查网络后刷新重试',
+    /** 周边知名地点的图例说明（灰色小点，弱于自己的编号站点） */
+    LANDMARK_LEGEND: '周边知名地点',
+  },
 
   /** M140 U03 我的路线：页头 / 空态 / 失败重试 / 无权限 */
   MY_ROUTES: {
@@ -390,6 +466,12 @@ export const MESSAGES = {
     /** 热门城市分区标题（原型：主文案 + 浅色补充说明） */
     hotTitle: '热门城市',
     hotTitleNote: '· 点击城市可展开二级目的地',
+    /** 游客态：热门区补充说明（游客只能挑库内已有地点，因此仅部分城市可试用） */
+    hotTitleNoteGuest: '· 仅带颜色的城市可试用',
+    /** 游客态：城市卡片角标 —— 库内已有可勾选数据的城市 */
+    badgeHasData: '示例数据最全',
+    /** 游客态：城市卡片角标 —— 库内暂无数据的城市（卡片置灰且不可点击） */
+    badgeNoData: '暂无数据',
     /** 热门区右上角模拟数据说明 */
     mockNote: '城市、城市内地名与周边城市均为模拟数据',
     /** 底部选择条：左侧小字标签 */
@@ -436,7 +518,7 @@ export const MESSAGES = {
     title: '设置这条路线',
     desc: '先给路线起个名字，再决定从哪出发、怎么去、玩几天、到了住哪儿。这些设置之后都能在路线编辑页里随时改。',
     newInfoTitle: '本期新增：出发城市 · 城际交通 · 终点城市住宿（超出原 PRD P0 范围，需产品确认后进入编码）',
-    newInfoDesc1: '原 PRD 只定义了“整条路线统一的步行 / 骑行”。本页新增的出发城市、城际交通（去程）与终点城市住宿均为',
+    newInfoDesc1: '原 PRD 只把市内交通定为“步行 / 骑行”，本版已扩为“步行 / 骑行 / 公交地铁 / 驾车”。本页新增的出发城市、城际交通（去程）与终点城市住宿均为',
     newInfoDescStrong: '前端模拟数据',
     newInfoDesc2: '，未接入真实票务或住宿服务，也不会真实下单。',
   },
@@ -478,7 +560,7 @@ export const MESSAGES = {
     intercityTitle: '城际交通 · 去程',
     intercityDesc1: '出发城市 → 旅行城市的',
     intercityDescStrong: '大交通',
-    intercityDesc2: '方式，与下面“市内交通”（步行 / 骑行）是两回事。这里只做行程信息记录，不会查询班次或票价。',
+    intercityDesc2: '方式，与下面“市内交通”（步行 / 骑行 / 公交地铁 / 驾车）是两回事。这里只做行程信息记录，不会查询班次或票价。',
     intercityHintNoOrigin: '先填写出发城市，再选择去程交通方式。',
     intercityHintSameCity: '同城出发，无需城际交通。',
     intercityHintSet: (origin: string, city: string, mode: string) =>
@@ -573,7 +655,7 @@ export const MESSAGES = {
     /** 页头标题前缀（城市名以主色紧跟其后） */
     titlePrefix: '导入地点 ·',
     noCity: '未指定城市',
-    desc: '粘贴小红书/抖音分享文案，AI 帮你找出里面的景点和美食',
+    desc: '小红书粘贴分享文案、抖音可粘贴文案或链接，AI 帮你找出里面的景点和美食',
     /** 收藏区块 */
     favTitle: '当前城市的收藏地点和美食',
     favDesc: '来自「我的收藏」的地点，可一键加入当前路线，加入后同上写入本路线地点库。',
@@ -587,26 +669,25 @@ export const MESSAGES = {
     favAddOne: '加入当前路线',
     favEmptyFilter: '该分类下暂无收藏地点，切回“全部”看看',
     favEmptyTitle: '还没有收藏当前城市的地点，去导入文案',
-    favEmptyDesc: '粘贴小红书 / 抖音分享文案，AI 提取地点后会先存进“我的收藏”，再回来一键加入路线。',
-    favEmptyImport: '在本页粘贴文案导入',
+    favEmptyDesc: '粘贴小红书分享文案，或抖音的文案与链接，AI 提取地点后会先存进“我的收藏”，再回来一键加入路线。',
+    favEmptyImport: '在本页粘贴文案 / 链接导入',
     favEmptyGo: '去我的收藏',
     noAddress: '待定位',
     /** 导入卡 */
     tabText: '粘贴分享文案',
-    tabLink: '粘贴链接',
+    tabLink: '粘贴链接（抖音等）',
     linkTip:
-      '第一版不会直接打开或读取小红书/抖音页面。若只有链接，请同时粘贴分享时自动生成的文案（标题与正文），AI 才能识别地点。',
+      '小红书：链接读不到正文，只能粘贴分享文案；抖音等平台：可粘贴分享链接，系统会尝试读取链接里的内容，读不到时再补充分享文案。',
     placeholderText: '例如：成都两天一夜吃喝攻略🐼 第一站宽窄巷子拍照，中午去陈麻婆豆腐……',
-    placeholderLink:
-      '粘贴链接，并在后面补充分享文案，例如：https://v.douyin.com/xxxx 成都必吃的 5 家店……',
-    emptyInput: '请先粘贴链接或分享文案',
-    needTextTitle: '只识别到链接，请补充分享文案',
+    placeholderLink: '粘贴分享链接（抖音等可读），例如：https://v.douyin.com/xxxx',
+    emptyInput: '请先粘贴分享文案，或抖音等平台的分享链接',
+    needTextTitle: '没能读到这个链接的内容，请改用「粘贴分享文案」',
     needTextDesc:
-      '在小红书/抖音点击“分享 → 复制链接”时，会一并复制一段文字。请把整段文字粘贴进来，或手动输入笔记里提到的地点。',
+      '小红书链接因需要登录、正文由前端动态渲染，服务端读不到，请直接用「粘贴分享文案」：在小红书里长按复制笔记正文粘贴进来。抖音等平台的链接可以尝试直接读取，读不到时再补充分享文案；也可以手动输入笔记里提到的地点。',
     sampleLabel: '试试示例：',
     samples: [
       {
-        label: '小红书文案',
+        label: '小红书文案（链接无效）',
         value:
           '成都两天一夜吃喝攻略🐼 第一站宽窄巷子拍照，中午去陈麻婆豆腐，下午人民公园喝盖碗茶，晚上春熙路+太古里逛街，宵夜钟水饺和贺记蛋烘糕！第二天武侯祠、锦里古街，晚饭蜀九香火锅 📍王妈手撕烤兔 #成都美食 #成都旅行',
       },
@@ -616,8 +697,8 @@ export const MESSAGES = {
           '成都本地人私藏的 5 家苍蝇馆子！洞子口张老二凉粉、龙抄手、冒椒火辣、马旺子川菜，吃完去九眼桥吹风～ 复制打开抖音，看看【小满吃遍成都的作品】 https://v.douyin.com/iRkM8sQx/',
       },
       {
-        label: '只有链接',
-        value: 'https://www.xiaohongshu.com/discovery/item/66f1c0a2000000001e03b7d4',
+        label: '只有链接（抖音）',
+        value: 'https://v.douyin.com/iRkM8sQx/',
       },
       {
         label: '无地点文案',
@@ -630,7 +711,7 @@ export const MESSAGES = {
     importedPost: '个地点，确认无误后去勾选',
     goSelect: '去勾选地点',
     /** 加载 / 成功 / 空 / 失败 */
-    loadingTitle: 'AI 正在识别文案中的地点…',
+    loadingTitle: 'AI 正在识别文案/链接中的地点…',
     loadingDesc: '通常需要 3-8 秒',
     successTitlePre: '识别到',
     successTitlePost: '个地点，请确认',
@@ -668,9 +749,9 @@ export const MESSAGES = {
       'AI 可能识别错误，确认前请核对店名',
       '「当前城市的收藏地点和美食」来自我的收藏，可一键加入本路线，重复加入会自动跳过',
     ],
-    asideImportedPre: '当前路线已导入',
+    asideImportedPre: '当前路线已加入',
     asideImportedPost: '个地点',
-    asideGo: '去勾选',
+    asideGo: '下一步去勾选',
     /** 无权限 */
     deniedTitle: '无法向这条路线添加地点',
     deniedDesc: '路线不存在、不属于当前账号，或尚未选择城市。',
@@ -698,16 +779,22 @@ export const MESSAGES = {
     daysUnitPre: '共几天',
     daysMinus: '减少一天',
     daysPlus: '增加一天',
-    daysNote: '多日先按距离聚类，再均匀分配到每天；每天独立排顺序，不做时间优化',
-    limitNote: `单日最多 ${BUSINESS.MAX_PLACES_PER_DAY} 个地点，单条路线最多 ${BUSINESS.MAX_PLACES_PER_ROUTE} 个地点`,
+    daysNote: '多日先把全部地点排成一条顺路顺序，再平均分到每天；排序按真实路况就近且不绕路',
+    limitNote: (perDay: number) =>
+      `单日最多 ${perDay} 个地点，单条路线最多 ${BUSINESS.MAX_PLACES_PER_ROUTE} 个地点`,
     transportLabel: '交通方式（整条路线统一）',
+    /** 起点选择（默认从离住宿最近的景点 / 美食出发） */
+    startLabel: '起点',
+    startAuto: '不指定（按就近不绕路自动排序）',
+    startFromLodging: (name: string) => `从离「${name}」最近的地点出发`,
+    startFrom: (name: string) => `从「${name}」出发`,
+    startNote: '默认从离住宿最近的地点出发；不想从住宿出发，可在上面自行指定起点',
     generate: '生成路线',
     generateCount: (count: number) => `用 ${count} 个地点生成路线`,
     dayMinPlaces: (days: number) =>
       `每天至少安排 1 个地点：${days} 天需勾选至少 ${days} 个地点`,
-    mapTitle: '已勾选地点分布（示意）',
     /** 生成中的遮罩 */
-    genMaskDesc: '正在调用高德步行/骑行路径规划',
+    genMaskDesc: '正在按高德真实路况排顺序（就近且不绕路）',
     /** 移除确认 */
     toastRemoved: (name: string) => `已移除“${name}”`,
     delTitle: '从这条路线移除地点？',
@@ -717,11 +804,11 @@ export const MESSAGES = {
     delConfirm: '移除',
     /** 生成失败 */
     errorTitle: '路线生成失败',
-    errorDesc: '部分地点无法规划步行/骑行路径（如距离过远），请减少地点或切换交通方式后重试',
+    errorDesc: '部分地点无法规划当前出行方式的路径（如距离过远），请减少地点或切换交通方式后重试',
     errorBack: '返回调整',
     /** 空态 */
     emptyTitle: '还没有导入任何地点',
-    emptyDesc: '粘贴小红书/抖音的分享文案，AI 帮你把地点找出来',
+    emptyDesc: '粘贴小红书分享文案，或抖音的文案与链接，AI 帮你把地点找出来',
     emptyGo: '去导入地点',
     /** 无权限 */
     deniedTitle: '无法查看这条路线的地点',
@@ -803,6 +890,7 @@ export const MESSAGES = {
     /** 卡片头 */
     legendSpot: '景点',
     legendFood: '美食',
+    legendLodging: '住宿',
     metaDays: (days: number) => `${days} 天`,
     metaSingle: '单日',
     metaCount: (count: number) => `${count} 个地点`,
@@ -820,15 +908,71 @@ export const MESSAGES = {
     lodgingNone: '暂不预订',
     tripNote: '出发城市、城际交通与住宿未接入真实票务或住宿服务。',
     /** 按天顺序 */
-    allDays: '全部天',
+    allDays: '多日行程',
     dayLabel: (day: number) => `第 ${day} 天`,
+    /** 整条路线只有一天时，不再写「第 1 天」，直接写「单日行程」 */
+    singleDayLabel: '单日行程',
     dayMeta: (km: string, min: string) => `${km} 公里 · 约 ${min}`,
     typeSpot: '景点',
     typeFood: '美食',
     noAddress: '待定位',
-    legMeta: (km: string, min: string) => `${km} 公里 · ${min}`,
-    /** 示意地图 */
-    mapNote: '示意地图 · 真实版本接入高德地图',
+    legMeta: (mode: string, km: string, min: string) => `${mode} · 约 ${min} · ${km} 公里`,
+    /** 交给手机高德导航（每天右上角按钮） */
+    amapNav: '手机高德导航',
+    amapNavTitle: '用手机高德地图导航这一天（含最后返回住宿）',
+    amapNavHint: '手机上点当天右侧「手机高德导航」，即可把当天的路线，交给手机高德直接导航',
+    amapNavNoOpen:
+      '没能唤起高德地图 App：请确认手机已装高德地图，并用系统浏览器（Safari / Chrome）打开本页；微信、QQ 内置浏览器会拦截跳转',
+    amapNavFailed: '这一天的地点缺少坐标，暂时无法交给高德导航',
+    /** 「手机高德导航」为会员功能（游客 / 免费用户按钮显示锁定态） */
+    amapNavLocked: '会员可用',
+    amapNavLockedTitle: '「手机高德导航」为会员功能，升级会员后可用',
+    /** 点击锁定态按钮弹出的升级引导 */
+    upgradeNavTitle: '升级会员解锁「手机高德导航」',
+    upgradeNavDesc: '「手机高德导航」与更多路线权益为会员专享，前往个人中心升级为会员后即可使用。',
+    upgradeNavGo: '去升级会员',
+    upgradeNavCancel: '暂不升级',
+    /** 周边知名地点：默认不查，点某天的按钮才查该天（省高德配额） */
+    landmarkShow: '查看周边知名地点',
+    landmarkLoading: '查询中…',
+    landmarkQuotaTip: '高德本月额度紧张，周边知名地点暂时无法显示',
+    /** 导航方式切换（U09）：切换后按该方式重排当天顺序并重算路段 */
+    navTitle: '出行方式',
+    navHint: '切换出行方式后，当天地点会按该方式重新排顺序，路段距离与时间同步重算',
+    navLoading: '正在按该方式重算路线…',
+    navEstimate: '高德这段没算出路线，已按直线距离估算',
+    /** 回住宿（U09）：当天走完可选交通方式回住宿地点 */
+    returnTitle: '回住宿方式',
+    returnHint: '当天走完点上方方式，即可按该方式算出回住宿的真实路线',
+    returnLeg: (name: string, km: string, min: string) => `返回 ${name} · ${km} 公里 · ${min}`,
+    returnLegLoading: '正在算回住宿路线…',
+    returnLegFailed: '这段回住宿没算出路线，稍后重试',
+    /** 出发点：当天第 1 行就是出发点、序号固定为 0；默认是住宿所在地点（名称右侧标「住」），不想从住宿出发可自行改 */
+    lodgingBadge: '住',
+    lodgingHint: '这里是住宿位置',
+    startHint: '这里是当天的出发点，不占序号',
+    startChange: '修改出发点',
+    startChangeTitle: (count: number) => `选一个地点作为当天的出发点（可选 ${count} 个）`,
+    /** 「修改出发点」面板底部的退回入口：把出发点改回默认的住宿 */
+    startBack: '改回从住宿出发',
+    /** 顺序调整 */
+    orderTitle: '调整顺序',
+    orderHint: '拖动左侧序号，或用箭头上下移动；点「移号」按钮可直接跳到指定名次',
+    orderMove: '移动到指定名次',
+    /** 行内按钮可见文案：写清这是「移动 / 改序号」，不用「⋯」这种含糊图标 */
+    orderMoveBtn: '移号',
+    orderUp: '上移一位',
+    orderDown: '下移一位',
+    orderDrag: '拖动调整顺序',
+    orderSaved: '顺序已保存',
+    orderSaving: '保存顺序中…',
+    orderFailed: '顺序没保存成功，请刷新页面后重试',
+    moveToTitle: (count: number) => `移动到第几位（共 ${count} 位）`,
+    moveToCancel: '取消',
+    /** 缩略图：没有照片时用色块 + 首字 */
+    thumbAlt: (name: string) => `${name} 图片`,
+    /** 地图 */
+    mapNote: '底图与标记由高德地图提供',
     zoomIn: '放大',
     zoomOut: '缩小',
     /** 底部汇总 */
@@ -858,13 +1002,20 @@ export const MESSAGES = {
     statCollected: '收藏地点',
     statPlaces: '导入地点',
     statCities: '去过城市',
-    /** 会员卡 */
+    /** 会员卡（会员身份）：展示会员档规则 */
     memberOnTitle: '你已成为会员用户',
     memberOnDesc: (benefits: string) => `已享受会员权益：${benefits}。`,
+    /** 管理员权益卡：管理员 = 最高级会员，配额不限 */
+    adminOnTitle: '你当前是管理员（最高级会员）',
+    adminOnDesc: (benefits: string) => `已享受管理员权益：${benefits}。`,
     memberOnMeta: (since: string, source: string) => `开通于 ${since} · ${source}`,
+    /** 会员有效期（阶段 3 付费开通）：member_until 为 null 即永久会员 */
+    memberForever: '永久有效',
+    memberUntil: (date: string) => `有效期至 ${date}`,
     sourceUnknown: '来源未知',
-    upgradeTag: '会员权益',
-    upgradeTitle: '升级为会员，解锁更强的路线规划',
+    /** 免费用户卡（普通用户身份）：按自己档位展示规则，右侧仍保留升级入口 */
+    upgradeTag: '免费版权益',
+    upgradeTitle: '你当前是免费版，升级会员解锁更强的路线规划',
     upgradeBtn: '升级为会员',
     upgradeNoteReal: '点击后进入支付流程',
     upgradeNoteMock: '模拟流程：点击后仅模拟支付成功，第一版不真实收费、未接入真实支付',
@@ -892,12 +1043,17 @@ export const MESSAGES = {
   COLLECTED: {
     backAria: '返回首页',
     title: '我的收藏地点',
-    desc: '先从分享文案里收藏地点，再挑选加入路线。收藏库保存在你的账号下。',
+    desc: '先从分享文案或链接里收藏地点，再挑选加入路线。收藏库保存在你的账号下。',
     filterAll: '全部',
     searchPlaceholder: '搜索名称、城市、地址或备注',
-    importBtn: '导入文案收藏',
+    importBtn: '导入文案 / 链接',
     sum: (total: number, spot: number, food: number) =>
       `共 ${total} 个收藏 · 景点 ${spot} · 美食 ${food}`,
+    /** 按城市分组（点击城市名折叠 / 展开） */
+    groupHint: '已按城市分组，点击城市名可折叠 / 展开',
+    groupCount: (n: number) => `${n} 个`,
+    groupToggleAria: (city: string, expanded: boolean) =>
+      `${expanded ? '收起' : '展开'}${city}的收藏`,
     noCity: '未指定城市',
     noAddress: '待定位',
     manualSource: '手动添加',
@@ -912,7 +1068,7 @@ export const MESSAGES = {
     resetFilter: '重置筛选',
     /** 列表空态 */
     emptyTitle: '还没有收藏地点，去导入文案',
-    emptyDesc: '粘贴小红书 / 抖音的分享文案，AI 提取地点后就能存进收藏库，暂时不用建路线。',
+    emptyDesc: '粘贴小红书分享文案，或抖音的文案与链接，AI 提取地点后就能存进收藏库，暂时不用建路线。',
     emptyImport: '去导入文案',
     emptyNewRoute: '直接新建路线',
     /** 加载失败 */
@@ -944,12 +1100,14 @@ export const MESSAGES = {
     navPlaces: '地点列表',
     navRoutes: '路线列表',
     navImports: '导入记录',
+    navOrders: '会员订单',
     readOnlyNote: '后台不提供编辑 / 删除 / 踢出',
     logout: '退出后台',
     browsingAs: '运营管理员',
     operatorInitial: '管',
     badgeReadonly: '只读',
     badgeUsers: '只读 · 会员操作除外',
+    badgeOrders: '待核销置顶 · 支持核销',
   },
   /** M331 管理端顶栏文案（A02-A07）：更新时间、自动刷新、刷新、面包屑根（按原型原文） */
   ADMIN_HEADER: {
@@ -1019,6 +1177,23 @@ export const MESSAGES = {
     metricUpgradeClick: '升级付费点击',
     metricEvent: (name: string) => `事件 ${name}`,
     metricBars: '每日生成路线数',
+    /** M334b 本月高德用量卡片（Q01-Q04：每个 Key 15 万次/月，80% 黄色 / 95% 红色预警；多 Key 叠加时合计翻倍） */
+    usageTitle: '本月高德用量',
+    usageMonth: (used: number, quota: number) => `本月已用 ${used} / ${quota}`,
+    usagePercent: (percent: number) => `占月配额 ${percent}%`,
+    usageToday: (calls: number) => `今日 ${calls} 次`,
+    usageServiceTitle: '各服务明细（本月）',
+    usageServiceRow: (service: string, calls: number) => `${service} · ${calls} 次`,
+    usageServiceFailures: (failures: number) => `失败 ${failures}`,
+    usageKeyTitle: (count: number) => `各账号 Key 用量（本月，共 ${count} 个 Key）`,
+    usageKeyRow: (label: string, calls: number, percent: number) => `${label} · ${calls} 次（${percent}%）`,
+    usageKeyExhausted: '已用满，暂时跳过',
+    usageKeyWarn: '接近上限',
+    usageWarn: (percent: number) => `用量已达 ${percent}%，接近月配额上限，请留意`,
+    usageCritical: (percent: number) =>
+      `用量已达 ${percent}%，已进入配额保护模式（部分高德调用被降级）`,
+    usageEmpty: '本月暂无高德调用记录',
+    usageUnavailable: '用量数据暂时无法获取',
     emptyTitle: '暂无数据',
     emptyDesc: '产品上线后，用户、地点、路线和导入数据会显示在这里',
     errorTitle: '概览数据加载失败',
@@ -1186,6 +1361,254 @@ export const MESSAGES = {
     pagination: (n: number, page: number, total: number) => `共 ${n} 条 · 第 ${page} / ${total} 页`,
     prev: '上一页',
     next: '下一页',
+  },
+  /** M340 U10 会员收银台（阶段 3）：套餐选择、收款码、付款备注、提交、待核销提示（收款码人工核销） */
+  MEMBER_ORDER: {
+    cashierTitle: '开通会员（收款码核销）',
+    cashierDesc: '选择套餐，扫码付款后填写付款备注并提交，管理员核对到账后自动为你开通会员。',
+    planLabel: '选择套餐',
+    planPrice: (yuan: string) => `¥${yuan}`,
+    planValidity: (days: number) => `${days} 天`,
+    planMeta: (price: string, validity: string) => `${price} · ${validity}`,
+    payChannelLabel: '选择付款方式',
+    qrAlt: (channel: string) => `${channel}收款码`,
+    scanTip: '扫码付款后填写付款备注提交，管理员核销后自动开通',
+    qrMissing: '收款码暂未配置，请联系管理员',
+    payNoteLabel: '付款备注 / 交易单号',
+    payNotePlaceholder: '填写转账备注或交易单号，便于管理员核对',
+    submit: '提交订单',
+    cancel: '取消',
+    processing: '提交中…',
+    submittedTitle: '已提交，等待管理员核销',
+    submittedDesc: (orderId: string) => `订单号 ${orderId}，管理员核销后自动开通会员。`,
+    close: '知道了',
+    pendingTip: '你有一笔待核销的订单，管理员核销后自动开通会员。',
+    pendingTipPlan: (plan: string, time: string) => `待核销订单：${plan} · 提交于 ${time}`,
+    errPendingFull: '你已有待核销的订单，请先等待管理员核销后再提交',
+    errUseOrderFlow: '当前已启用付费开通，请通过会员收银台提交订单',
+    errOrderFailed: '订单提交失败，请稍后重试',
+    errInvalidPlan: '请选择有效的套餐',
+    errInvalidChannel: '请选择有效的付款方式',
+    errLoadFailed: '订单加载失败，请稍后重试',
+    payNoteTooLong: (max: number) => `付款备注最多 ${max} 个字`,
+  },
+  /** M341 A08 管理端会员订单（阶段 3）：待核销置顶、确认开通 / 驳回、状态块（按原型原文风格） */
+  ADMIN_ORDERS: {
+    notice: '本页为阶段 3 会员付费订单的人工核销入口：核对收款后为下单用户开通会员。',
+    desc: '待核销订单置顶，核对到账后点「确认开通」；无法核对的点「驳回」并填写原因。',
+    filterAll: '全部',
+    filterPending: '待核销',
+    filterReviewed: '已处理',
+    thTime: '下单时间',
+    thUser: '用户',
+    thPlan: '套餐',
+    thChannel: '付款方式',
+    thAmount: '金额',
+    thNote: '付款备注',
+    thStatus: '状态',
+    thAction: '操作',
+    amount: (yuan: string) => `¥${yuan}`,
+    noNote: '—',
+    approve: '确认开通',
+    reject: '驳回',
+    processing: '处理中…',
+    rejectTitle: '驳回订单',
+    rejectDesc: (email: string) => `驳回 ${email} 的这笔订单，用户不会因此开通会员。`,
+    rejectReasonLabel: '驳回原因',
+    rejectReasonPlaceholder: '如：未收到对应款项 / 金额不符',
+    rejectConfirm: '确认驳回',
+    cancel: '取消',
+    approveSuccess: '已开通会员',
+    rejectSuccess: '订单已驳回',
+    actionFailed: '操作失败，请稍后重试',
+    errNotFound: '订单不存在',
+    errNotPending: '该订单已处理，无法重复操作',
+    emptyTitle: '暂无会员订单',
+    emptyDesc: '用户在会员收银台提交订单后会出现在这里',
+    errorTitle: '订单列表加载失败',
+    errorDesc: '网络异常，请稍后重试',
+    footNote: '核销后自动为该用户写入会员身份与有效期，并记录在会员操作留痕中。',
+    pagination: (n: number, page: number, total: number) => `共 ${n} 条 · 第 ${page} / ${total} 页`,
+    prev: '上一页',
+    next: '下一页',
+  },
+  /** M342 路线长图导出 / 二维码分享 / 公开分享页（阶段 3） */
+  SHARE: {
+    /** 路线结果页按钮 */
+    exportBtn: '导出长图',
+    shareBtn: '分享二维码',
+    locked: '会员可用',
+    lockedTitle: '「导出长图 / 分享」为会员功能，升级会员后可用',
+    upgradeTitle: '升级会员解锁「导出长图 / 分享」',
+    upgradeDesc: '导出高清长图与二维码分享为会员专享，前往个人中心升级为会员后即可使用。',
+    upgradeGo: '去升级会员',
+    upgradeCancel: '暂不升级',
+    /** 长图弹层 */
+    modalTitle: '路线长图 / 二维码分享',
+    modalDesc: '长图已生成，可点击下载；扫码或复制链接可在手机浏览器打开网页版。',
+    generating: '正在生成长图…',
+    download: '下载长图',
+    downloadName: '路线长图.png',
+    copyLink: '复制分享链接',
+    copied: '链接已复制',
+    copyFailed: '复制失败，请手动复制下方链接',
+    failTitle: '长图生成失败',
+    failDesc: '网络或浏览器异常，请稍后重试。',
+    /** 服务端分享接口错误 */
+    failSave: '分享链接生成失败，请稍后重试',
+    failNotFound: '路线不存在或不属于当前账号',
+    needMember: '「导出长图 / 分享」为会员功能，升级会员后可用',
+    importNotFound: '分享链接不存在或已失效',
+    close: '关闭',
+    qrAlt: '分享二维码',
+    qrHint: '扫码打开网页版查看完整路线',
+    linkLabel: '分享链接',
+    /** 长图内文案 */
+    posterSubtitle: '路线长图',
+    posterQrHint: '扫码打开网页版查看完整路线',
+    posterFooter: (date: string) => `生成于 ${date}`,
+    dayTitle: (day: number) => `第 ${day} 天`,
+    placesTotal: (count: number) => `共 ${count} 个地点`,
+    /** 公开分享页 */
+    summary: (city: string, days: number, count: number) => `${city} · ${days} 天 · ${count} 个地点`,
+    summarySingle: (city: string, count: number) => `${city} · 单日 · ${count} 个地点`,
+    noCity: '未指定城市',
+    tripInfo: (intercity: string, lodging: string) => `城际交通：${intercity} · 住宿：${lodging}`,
+    viewOnlyTip: '你现在只能查看路线排序。升级会员后可导出长图，并把这套路线导入到自己账号。',
+    goUpgrade: '去升级会员',
+    importBtn: '导入到我的路线',
+    importing: '导入中…',
+    importHint: '导入后可在「我的路线」继续编辑，并导出长图分享。',
+    importSuccess: '已导入到我的路线',
+    importFailed: '导入失败，请稍后重试',
+    loginToImport: '登录后导入',
+    backHome: '返回首页',
+    linkInvalidTitle: '链接已失效',
+    linkInvalidDesc: '该分享链接不存在或已被作者关闭，请向对方重新索取。',
+    sharedBy: '分享的路线',
+    /** 访问者档位角标 */
+    tierMember: '会员',
+    tierAdmin: '管理员',
+  },
+  /** M343 游客试用（免登录）：设置路线 / 挑选地点 / 查看结果三步（草稿存 sessionStorage，关闭页面即清空） */
+  TRY: {
+    /** 通用步骤名与角标 */
+    guestBadge: '游客试用',
+    stepNew: '设置路线',
+    stepPick: '挑选地点',
+    stepResult: '查看结果',
+    /** 第 1 步：设置路线 */
+    NEW: {
+      title: '试用：设置这条路线',
+      desc: '不用注册也能走一遍完整流程：选城市、定行程、挑地点、看路线。草稿只存在浏览器里，关闭页面即清空；只有最后「保存路线」需要登录。',
+      cityLabel: '出发城市',
+      citySearchPlaceholder: '搜索城市，如：杭州、hz',
+      cityRequired: '请先选择出发城市',
+      cityEmpty: '暂无可选城市，请稍后再来',
+      cityNoResult: '没有匹配的城市，换个关键词试试',
+      daysLabel: '行程天数',
+      daysSingle: '单日',
+      daysSingleSub: '1 天走完',
+      daysMany: '多日',
+      daysManySub: `${BUSINESS.MIN_DAYS} 天以上`,
+      daysManyLocked: '登录后可用',
+      daysGuestHint:
+        '游客试用为单日行程（与免费版一致）；多日行程登录后可创建，注册用户还享 1 次多日试用额度。',
+      daysUnitPre: '共',
+      daysUnitPost: '天',
+      transportLabel: '市内交通',
+      transportHint: '整条路线在旅行城市内统一使用一种交通方式，用于估算距离和时间。',
+      lodgingTitle: '住宿（选填）',
+      lodgingHint: '填了住宿名称或区域，路线会以住宿为起点；不填则以第一个地点为起点。',
+      lodgingNameLabel: '住宿名称',
+      lodgingNamePlaceholder: '例如：某民宿（可不填）',
+      lodgingAreaLabel: '住宿区域',
+      lodgingAreaPlaceholder: '例如：宽窄巷子附近',
+      next: '下一步：挑选地点',
+      backHome: '返回首页',
+    },
+    /** 第 2 步：挑选地点（只从库内已有地点里挑，不提供搜索新地点入口） */
+    PICK: {
+      title: '挑选这条路线要去的点',
+      desc: '从数据库里已有的地点中挑选（跨用户共享，只展示名称 / 类型 / 地址等公共信息）。选好后会按就近、不绕路的顺序排路线。',
+      cityPrefix: '当前城市：',
+      keywordPlaceholder: '搜索地点名或地址',
+      groupSpot: '景点',
+      groupFood: '美食',
+      groupOther: '其他',
+      loading: '正在读取该城市的地点…',
+      empty: '这座城市暂时还没有已入库的地点，换个城市试试',
+      /** 游客可以自己导入，因此空状态不再只指向「换城市」 */
+      emptyGuest: '这座城市暂时还没有已入库的地点，可以在上面粘贴文案导入自己的地点，或换个城市试试',
+      error: '地点读取失败，请稍后重试',
+      rateLimited: '今天的试用次数已用完，请明天再来或直接登录',
+      retry: '重新加载',
+      selected: (count: number) => `已选 ${count} 个地点`,
+      minPlaces: `至少选 ${BUSINESS.GUEST_TRY_MIN_PLACES} 个地点才能生成路线`,
+      maxPlaces: (max: number) => `一次最多选 ${max} 个地点`,
+      clear: '清空',
+      next: '生成路线',
+      back: '上一步：设置路线',
+      noMatch: '没有符合关键词的地点',
+      /** 导入地点（游客免登录）：粘贴分享文案或链接，AI 提取后写入浏览器草稿（不落库） */
+      importTitle: '导入地点',
+      importDesc: '小红书粘贴分享文案、抖音可粘贴文案或链接，AI 帮你找出里面的景点和美食，加入下面的可选地点。',
+      importPlaceholder: '粘贴分享文案或链接…',
+      importSubmit: 'AI 提取并加入',
+      importLoading: '正在识别文案里的地点…',
+      importTip: '小红书链接有登录限制读不到正文，请复制笔记正文再粘贴，识别最稳。',
+      importEmpty: '没能从这段文案里识别到地点，换个文案再试',
+      importNoCoord:
+        '识别到地点，但都没能在当前城市定位到坐标，换个文案再试（导入的地点必须能定位才能排路线）',
+      importAdded: (count: number) => `已加入 ${count} 个导入地点，可在下方勾选`,
+      importPartial: (added: number, failed: number) =>
+        `已加入 ${added} 个导入地点；另有 ${failed} 个在当前城市定位不到坐标，未加入`,
+      importCityMismatch: (detected: string, current: string) =>
+        `这段文案里识别到的城市是「${detected}」，与当前试用的「${current}」不一致。请换一段文案，或重新选择城市。`,
+      importDup: '识别到的地点都已经在列表里了，直接勾选即可',
+      importGroup: '我导入的地点',
+    },
+    /** 第 3 步：路线结果 */
+    RESULT: {
+      title: '这是排好序的试用路线',
+      desc: '按就近、不绕路的顺序排好，每个路段显示里程与时间。保存路线需要登录，登录后就能把它存进你的账号。',
+      loading: '正在按顺路顺序排路线…',
+      error: '路线生成失败，请稍后重试',
+      rateLimited: '今天的试用次数已用完，请明天再来或直接登录',
+      retry: '重新尝试',
+      noDraftTitle: '还没有可用的试用草稿',
+      noDraftDesc: '请先设置路线并挑选地点，再来看结果。',
+      noDraftGo: '去设置路线',
+      tooFewTitle: '地点太少',
+      tooFewDesc: `至少需要 ${BUSINESS.GUEST_TRY_MIN_PLACES} 个地点才能生成路线。`,
+      tooFewGo: '去挑选地点',
+      startLodging: (name: string) => `起点：住宿 · ${name}`,
+      startPlaces: (name: string) => `起点：地点 · ${name}`,
+      startFallback: (name: string) => `未解析到住宿坐标，已改为以第一个地点「${name}」为起点`,
+      lodgingResolvedHint: '已把住宿位置设为起点',
+      lodgingBadge: '住',
+      transportLabel: '出行方式',
+      transportHint: '切换出行方式后，会按该方式重新排序并重算每段里程与时间。',
+      placesTotal: (count: number) => `共 ${count} 个地点`,
+      duration: (minutes: number) =>
+        minutes >= 60 ? `${Math.floor(minutes / 60)} 小时 ${minutes % 60} 分` : `${minutes} 分钟`,
+      legMeta: (mode: string, km: string, min: string) => `${mode} · ${km} 公里 · 约 ${min}`,
+      totalMeta: (km: string, min: string) => `全程约 ${km} 公里 · 在路上约 ${min}`,
+      estimatedTip: '部分路段没算出真实路线，已按直线距离估算',
+      save: '保存路线',
+      saveTip: '登录后即可保存这条路线',
+      /** 已登录：按钮与提示（把试用草稿落库成当前账号的真实路线） */
+      saveLoggedIn: '保存这条路线',
+      saveLoggedInTip: '点击即可把这条试用路线存进你的账号',
+      saving: '正在保存…',
+      saveFailed: '保存失败，请稍后重试',
+      saveSuccess: '已保存，正在打开你的路线…',
+      loginCta: '去登录 / 注册',
+      back: '返回上一步：挑选地点',
+      mapNote: '底图与标记由高德地图提供',
+      singleDay: '单日行程',
+      dayLabel: (day: number) => `第 ${day} 天`,
+    },
   },
 } as const;
 

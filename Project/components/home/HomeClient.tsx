@@ -88,8 +88,14 @@ export function HomeClient({ isLoggedIn, recentRoutes, draft, collectedCount }: 
             <br />
             <span className="text-primary">{MESSAGES.HOME_HERO.titleLines[1]}</span>
           </h1>
-          <p className="mt-4 leading-relaxed text-stone-600 md:text-lg">{MESSAGES.HOME_HERO.desc}</p>
-          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+          <p className="mt-4 max-w-[42rem] text-stone-600 md:text-lg">
+            {MESSAGES.HOME_HERO.descLines.map((line) => (
+              <span key={line} className="block leading-relaxed">
+                {line}
+              </span>
+            ))}
+          </p>
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Link
               href={ROUTES.CITY}
               className="flex h-12 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary-from to-primary-to px-6 font-semibold text-white hover:brightness-110"

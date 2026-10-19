@@ -101,6 +101,9 @@ where not exists (
 -- ============ 3) 22 条 route_places（按天顺序，与原型一致） ============
 with admin_user as (
   select id from public.users where email = '1035940028@qq.com' limit 1
+),
+cd as (
+  select id from public.cities where name = '成都' limit 1
 )
 insert into public.route_places (route_id, place_id, day_index, order_index)
 select r.id, p.id, d.day_index, d.order_index
@@ -134,12 +137,16 @@ from (
     ('成都慢生活', 0, 2, '宽窄巷子')
 ) as d(route_title, day_index, order_index, place_name)
 join admin_user au on true
+join cd on true
 join public.routes r
   on r.user_id = au.id
  and r.title = d.route_title
+-- 必须同时限定城市：同名地点可能在该账号下存在多条（例如 city_id 为空的历史数据），
+-- 只按 name 关联会配上多条、导致同一站点出现重复行。
 join public.places p
   on p.user_id = au.id
  and p.name = d.place_name
+ and p.city_id = cd.id
 where not exists (
   select 1
   from public.route_places rp

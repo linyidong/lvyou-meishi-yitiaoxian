@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { getQuotaProfile } from '@/lib/member-quota';
 import { FlowSteps } from '@/components/route/FlowSteps';
 import { RouteNewClient } from '@/components/route/RouteNewClient';
 
@@ -11,6 +12,12 @@ export default async function RouteNewPage({
   const supabase = createClient();
   const { data: cities } = await supabase.from('cities').select('id,name').order('name');
 
+  // 阶段 2 会员分层：按角色在页面上动态展示天数 / 地点数上限（服务端另做强制校验）
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const quota = user ? await getQuotaProfile(user.id) : { tier: 'free' as const, trialMultiDayUsed: false };
+
   return (
     <>
       <FlowSteps current={2} />
@@ -19,6 +26,8 @@ export default async function RouteNewPage({
           cities={cities ?? []}
           initialCityParam={searchParams.city ?? null}
           initialDestParam={searchParams.dest ?? null}
+          tier={quota.tier}
+          trialMultiDayUsed={quota.trialMultiDayUsed}
         />
       </div>
     </>

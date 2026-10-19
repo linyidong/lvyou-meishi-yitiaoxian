@@ -213,15 +213,11 @@ export function RouteAddClient({
       setInputErr(M.emptyInput);
       return;
     }
-    if (tooLong) {
+    // 「几乎只有链接」时不拦，交给服务端跟随后抓正文（小红书 / 抖音短链）
+    const linkOnly = /https?:\/\//.test(value) && value.replace(/https?:\/\/\S+/g, '').replace(/[\s\p{P}\p{S}]/gu, '').length < 6;
+    if (!linkOnly && tooLong) {
       setStatus('normal');
       setInputErr(MESSAGES.IMPORT_TEXT_TOO_LONG);
-      return;
-    }
-    const stripped = value.replace(/https?:\/\/\S+/g, '').replace(/[\s\p{P}\p{S}]/gu, '');
-    if (/https?:\/\//.test(value) && stripped.length < 6) {
-      setStatus('normal');
-      setNeedText(true);
       return;
     }
     setInputErr('');
@@ -239,6 +235,12 @@ export function RouteAddClient({
         error?: string;
       };
       if (!data.ok) {
+        // 链接读不到内容：回退到「请补充分享文案」提示，文案方式照常可用
+        if (data.error === MESSAGES.LINK_NEED_TEXT) {
+          setStatus('normal');
+          setNeedText(true);
+          return;
+        }
         setStatus('error');
         return;
       }
@@ -808,26 +810,32 @@ export function RouteAddClient({
           {status === 'normal' ? importCard : null}
         </div>
 
-        {/* 右侧：提示 */}
+        {/* 右侧：导入小贴士（醒目卡片：加粗描边 + 标题徽标 + 底部已导入信息条） */}
         <aside className="space-y-4">
-          <div className="rounded-2xl bg-amber-50 border border-amber-200 p-5 text-sm text-amber-900">
-            <h3 className="font-semibold flex items-center gap-1.5">
-              <Lightbulb className="h-4 w-4" />
+          <div className="rounded-2xl border-2 border-amber-300 bg-gradient-to-b from-amber-50 to-amber-100/60 p-5 text-sm text-amber-900 shadow-sm ring-1 ring-amber-100">
+            <h3 className="flex items-center gap-2 text-base font-bold">
+              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-amber-500 text-white shadow-sm">
+                <Lightbulb className="h-4 w-4" />
+              </span>
               {M.asideTitle}
             </h3>
-            <ul className="mt-2 space-y-1.5 list-disc pl-5">
+            <ul className="mt-3 space-y-2">
               {M.asideTips.map((tip) => (
-                <li key={tip}>{tip}</li>
+                <li key={tip} className="flex gap-2">
+                  <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" />
+                  <span className="leading-relaxed">{tip}</span>
+                </li>
               ))}
             </ul>
-            <div className="mt-4 pt-3 border-t border-amber-200 flex items-center gap-2">
-              <span className="text-xs text-amber-800">
-                {M.asideImportedPre} <span className="font-semibold">{importedCount}</span>{' '}
+            <div className="mt-4 flex items-center gap-3 rounded-xl border border-amber-300 bg-white/80 px-3 py-2.5">
+              <span className="text-amber-900">
+                {M.asideImportedPre}{' '}
+                <span className="text-lg font-bold text-amber-600">{importedCount}</span>{' '}
                 {M.asideImportedPost}
               </span>
               <Link
                 href={ROUTES.ROUTE_PLACES(routeId)}
-                className="ml-auto h-9 px-3.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold flex items-center gap-1"
+                className="ml-auto flex h-10 shrink-0 items-center gap-1.5 rounded-lg bg-amber-500 px-4 text-sm font-bold text-white shadow-sm hover:bg-amber-600 hover:shadow"
               >
                 <CheckCheck className="h-4 w-4" />
                 {M.asideGo}

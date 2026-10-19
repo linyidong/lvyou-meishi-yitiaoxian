@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   Bookmark,
+  Building2,
   Camera,
   ChevronDown,
   CircleCheckBig,
@@ -21,6 +22,7 @@ import {
   WandSparkles,
 } from 'lucide-react';
 import { BUSINESS } from '@/config/business';
+import { CITIES } from '@/config/cities';
 import { IMPORT_SOURCE, PLACE_TYPE, PLACE_TYPE_LABEL } from '@/config/enums';
 import { MESSAGES } from '@/config/messages';
 import { ROUTES } from '@/config/routes';
@@ -59,19 +61,35 @@ export function ImportCollectClient({
   const router = useRouter();
   const [tab, setTab] = useState<'text' | 'link'>('text');
   const [text, setText] = useState('');
+  /** AI 从文案里识别出的城市（用于提示，未必在内置城市列表中） */
+  const [aiCity, setAiCity] = useState('');
+  /** 实际用于收藏的城市：AI 识别结果命中内置城市列表时自动带上，也可手动改选 */
+  const [city, setCity] = useState('');
   const [extracting, setExtracting] = useState(false);
+  /** 本次提取是否走「链接读取」路径，仅用于按钮文案区分（读取链接 / AI 识别） */
+  const [linkMode, setLinkMode] = useState(false);
   const [saving, setSaving] = useState(false);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [resultOpen, setResultOpen] = useState(false);
   const [needText, setNeedText] = useState(false);
+  /** 文案里带了链接、但链接正文没读到（平台登录墙 / 404），用于额外提示 */
+  const [linkFailed, setLinkFailed] = useState(false);
   const [error, setError] = useState('');
   const [manualName, setManualName] = useState('');
   const [manualType, setManualType] = useState<PlaceType>(PLACE_TYPE.ATTRACTION);
   const [manualError, setManualError] = useState('');
   const [toast, setToast] = useState<Toast | null>(null);
+  /** 手动输入地点输入框：0 结果时用「去手动输入」按钮直接聚焦，减少操作步骤 */
+  const manualRef = useRef<HTMLInputElement>(null);
 
   const tooLong = text.length > BUSINESS.MAX_IMPORT_TEXT_LENGTH;
   const selected = candidates.filter((c) => c.checked && c.name.trim().length > 0);
+  /** 城市识别状态提示：AI 命中内置城市列表 / AI 给的城市不在列表 / AI 完全没识别到 */
+  const cityStatusHint = aiCity
+    ? CITIES.some((c) => c.name === aiCity)
+      ? MESSAGES.HOME_IMPORT.cityAuto(aiCity)
+      : MESSAGES.HOME_IMPORT.cityMissing(aiCity)
+    : MESSAGES.HOME_IMPORT.cityUnknown;
 
   const tabCls = (on: boolean) =>
     `flex-1 rounded-lg px-4 py-2 text-sm font-semibold sm:flex-none ${
@@ -86,6 +104,7 @@ export function ImportCollectClient({
   function switchTab(next: 'text' | 'link') {
     setTab(next);
     setNeedText(false);
+    setLinkFailed(false);
     setError('');
   }
 
@@ -99,6 +118,7 @@ export function ImportCollectClient({
   function onInput(value: string) {
     setText(value);
     setNeedText(false);
+    setLinkFailed(false);
     setError(value.length > BUSINESS.MAX_IMPORT_TEXT_LENGTH ? MESSAGES.IMPORT_TEXT_TOO_LONG : '');
   }
 
@@ -108,27 +128,28 @@ export function ImportCollectClient({
       setError(MESSAGES.HOME_IMPORT.needText);
       return;
     }
-    if (tooLong) {
+    // 只粘贴了链接：走服务端「链接 → 正文」抓取路径（短链 302 由服务端跟随）
+    const viaLink = URL_ONLY_PATTERN.test(value);
+    if (!viaLink && tooLong) {
       setError(MESSAGES.IMPORT_TEXT_TOO_LONG);
       return;
     }
-    if (URL_ONLY_PATTERN.test(value)) {
-      setNeedText(true);
-      setError('');
-      return;
-    }
     setExtracting(true);
+    setLinkMode(viaLink);
     setError('');
     setNeedText(false);
+    setLinkFailed(false);
     try {
       const res = await fetch('/api/ai/extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: value }),
+        body: JSON.stringify(viaLink ? { url: value } : { text: value }),
       });
       const data = (await res.json()) as {
         ok: boolean;
+        city?: string;
         places?: { name: string; type: PlaceType; note?: string }[];
+        linkReadFailed?: boolean;
         error?: string;
       };
       if (!data.ok) {
@@ -139,6 +160,11 @@ export function ImportCollectClient({
         setError(data.error ?? MESSAGES.AI_FAILED);
         return;
       }
+      setLinkFailed(data.linkReadFailed === true);
+      // 先落城市：AI 识别的城市命中内置城市列表时自动选中，否则交给用户手动选
+      const recognizedCity = (data.city ?? '').trim();
+      setAiCity(recognizedCity);
+      setCity(CITIES.some((c) => c.name === recognizedCity) ? recognizedCity : '');
       const places = data.places ?? [];
       setCandidates(
         places.map((p, i) => ({
@@ -176,8 +202,11 @@ export function ImportCollectClient({
   function resetFlow() {
     setResultOpen(false);
     setCandidates([]);
+    setAiCity('');
+    setCity('');
     setError('');
     setNeedText(false);
+    setLinkFailed(false);
   }
 
   async function save() {
@@ -193,20 +222,36 @@ export function ImportCollectClient({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          cityName: city,
           source: sourceOf(text),
           rawText: text.trim(),
           items: selected.map((c) => ({ name: c.name.trim(), type: c.type, note: c.note })),
         }),
       });
-      const data = (await res.json()) as { ok: boolean; inserted?: number; message?: string };
+      const data = (await res.json()) as {
+        ok: boolean;
+        inserted?: number;
+        cityMatched?: boolean;
+        message?: string;
+      };
       if (!data.ok) {
         setError(data.message ?? MESSAGES.NETWORK_ERROR);
         return;
       }
-      showToast(MESSAGES.HOME_IMPORT.saved(data.inserted ?? 0), 'ok');
+      const inserted = data.inserted ?? 0;
+      if (city && data.cityMatched === false) {
+        // 城市没落到库里：地点已收藏，但城市为空
+        showToast(MESSAGES.HOME_IMPORT.cityMissingSaved(city), 'err');
+      } else if (city) {
+        showToast(MESSAGES.HOME_IMPORT.savedWithCity(inserted, city), 'ok');
+      } else {
+        showToast(MESSAGES.HOME_IMPORT.savedNoCity(inserted), 'ok');
+      }
       setCandidates([]);
       setResultOpen(false);
       setText('');
+      setAiCity('');
+      setCity('');
       setNeedText(false);
       router.refresh();
     } catch {
@@ -346,7 +391,7 @@ export function ImportCollectClient({
               className="flex h-11 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary-from to-primary-to px-6 font-semibold text-white hover:brightness-110 disabled:opacity-60"
             >
               {extracting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
-              <span>{extracting ? MESSAGES.HOME_IMPORT.extractBusy : MESSAGES.HOME_IMPORT.extract}</span>
+              <span>{extracting ? (linkMode ? MESSAGES.HOME_IMPORT.linkBusy : MESSAGES.HOME_IMPORT.extractBusy) : MESSAGES.HOME_IMPORT.extract}</span>
             </button>
             <button
               type="button"
@@ -376,6 +421,59 @@ export function ImportCollectClient({
                   <Undo2 className="h-4 w-4" />
                   {MESSAGES.HOME_IMPORT.repaste}
                 </button>
+              </div>
+
+              {/* 0 结果时说明原因：分享文本只有标题 / 链接正文读不到 */}
+              {candidates.length === 0 ? (
+                <div className="mt-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                  <p className="flex items-center gap-1.5 font-semibold">
+                    <Unlink className="h-4 w-4" />
+                    {MESSAGES.HOME_IMPORT.noResultTitle}
+                  </p>
+                  <p className="mt-1">{MESSAGES.HOME_IMPORT.noResultDesc}</p>
+                  {linkFailed ? (
+                    <p className="mt-1 text-xs">{MESSAGES.HOME_IMPORT.linkFailNote}</p>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      manualRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      manualRef.current?.focus();
+                    }}
+                    className="mt-2 inline-flex h-9 items-center gap-1.5 rounded-lg border border-amber-400 bg-white px-3 text-sm font-medium text-amber-900 hover:bg-amber-100"
+                  >
+                    <SquarePen className="h-4 w-4" />
+                    {MESSAGES.HOME_IMPORT.goManual}
+                  </button>
+                </div>
+              ) : null}
+
+              {/* 城市归属：AI 先识别城市，下面的地点与美食都收藏到这个城市下 */}
+              <div className="mt-3 rounded-xl border border-primary/20 bg-primary/5 p-3">
+                <label
+                  htmlFor="importCity"
+                  className="flex items-center gap-1.5 text-xs font-semibold text-stone-700"
+                >
+                  <Building2 className="h-3.5 w-3.5 text-primary" />
+                  {MESSAGES.HOME_IMPORT.cityLabel}
+                </label>
+                <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <select
+                    id="importCity"
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    className="h-10 rounded-lg border border-stone-300 bg-white px-2 text-sm outline-none focus:border-primary"
+                  >
+                    <option value="">{MESSAGES.HOME_IMPORT.cityPick}</option>
+                    {CITIES.map((c) => (
+                      <option key={c.name} value={c.name}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-stone-600">{cityStatusHint}</p>
+                </div>
+                <p className="mt-1.5 text-xs text-stone-500">{MESSAGES.HOME_IMPORT.cityHint}</p>
               </div>
 
               <div className="mt-3 space-y-2">
@@ -452,6 +550,7 @@ export function ImportCollectClient({
                   </p>
                   <div className="flex flex-col gap-2 sm:flex-row">
                     <input
+                      ref={manualRef}
                       value={manualName}
                       maxLength={30}
                       onChange={(e) => setManualName(e.target.value)}

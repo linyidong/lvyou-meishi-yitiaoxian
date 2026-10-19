@@ -1,9 +1,21 @@
 -- apply_all.sql
--- 由 supabase/migrations/001~016 依次拼接而成，用于在全新 Supabase 环境一次性导入建库。
--- 若库已按 001~011 建好，只需执行 apply_012_013.sql（增量升级包）+ 014_member_guard.sql + 015_admin_default_member.sql + 016_seed_demo_data.sql。
--- 请勿单独修改本文件；改动请改 001~016 后重新生成。
+-- 由 supabase/migrations/001~022 依次拼接而成，用于在全新 Supabase 环境一次性导入建库。
+-- 若库已按 001~011 建好，只需执行 apply_012_013.sql（增量升级包）+ 014_member_guard.sql + 015_admin_default_member.sql + 016_seed_demo_data.sql + 017_fix_demo_route_places.sql + 018_transport_modes.sql + 019_amap_cache_and_usage.sql + 020_member_quota.sql + 021_member_paid_and_share.sql + 022_member_order_pay_channel.sql。
+-- 请勿单独修改本文件；改动请改 001~022 后重新生成。
 -- 注意：016 是演示样例数据（成都 22 个地点 / 4 条路线 / 22 条路线站点），
 --       会在演示账号（1035940028@qq.com）下写入数据，不需要演示数据的环境可跳过 016。
+--       017 是 016 早期关联缺陷的重复站点清理脚本（幂等）。已执行修正版 016 的全新环境无需执行；
+--       在 2026-10-18 修正前执行过 016 的库，请执行 017 清理脏数据。
+--       018 把 routes.transport 的 check 约束由 walk / bike 扩为 walk / bike / transit / drive
+--       （「市内交通」4 种方式，取值同 config/enums.ts TRANSPORT / NAV_MODE）。
+--       019 新增 amap_leg_cache（距离 / 算路结果落库缓存）与 amap_usage（每日调用 / 失败统计）两张表，
+--       以及 bump_amap_usage 原子累加函数（仅 service_role 可执行），用于高德配额降本与用量看板。
+--       020 新增 users.trial_multi_day_used（免费用户永久 1 次多日试用额度）与 user_daily_usage
+--       （每人每天每类动作计数）+ bump_user_daily_usage / get_user_daily_usage（仅 service_role 可执行），
+--       用于阶段 2 会员分层的服务端限额判定。
+--       021 阶段 3：member_source 允许 paid、新增 users.member_until（付费会员到期时间，null = 永久）、
+--       新增 member_orders（收款码人工核销订单，仅 owner 可读）与 route_shares（长图 / 二维码分享令牌，仅 service_role）。
+--       022 给 member_orders 新增 pay_channel（微信 / 支付宝收款码通道），供管理员核销时按通道对账。
 
 -- 001_create_users.sql
 -- users：用户表，id 与 auth.users 一一对应，注册时由 010 的触发器写入。
@@ -76,7 +88,7 @@ create table if not exists public.routes (
   city_id     uuid references public.cities (id) on delete set null,
   title       text not null,
   days        int not null check (days >= 1),
-  transport   text not null check (transport in ('walk', 'bike')),
+  transport   text not null check (transport in ('walk', 'bike', 'transit', 'drive')),
   is_public   boolean not null default false,
   created_at  timestamptz not null default now()
 );
@@ -86,7 +98,7 @@ create index if not exists routes_city_id_idx on public.routes (city_id);
 
 comment on table  public.routes           is '用户路线，is_public 对应 B11 公开路线（第一版关闭）';
 comment on column public.routes.days      is '天数，上限 MAX_DAYS(B02) 由应用层校验，此处只约束 >=1';
-comment on column public.routes.transport is 'walk / bike，取值见 config/enums.ts TRANSPORT（E03/E04）';
+comment on column public.routes.transport is 'walk / bike / transit / drive，取值见 config/enums.ts TRANSPORT（E03/E04）';
 
 -- 005_create_route_places.sql
 -- route_places：路线与地点的关联（第几天、第几站）。
@@ -856,6 +868,9 @@ where not exists (
 -- ============ 3) 22 条 route_places（按天顺序，与原型一致） ============
 with admin_user as (
   select id from public.users where email = '1035940028@qq.com' limit 1
+),
+cd as (
+  select id from public.cities where name = '成都' limit 1
 )
 insert into public.route_places (route_id, place_id, day_index, order_index)
 select r.id, p.id, d.day_index, d.order_index
@@ -889,12 +904,16 @@ from (
     ('成都慢生活', 0, 2, '宽窄巷子')
 ) as d(route_title, day_index, order_index, place_name)
 join admin_user au on true
+join cd on true
 join public.routes r
   on r.user_id = au.id
  and r.title = d.route_title
+-- 必须同时限定城市：同名地点可能在该账号下存在多条（例如 city_id 为空的历史数据），
+-- 只按 name 关联会配上多条、导致同一站点出现重复行。
 join public.places p
   on p.user_id = au.id
  and p.name = d.place_name
+ and p.city_id = cd.id
 where not exists (
   select 1
   from public.route_places rp
@@ -913,3 +932,481 @@ where not exists (
 --   select count(*) from public.route_places rp
 --     join public.routes r on r.id = rp.route_id
 --    where r.user_id = (select id from public.users where email = '1035940028@qq.com');
+
+-- 017_fix_demo_route_places.sql
+-- 用途：清理 016 因关联缺陷产生的重复站点。
+--
+-- 背景：016 的 route_places 关联最初只按 places.name 匹配、未限定城市。
+--       若同一账号下存在「同名但 city_id 为空」的历史地点（早期手动测试留下的 16 条），
+--       同一条示例站点会被配出两行：place_id 不同，而 name / 天 / 序完全相同。
+--       结果 4 条示例路线的站点共 40 行（应为 22 行），界面上会出现重复站点。
+--       016 的关联条件已同步修正（补上 p.city_id = cd.id），本文件只负责删掉已产生的脏数据。
+--
+-- 修复范围：仅「4 条成都示例路线」中、指向「该账号下 city_id 为空的历史地点」的 route_places 行。
+--           不动用户自己建的其他路线，也不删那些历史地点本身（可去管理端地点列表按需清理）。
+-- 幂等性：可重复执行，第二次已无行可删。
+
+delete from public.route_places rp
+where rp.place_id in (
+    select p.id
+    from public.places p
+    join public.users u on u.id = p.user_id
+    where u.email = '1035940028@qq.com'
+      and p.city_id is null
+  )
+  and rp.route_id in (
+    select r.id
+    from public.routes r
+    join public.users u on u.id = r.user_id
+    where u.email = '1035940028@qq.com'
+      and r.title in (
+        '成都 · 吃喝一条线',
+        '成都 · 老城区半日骑行',
+        '周末带娃逛成都',
+        '成都慢生活'
+      )
+  );
+
+-- 018_transport_modes.sql
+-- 用途：把 routes.transport 的取值从 walk / bike 扩为 walk / bike / transit / drive（「市内交通」4 种方式）。
+--
+-- 背景：U05 新建路线 / U07 勾选地点 / U08 调整路线的「市内交通」由 2 种方式扩为 4 种
+--       （步行 / 骑行 / 公交地铁 / 驾车），取值与结果页 U09 的 NAV_MODE 完全一致。
+--       原 check 约束（004_create_routes.sql 内联）只允许 walk / bike，
+--       不改会导致选择「公交地铁 / 驾车」创建路线时被库拒绝。
+-- 幂等性：可重复执行（drop if exists → add）。
+
+alter table public.routes drop constraint if exists routes_transport_check;
+alter table public.routes
+  add constraint routes_transport_check
+  check (transport in ('walk', 'bike', 'transit', 'drive'));
+
+comment on column public.routes.transport is 'walk / bike / transit / drive，取值见 config/enums.ts TRANSPORT（E03/E04）';
+
+-- 019_amap_cache_and_usage.sql
+-- 用途：高德配额降本 + 用量统计（阶段：降本 + 用量看板）。
+--
+-- 背景：本账号为高德个人认证开发者，基础 LBS 服务配额 15 万次/月（硬顶）。
+--       原来 lib/amap.ts 的距离 / 算路结果只做了「进程内 10 分钟缓存」，多进程 / 多用户不共享，
+--       同一对地点会被反复请求。本迁移把结果落库缓存，并新增每日用量表供看板与熔断降级使用。
+--   ① public.amap_leg_cache —— 距离 / 算路结果落库缓存（跨进程 / 跨用户共享，TTL 见 config/business.ts）。
+--   ② public.amap_usage     —— 每日各高德服务的调用次数 / 失败次数。
+--   ③ public.bump_amap_usage—— 原子累加函数（PostgREST 无法直接原子自增，必须走 SQL 函数）。
+--
+-- 幂等性：可重复执行（create ... if not exists / create or replace）。
+
+-- ==================== ① 距离 / 算路结果落库缓存 ====================
+create table if not exists public.amap_leg_cache (
+  mode             text        not null,
+  from_lnglat      text        not null,
+  to_lnglat        text        not null,
+  distance_meters  integer     not null,
+  duration_seconds integer     not null,
+  updated_at       timestamptz not null default now(),
+  primary key (mode, from_lnglat, to_lnglat)
+);
+
+comment on table public.amap_leg_cache is
+  '高德距离 / 算路结果落库缓存；同一对地点只存一行（from / to 按字符串排序后写入），TTL 见 config/business.ts AMAP_CACHE_TTL_DAYS，超过视为未命中并重新请求覆盖';
+comment on column public.amap_leg_cache.mode is
+  '缓存键：距离矩阵用 dist:<navmode>（如 dist:walk），算路用 <navmode>[:<cityAdcode>]（如 walk / drive / transit:510100），两者不共用 key';
+comment on column public.amap_leg_cache.from_lnglat is
+  '''lng,lat'' 字符串；写入前与 to_lnglat 按字符串排序，from 存较小者，一对地点天然只占一行';
+comment on column public.amap_leg_cache.to_lnglat is
+  '''lng,lat'' 字符串；与 from_lnglat 成对，排序后 from 存较小者';
+comment on column public.amap_leg_cache.distance_meters is '距离（米）';
+comment on column public.amap_leg_cache.duration_seconds is '时长（秒）；步行偶尔没给时长，允许为 0';
+comment on column public.amap_leg_cache.updated_at is '写入 / 覆盖时间，超过 TTL 视为未命中并重新请求覆盖';
+
+-- 只有 service_role 能读写（service_role 绕过 RLS）；不放开任何 anon / authenticated 策略。
+alter table public.amap_leg_cache enable row level security;
+
+-- ==================== ② 每日各服务用量 ====================
+create table if not exists public.amap_usage (
+  day      date    not null,
+  service  text    not null,
+  calls    integer not null default 0,
+  failures integer not null default 0,
+  primary key (day, service)
+);
+
+comment on table public.amap_usage is
+  '高德各服务每日调用次数 / 失败次数；数据源为 lib/amap.ts 的计数上报，供 A02「本月高德用量」看板与熔断降级使用';
+comment on column public.amap_usage.service is
+  '服务名：place_text / distance / direction_walking / direction_driving / direction_transit / direction_bicycling / other';
+comment on column public.amap_usage.calls is '累计调用次数（含成功与失败）';
+comment on column public.amap_usage.failures is '其中失败次数（高德返回 status != 1 或请求抛错）';
+
+-- 同样只允许 service_role 读写；看板走服务端 service_role 查询，不对前端开放。
+alter table public.amap_usage enable row level security;
+
+-- ==================== ③ 用量原子累加函数 ====================
+-- PostgREST 无法直接做 calls = calls + n 的原子更新，必须走 SQL 函数。
+-- security definer + 空 search_path；只允许 service_role 调用（revoke public / anon / authenticated），
+-- 避免前端通过 rpc 刷量。
+create or replace function public.bump_amap_usage(
+  p_day      date,
+  p_service  text,
+  p_calls    integer,
+  p_failures integer
+)
+returns void
+language sql
+security definer
+set search_path = ''
+as $$
+  insert into public.amap_usage (day, service, calls, failures)
+  values (p_day, p_service, greatest(p_calls, 0), greatest(p_failures, 0))
+  on conflict (day, service) do update
+    set calls    = public.amap_usage.calls    + excluded.calls,
+        failures = public.amap_usage.failures + excluded.failures;
+$$;
+
+comment on function public.bump_amap_usage(date, text, integer, integer) is
+  '高德用量原子累加（仅 service_role 可执行）；供 lib/amap.ts 计数上报与 A02 用量看板使用';
+
+revoke all on function public.bump_amap_usage(date, text, integer, integer)
+  from public, anon, authenticated;
+-- service_role 需要 execute 才能通过 PostgREST rpc 调用（换环境时同样可用）。
+grant execute on function public.bump_amap_usage(date, text, integer, integer) to service_role;
+
+-- 说明：service_role 已 bypassrls，可读写上面两张表；如需在权限收紧的环境显式授权，可执行：
+--   grant select, insert, update on public.amap_leg_cache to service_role;
+--   grant select, insert, update on public.amap_usage     to service_role;
+
+-- 020_member_quota.sql
+-- 用途：阶段 2「会员分层」——每日用量计数表 + 免费用户永久 1 次多日试用额度字段。
+--
+-- 背景：会员分层需要按「角色档位」做服务端限额（免费每天生成路线 1 次 / AI 提取 2 次、
+--       单日地点 ≤6、只能单日；会员每天 10 次 / 20 次、单日地点 ≤12、多日 ≤7 天；
+--       管理员不限）。判定数据源必须是服务端可信计数，故新增 public.user_daily_usage，
+--       由服务端在实际动作里原子累加（禁止只靠前端）。
+--
+--   ① public.users.trial_multi_day_used —— 免费用户永久 1 次多日行程额度是否已用
+--   ② public.user_daily_usage           —— 每人每天每类动作的次数
+--   ③ public.bump_user_daily_usage(...)  —— 原子累加函数（仅 service_role 可执行）
+--   ④ public.get_user_daily_usage(...)   —— 读取当天次数函数（仅 service_role 可执行）
+--
+-- 说明：不复用 public.events——events 由前端直接插入、且 event_name 里没有「AI 提取」事件，
+--       既不可信也无法区分「生成路线 / 提取地点」，故单独建表统计。
+--
+-- 幂等性：可重复执行（add column if not exists / create ... if not exists / create or replace）。
+
+-- ==================== ① 免费用户多日试用额度字段 ====================
+alter table public.users
+  add column if not exists trial_multi_day_used boolean not null default false;
+
+comment on column public.users.trial_multi_day_used is
+  '免费用户「永久 1 次多日行程」试用额度是否已用；true 后免费用户只能创建单日，多日需升级会员（管理员不受此限）';
+
+-- ==================== ② 每人每天每类动作计数 ====================
+create table if not exists public.user_daily_usage (
+  user_id uuid    not null references public.users (id) on delete cascade,
+  day     date    not null,
+  kind    text    not null check (kind in ('generate_route', 'ai_extract')),
+  count   integer not null default 0,
+  primary key (user_id, day, kind)
+);
+
+comment on table public.user_daily_usage is
+  '每人每天每类动作次数（服务端限额判定的数据源）；由服务端原子累加函数写入，前端不可读写';
+comment on column public.user_daily_usage.day   is '服务器本地日期（YYYY-MM-DD），「每天」限额按此口径';
+comment on column public.user_daily_usage.kind  is 'generate_route=生成路线 / ai_extract=AI 提取，取值见 config/enums.ts USAGE_KIND';
+comment on column public.user_daily_usage.count is '当天累计次数';
+
+-- 只有 service_role 能读写（service_role 绕过 RLS）；不放开任何 anon / authenticated 策略。
+alter table public.user_daily_usage enable row level security;
+
+-- ==================== ③ 原子累加函数 ====================
+-- PostgREST 无法直接做 count = count + n 的原子更新，必须走 SQL 函数。
+-- security definer + 空 search_path；只允许 service_role 调用（revoke public / anon / authenticated），
+-- 避免前端通过 rpc 刷量。
+create or replace function public.bump_user_daily_usage(
+  p_user_id uuid,
+  p_day     date,
+  p_kind    text,
+  p_count   integer
+)
+returns void
+language sql
+security definer
+set search_path = ''
+as $$
+  insert into public.user_daily_usage (user_id, day, kind, count)
+  values (p_user_id, p_day, p_kind, greatest(p_count, 0))
+  on conflict (user_id, day, kind) do update
+    set count = public.user_daily_usage.count + excluded.count;
+$$;
+
+comment on function public.bump_user_daily_usage(uuid, date, text, integer) is
+  '每人每天每类动作次数原子累加（仅 service_role 可执行）；供服务端限额计数使用';
+
+revoke all on function public.bump_user_daily_usage(uuid, date, text, integer)
+  from public, anon, authenticated;
+grant execute on function public.bump_user_daily_usage(uuid, date, text, integer) to service_role;
+
+-- ==================== ④ 读取函数 ====================
+create or replace function public.get_user_daily_usage(
+  p_user_id uuid,
+  p_day     date,
+  p_kind    text
+)
+returns integer
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select coalesce(
+    (select u.count
+       from public.user_daily_usage u
+      where u.user_id = p_user_id
+        and u.day = p_day
+        and u.kind = p_kind),
+    0
+  );
+$$;
+
+comment on function public.get_user_daily_usage(uuid, date, text) is
+  '读取某人某天某类动作次数（仅 service_role 可执行）；不存在返回 0';
+
+revoke all on function public.get_user_daily_usage(uuid, date, text)
+  from public, anon, authenticated;
+grant execute on function public.get_user_daily_usage(uuid, date, text) to service_role;
+
+-- 说明：service_role 已 bypassrls，可读写 user_daily_usage；如需在权限收紧的环境显式授权，可执行：
+--   grant select, insert, update on public.user_daily_usage to service_role;
+
+-- 021_member_paid_and_share.sql
+-- 阶段 3：① 会员付费开通（收款码人工核销） ② 路线长图导出 / 二维码分享 / 会员导入
+-- 全部语句幂等，可重复执行（drop constraint if exists 后再 add / add column if not exists / create table if not exists）。
+-- 执行方式：手动，在自建 Supabase 的 Studio → SQL Editor 中整段粘贴后点击 Run。
+
+-- ==================== ① 会员付费开通 ====================
+
+-- 1) 扩展 users.member_source 约束：原允许 ('self', 'admin')，新增 'paid'（付费开通）
+alter table public.users drop constraint if exists users_member_source_check;
+alter table public.users
+  add constraint users_member_source_check
+  check (member_source is null or member_source in ('self', 'admin', 'paid'));
+
+comment on column public.users.member_source is '开通来源：self=用户自助升级 / admin=管理员开通 / paid=付费开通，见 config/enums.ts MEMBER_SOURCE';
+
+-- 2) 新增 users.member_until（可空；null = 永久会员）
+alter table public.users
+  add column if not exists member_until timestamptz;
+
+comment on column public.users.member_until is '会员到期时间；null = 永久会员（付费开通按套餐写入，见 config/business.ts MEMBER_PLANS）';
+
+-- 3) 扩展 member_logs.source 约束：原允许 ('self', 'admin')，新增 'paid'
+alter table public.member_logs drop constraint if exists member_logs_source_check;
+alter table public.member_logs
+  add constraint member_logs_source_check
+  check (source in ('self', 'admin', 'paid'));
+
+comment on column public.member_logs.source is '开通来源：self / admin / paid，见 config/enums.ts MEMBER_SOURCE';
+
+-- 4) 会员付费订单（收款码人工核销）
+create table if not exists public.member_orders (
+  id            uuid primary key default gen_random_uuid(),
+  user_id       uuid not null references public.users (id) on delete cascade,
+  plan          text not null check (plan in ('month', 'year', 'forever')),
+  amount_cents  integer not null check (amount_cents > 0),
+  pay_note      text,
+  status        text not null default 'pending' check (status in ('pending', 'approved', 'rejected')),
+  reject_reason text,
+  created_at    timestamptz not null default now(),
+  reviewed_at   timestamptz,
+  reviewed_by   uuid references public.users (id) on delete set null
+);
+
+create index if not exists member_orders_user_idx
+  on public.member_orders (user_id, created_at desc);
+create index if not exists member_orders_status_idx
+  on public.member_orders (status, created_at desc);
+
+alter table public.member_orders enable row level security;
+grant select on public.member_orders to authenticated;
+
+-- 登录用户只能 select 自己的订单；不开放 insert / update 策略（写入走服务端 service_role）。
+drop policy if exists member_orders_select_own on public.member_orders;
+create policy member_orders_select_own on public.member_orders
+  for select to authenticated
+  using (auth.uid() = user_id);
+
+comment on table  public.member_orders                is '会员付费订单（收款码人工核销）；写入由服务端接口用 Secret Key 完成';
+comment on column public.member_orders.plan           is 'month / year / forever，见 config/enums.ts MEMBER_PLAN';
+comment on column public.member_orders.amount_cents   is '金额（分），由服务端按套餐写入，绝不信任前端传入';
+comment on column public.member_orders.pay_note       is '用户填写的付款备注 / 交易单号，供管理员核对';
+comment on column public.member_orders.status         is 'pending=待核销 / approved=已开通 / rejected=已驳回，见 config/enums.ts ORDER_STATUS';
+comment on column public.member_orders.reject_reason  is '驳回原因（status=rejected 时填写）';
+comment on column public.member_orders.reviewed_by    is '核销管理员';
+
+-- 5) 路线分享令牌（长图 / 二维码分享；交付 B 用）
+create table if not exists public.route_shares (
+  token      text primary key,
+  route_id   uuid not null references public.routes (id) on delete cascade,
+  owner_id   uuid not null references public.users (id) on delete cascade,
+  snapshot   jsonb not null,
+  view_count integer not null default 0,
+  created_at timestamptz not null default now(),
+  revoked_at timestamptz
+);
+
+create index if not exists route_shares_owner_idx on public.route_shares (owner_id);
+create index if not exists route_shares_route_idx on public.route_shares (route_id);
+
+alter table public.route_shares enable row level security;
+-- 不建任何策略：仅 service_role（服务端 admin 客户端）可读写，分享页由服务端读取。
+
+comment on table  public.route_shares            is '路线分享令牌；分享页由服务端 admin 客户端读取，不建策略';
+comment on column public.route_shares.token      is '分享令牌（crypto.randomBytes(9).toString(base64url)，仅服务端生成）';
+comment on column public.route_shares.snapshot   is '自包含路线快照（不依赖原路线权限），见 lib/route-share.ts RouteShareSnapshot';
+comment on column public.route_shares.view_count is '分享页被打开次数（服务端累加，失败静默）';
+comment on column public.route_shares.revoked_at is '作废时间；非空表示该令牌已失效';
+
+-- 6) 防提权补齐：014 的守卫只覆盖 member / member_since / member_source，
+--    而 009 的 users_update_self 策略允许登录用户改自己那一行，
+--    新增的 member_until（付费到期）与 trial_multi_day_used（免费多日试用额度）若不纳入守卫，
+--    已过期会员可自行把 member_until 改到未来、免费用户可把 trial_multi_day_used 改回 false 反复白嫖多日行程。
+--    判断方式与 010 / 014 完全一致：auth.uid() 为 null（service_role / SQL Editor）放行，登录态只有管理员可改。
+--    幂等：create or replace（覆盖 014 建立的同名函数，触发器本身无需重建）。
+create or replace function public.prevent_member_self_grant()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if (new.member is distinct from old.member
+      or new.member_since is distinct from old.member_since
+      or new.member_source is distinct from old.member_source
+      or new.member_until is distinct from old.member_until
+      or new.trial_multi_day_used is distinct from old.trial_multi_day_used)
+     and auth.uid() is not null
+     and not public.is_admin() then
+    raise exception 'FORBIDDEN: 只有管理员可以修改会员字段' using errcode = '42501';
+  end if;
+  return new;
+end;
+$$;
+
+comment on function public.prevent_member_self_grant() is '禁止普通用户自行修改用户身份（member / member_since / member_source / member_until / trial_multi_day_used），只允许管理员或服务端修改，见 014_member_guard.sql 与 021_member_paid_and_share.sql';
+
+-- 022_member_order_pay_channel.sql
+-- 阶段 3 补充：会员付费订单记录付款通道（微信 / 支付宝收款码）。
+-- 收银台新增支付宝收款码后，订单必须写明用户扫的是哪个通道，管理员核销时才知道去哪个收款账户对账。
+-- 全部语句幂等，可重复执行（add column if not exists / drop constraint if exists 后再 add）。
+
+-- 1) 新增 member_orders.pay_channel（默认 wechat：022 之前只有微信收款码一个通道）
+alter table public.member_orders
+  add column if not exists pay_channel text not null default 'wechat';
+
+-- 2) 取值约束（与 config/enums.ts PAY_CHANNEL 逐字一致）
+alter table public.member_orders drop constraint if exists member_orders_pay_channel_check;
+alter table public.member_orders
+  add constraint member_orders_pay_channel_check
+  check (pay_channel in ('wechat', 'alipay'));
+
+comment on column public.member_orders.pay_channel is '付款通道：wechat=微信支付 / alipay=支付宝，见 config/enums.ts PAY_CHANNEL 与 config/business.ts MEMBER_PAY_CHANNELS；由服务端按前端所选通道写入';
+
+-- 023_amap_geocode_cache.sql
+-- 用途：高德文本搜索（v3/place/text）结果落库缓存（阶段：额度降本第 2 步）。
+--
+-- 背景：place/text 是唯一没有缓存的环节，却是最贵的环节 ——
+--       导入文案补地点坐标（app/api/places/route.ts 每个地点 1 次）、
+--       住宿坐标解析（route/[id]/page.tsx 与 route/[id]/places/page.tsx 每次进页面都搜 1~2 次）、
+--       U06 手动搜索地点（app/api/amap/search/route.ts）全都直接打高德。
+--       同一城市 + 同一关键词被反复搜，额度被重复消耗。
+--   public.amap_geocode_cache —— 以 (city, keywords) 为键缓存归一化后的 POI 数组，跨进程 / 跨用户共享。
+--
+-- 幂等性：可重复执行（create ... if not exists）。
+
+create table if not exists public.amap_geocode_cache (
+  city       text        not null,
+  keywords   text        not null,
+  results    jsonb       not null default '[]'::jsonb,
+  updated_at timestamptz not null default now(),
+  primary key (city, keywords)
+);
+
+comment on table public.amap_geocode_cache is
+  '高德文本搜索（place/text）结果落库缓存，键为 (city, keywords)，TTL 见 config/business.ts AMAP_CACHE_TTL_DAYS，超过视为未命中并重新请求覆盖；只缓存搜到结果的关键词，空结果不缓存（避免「永久搜不到」）';
+comment on column public.amap_geocode_cache.city is '搜索时传入的城市名（place/text 的 city 参数），与关键词共同构成缓存键';
+comment on column public.amap_geocode_cache.keywords is '搜索关键词（地点名 / 住宿名 / 住宿区域），与城市共同构成缓存键';
+comment on column public.amap_geocode_cache.results is
+  '归一化后的 POI 数组（name / address / lat / lng / imageUrl），供 lib/amap.ts searchPlaces 直接复用，命中时不消耗高德额度';
+comment on column public.amap_geocode_cache.updated_at is '写入 / 覆盖时间，超过 TTL 视为未命中并重新请求覆盖';
+
+-- 只有 service_role 能读写（service_role 绕过 RLS）；不放开任何 anon / authenticated 策略。
+alter table public.amap_geocode_cache enable row level security;
+
+-- 024_amap_usage_key_pool.sql
+-- 用途：高德多账号 Key 池 —— 用量表增加 Key 槽位维度（阶段：多账号叠加额度）。
+--
+-- 背景：单个高德个人认证账号 Web 服务配额 15 万次/月（硬顶）。为了叠加额度，项目支持配置多个
+--       高德账号的「Web服务」Key（.env.local：AMAP_WEB_SERVICE_KEY / _2 / _3），服务端轮询使用。
+--       因此用量统计必须能区分是「哪个 Key（哪个账号）」的调用：
+--   ① public.amap_usage 增加 key_slot 列（槽位下标，与 config/env.ts AMAP_WEB_KEYS 顺序一致），
+--      主键由 (day, service) 扩为 (day, service, key_slot)，历史行 key_slot 默认 0（即第一个 Key）。
+--   ② bump_amap_usage 改为 5 参版本（多 p_key_slot），并删掉旧的 4 参版本避免重载歧义。
+--
+-- 幂等性：可重复执行（add column if not exists / drop ... if exists / create or replace）。
+
+-- ① 增加 Key 槽位维度
+alter table public.amap_usage
+  add column if not exists key_slot integer not null default 0;
+
+comment on column public.amap_usage.key_slot is
+  'Key 槽位下标（0 起）：与 config/env.ts 的 AMAP_WEB_KEYS 顺序一致，用于区分不同高德账号的用量；历史数据默认 0（第一个 Key）';
+
+-- 主键由 (day, service) 扩为 (day, service, key_slot)，同一天同一服务可按 Key 分别累计
+alter table public.amap_usage drop constraint if exists amap_usage_pkey;
+alter table public.amap_usage add constraint amap_usage_pkey primary key (day, service, key_slot);
+
+-- ② 用量原子累加函数（含 Key 槽位）；先删旧 4 参重载，避免 PostgREST 按函数名解析到旧签名
+drop function if exists public.bump_amap_usage(date, text, integer, integer);
+drop function if exists public.bump_amap_usage(date, text, integer, integer, integer);
+
+create or replace function public.bump_amap_usage(
+  p_day      date,
+  p_service  text,
+  p_key_slot integer,
+  p_calls    integer,
+  p_failures integer
+)
+returns void
+language sql
+security definer
+set search_path = ''
+as $$
+  insert into public.amap_usage (day, service, key_slot, calls, failures)
+  values (p_day, p_service, greatest(p_key_slot, 0), greatest(p_calls, 0), greatest(p_failures, 0))
+  on conflict (day, service, key_slot) do update
+    set calls    = public.amap_usage.calls    + excluded.calls,
+        failures = public.amap_usage.failures + excluded.failures;
+$$;
+
+comment on function public.bump_amap_usage(date, text, integer, integer, integer) is
+  '高德用量原子累加（仅 service_role 可执行）；p_key_slot 为 Key 槽位下标，供 lib/amap.ts 计数上报与多账号用量看板使用';
+
+revoke all on function public.bump_amap_usage(date, text, integer, integer, integer)
+  from public, anon, authenticated;
+grant execute on function public.bump_amap_usage(date, text, integer, integer, integer) to service_role;
+
+-- 025_route_monthly_quota.sql
+-- 「生成路线」限额按身份分周期：免费按天（每天 1 条）、会员按月（每月 10 条）。
+-- 复用 020 的 user_daily_usage：按天桶 kind = generate_route（day 存日期），
+-- 按月桶 kind = generate_route_month（day 存当月 1 号），主键 (user_id, day, kind) 天然隔离。
+alter table public.user_daily_usage
+  drop constraint if exists user_daily_usage_kind_check;
+
+alter table public.user_daily_usage
+  add constraint user_daily_usage_kind_check
+  check (kind in ('generate_route', 'generate_route_month', 'ai_extract'));
+
+comment on column public.user_daily_usage.day is
+  '计数周期键：按天桶存服务器本地日期（YYYY-MM-DD）「每天」限额按此口径；按月桶存当月 1 号（YYYY-MM-01）「每月」限额按此口径';
+
+comment on column public.user_daily_usage.kind is
+  'generate_route=生成路线·免费按天 / generate_route_month=生成路线·会员按月 / ai_extract=AI 提取，取值见 config/enums.ts USAGE_KIND';

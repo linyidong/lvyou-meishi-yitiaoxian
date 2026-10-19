@@ -1,6 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { BUSINESS } from '@/config/business';
+import { QUOTA_ERROR } from '@/config/enums';
+import { MESSAGES } from '@/config/messages';
+import { getQuotaProfile, limitsOf } from '@/lib/member-quota';
 
 /**
  * U11 收藏动作（技术方案 v1.1 §4.9 埋点在客户端补齐）
@@ -97,18 +100,27 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // 单日地点上限按当前档位强制（免费 6 / 会员 12 / 管理员不限），
+  // 与 PUT /api/routes/[id]/places 同一口径，避免从收藏页绕过单日上限。
+  const { tier } = await getQuotaProfile(user.id);
+  const perDay = limitsOf(tier).placesPerDay;
+
   // 暂排进第一个还有空位的天，后续在「调整路线」（U08）里再调顺序
   let targetDay = -1;
   for (let d = 0; d < route.days; d += 1) {
-    if (rows.filter((r) => r.day_index === d).length < BUSINESS.MAX_PLACES_PER_DAY) {
+    if (rows.filter((r) => r.day_index === d).length < perDay) {
       targetDay = d;
       break;
     }
   }
   if (targetDay === -1) {
     return NextResponse.json(
-      { ok: false, message: `每天最多 ${BUSINESS.MAX_PLACES_PER_DAY} 个地点，请先调整现有安排` },
-      { status: 400 },
+      {
+        ok: false,
+        code: QUOTA_ERROR.PLACES_PER_DAY_LIMIT,
+        message: MESSAGES.ROUTE_DAY_PLACES_LIMIT(perDay),
+      },
+      { status: 403 },
     );
   }
 

@@ -23,12 +23,25 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function MobileNav() {
+/** 移动端底部导航；游客（未登录）时全部置灰不可点，与顶部工具栏保持一致 */
+export function MobileNav({ guest = false }: { guest?: boolean }) {
   const pathname = usePathname();
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-30 grid h-16 grid-cols-5 border-t border-stone-200 bg-white md:hidden">
       {MOBILE_ITEMS.map((item) => {
+        if (guest) {
+          return (
+            <span
+              key={item.href}
+              aria-disabled="true"
+              className="flex cursor-not-allowed flex-col items-center justify-center gap-0.5 text-[11px] text-stone-300"
+            >
+              <item.icon className="h-[22px] w-[22px]" />
+              {item.label}
+            </span>
+          );
+        }
         const active = isActive(pathname, item.href);
         return (
           <Link

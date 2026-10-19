@@ -10,7 +10,7 @@ const M = MESSAGES.PROFILE;
 
 /**
  * U10 个人中心菜单：我的路线 / 我的收藏地点 / 新建路线 / 意见反馈 / 退出登录。
- * 退出登录复用 POST /api/auth/logout，成功后整页跳回首页。
+ * 退出登录复用 POST /api/auth/logout，成功后整页跳回登录页（不再回首页）。
  */
 export function ProfileMenu() {
   const [open, setOpen] = useState(false);
@@ -22,7 +22,7 @@ export function ProfileMenu() {
       await fetch('/api/auth/logout', { method: 'POST' });
     } finally {
       // 会话 cookie 已清除，整页重载确保服务端渲染的状态一起刷新
-      window.location.assign(ROUTES.HOME);
+      window.location.assign(ROUTES.LOGIN);
     }
   }
 
