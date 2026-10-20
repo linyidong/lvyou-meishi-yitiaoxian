@@ -15,6 +15,7 @@
 - 阻断项（必须先解决）：**无**
 - 一句话现状：`main` 工作区干净、基线 tag 可用、盘外备份已就位；199 个追踪文件、55 个路由入口、25 份数据库迁移；**无任何自动化测试**；CodeGraph CLI 可用但 **Trae 侧 MCP 未接入**。
 - 建议的下一步：先接入 CodeGraph MCP（或明确声明降级），再进入阶段 2 建 `docs/module-map.md`。
+- 更新（23:24）：CodeGraph MCP 已打通（工具名 `mcp_codegraph_codegraph_explore`）；阶段 2 已完成，入口清单与依赖发现见 `docs/module-map.md`（55 个入口、4 条调用链、7 组重复实现）。
 
 ## 2. Git 与备份
 
