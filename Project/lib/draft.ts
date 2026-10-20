@@ -67,6 +67,8 @@ export interface TryDraft {
   cityId: string;
   cityName: string;
   cityAdcode: string;
+  /** 出发城市（必填，与终点城市「旅行城市」相互独立；只影响城际交通说明，不影响路线标题） */
+  originCity: string;
   title: string;
   days: number;
   transport: Transport;

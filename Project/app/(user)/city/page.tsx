@@ -35,7 +35,15 @@ async function dataCityNamesOf(cities: CityOption[]): Promise<string[]> {
 /** U04 选择城市：城市数据来自 cities 字典表（服务端查询），并带出未完成路线用于草稿提示 */
 export default async function CityPage() {
   const supabase = createClient();
-  const { data, error } = await supabase.from('cities').select('id,name,adcode').order('name');
+  const selectCities = () => supabase.from('cities').select('id,name,adcode').order('name');
+
+  // 自建 Supabase 网关偶发会挂起首个查询（超 5s 触发 lib/supabase/fetch.ts 的超时），
+  // 单次失败就整页落「城市列表加载失败」态太脆；这里重试一次再降级。
+  let { data, error } = await selectCities();
+  if (error) {
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    ({ data, error } = await selectCities());
+  }
 
   if (error) {
     return (

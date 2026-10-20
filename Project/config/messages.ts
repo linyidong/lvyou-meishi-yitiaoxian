@@ -1564,11 +1564,9 @@ export const MESSAGES = {
     NEW: {
       title: '试用：设置这条路线',
       desc: '不用注册也能走一遍完整流程：选城市、定行程、挑地点、看路线。草稿只存在浏览器里，关闭页面即清空；只有最后「保存路线」需要登录。',
-      cityLabel: '出发城市',
-      citySearchPlaceholder: '搜索城市，如：杭州、hz',
-      cityRequired: '请先选择出发城市',
-      cityEmpty: '暂无可选城市，请稍后再来',
-      cityNoResult: '没有匹配的城市，换个关键词试试',
+      /** 旅行城市（终点）由「选择城市」页决定，不在本页选择 */
+      destRequired: '请先在「选择城市」页选择旅行城市',
+      cityHint: '出发城市与终点城市相互独立：选出发城市不会改动上面的旅行城市与路线标题。',
       daysLabel: '行程天数',
       daysSingle: '单日',
       daysSingleSub: '1 天走完',
@@ -1590,29 +1588,23 @@ export const MESSAGES = {
       next: '下一步：挑选地点',
       backHome: '返回首页',
     },
-    /** 第 2 步：挑选地点（只从库内已有地点里挑，不提供搜索新地点入口） */
+    /** 第 2 步：挑选地点（界面与普通用户 U07 同构：筛选 + 勾选列表 + 路线设置侧栏） */
     PICK: {
-      title: '挑选这条路线要去的点',
-      desc: '从数据库里已有的地点中挑选（跨用户共享，只展示名称 / 类型 / 地址等公共信息）。选好后会按就近、不绕路的顺序排路线。',
-      cityPrefix: '当前城市：',
-      keywordPlaceholder: '搜索地点名或地址',
-      groupSpot: '景点',
-      groupFood: '美食',
-      groupOther: '其他',
+      /** 页头标题后缀，与普通用户 U07 的「· 已导入地点」同一位置 */
+      titleSuffix: '· 挑选地点',
+      desc: '从数据库里已有的地点中挑选（跨用户共享，只展示名称 / 类型 / 地址等公共信息），也可以在上面粘贴文案导入自己的地点。选好后会按就近、不绕路的顺序排路线。',
       loading: '正在读取该城市的地点…',
-      empty: '这座城市暂时还没有已入库的地点，换个城市试试',
-      /** 游客可以自己导入，因此空状态不再只指向「换城市」 */
+      /** 空状态（游客可以自己导入，因此不只指向「换城市」） */
       emptyGuest: '这座城市暂时还没有已入库的地点，可以在上面粘贴文案导入自己的地点，或换个城市试试',
       error: '地点读取失败，请稍后重试',
       rateLimited: '今天的试用次数已用完，请明天再来或直接登录',
       retry: '重新加载',
-      selected: (count: number) => `已选 ${count} 个地点`,
       minPlaces: `至少选 ${BUSINESS.GUEST_TRY_MIN_PLACES} 个地点才能生成路线`,
       maxPlaces: (max: number) => `一次最多选 ${max} 个地点`,
-      clear: '清空',
-      next: '生成路线',
+      /** 返回上一步（与普通用户 U07 页头按钮同一位置） */
       back: '上一步：设置路线',
-      noMatch: '没有符合关键词的地点',
+      /** 侧栏「起点」只读说明：游客按离住宿最近的原则自动挑起点 */
+      startAuto: '不指定（按就近不绕路自动排序，住宿坐标可用时从离住宿最近的地点出发）',
       /** 导入地点（游客免登录）：粘贴分享文案或链接，AI 提取后写入浏览器草稿（不落库） */
       importTitle: '导入地点',
       importDesc: '小红书粘贴分享文案、抖音可粘贴文案或链接，AI 帮你找出里面的景点和美食，加入下面的可选地点。',
@@ -1629,7 +1621,8 @@ export const MESSAGES = {
       importCityMismatch: (detected: string, current: string) =>
         `这段文案里识别到的城市是「${detected}」，与当前试用的「${current}」不一致。请换一段文案，或重新选择城市。`,
       importDup: '识别到的地点都已经在列表里了，直接勾选即可',
-      importGroup: '我导入的地点',
+      /** 导入地点在列表里的角标（游客特有，便于识别与移除自己导入的点） */
+      importGroup: '我导入的',
     },
     /** 第 3 步：路线结果 */
     RESULT: {
@@ -1671,6 +1664,12 @@ export const MESSAGES = {
       mapNote: '底图与标记由高德地图提供',
       singleDay: '单日行程',
       dayLabel: (day: number) => `第 ${day} 天`,
+      /** 顺序可调整（与普通用户结果页同一套：拖动序号 / 上移 / 下移 / 移到第 N 位） */
+      reorderTip: '拖动左侧序号，或用 ↑ ↓ 调整地点顺序；每次调整都会按新顺序重算每段里程与时间。',
+      reorderBusy: '正在按新顺序重算路段…',
+      reorderFailed: '顺序没同步成功，已恢复原来的顺序，请稍后再试',
+      reorderRateLimited: '今天调整顺序的次数已用完，请明天再来或直接登录后调整',
+      lodgingFirstTip: '住宿点固定在起点（序号 0），不参与移动',
     },
   },
 } as const;

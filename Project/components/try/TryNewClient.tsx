@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
+  ArrowLeftRight,
   Bike,
   Bus,
   Car,
@@ -12,16 +13,20 @@ import {
   Info,
   LoaderCircle,
   Lock,
+  MapPinPlus,
   MapPinned,
-  Search,
   Type,
   type LucideIcon,
 } from 'lucide-react';
 import { BUSINESS } from '@/config/business';
-import { cityPinyin } from '@/config/cities';
 import { TRANSPORT, TRANSPORT_LABEL } from '@/config/enums';
 import { MESSAGES } from '@/config/messages';
 import { ROUTES } from '@/config/routes';
+import {
+  EMPTY_TRIP_SETTINGS,
+  TripSettingsFields,
+  type TripSettingsValue,
+} from '@/components/route/TripSettingsFields';
 import { readTryDraft, saveTryDraft } from '@/lib/draft';
 import { cn } from '@/lib/utils';
 import type { Transport } from '@/types';
@@ -49,27 +54,34 @@ function chipCls(on: boolean, layout = 'items-center justify-center gap-1.5') {
   );
 }
 
-/** 游客试用第 1 步：选城市 + 行程设置 → 写 sessionStorage 草稿 → 进 /try/pick（全程免登录） */
+/**
+ * 游客试用第 1 步：设置这条路线 → 写 sessionStorage 草稿 → 进 /try/pick（全程免登录）。
+ *
+ * 与普通用户设置路线页（U05）保持同一套结构：
+ * 旅行城市（终点，来自 /city，锁定不可改）→ 出发城市（必填，独立字段）→ 标题 / 天数 / 市内交通 → 住宿。
+ * 关键约束：选出发城市**不允许**改动旅行城市与路线标题里的城市前缀（两者是不同字段）。
+ */
 export function TryNewClient({
   cities,
   initialCityName = '',
 }: {
   cities: { id: string; name: string; adcode: string }[];
-  /** 由「选择城市」页带过来的预选城市名（?city=xxx） */
+  /** 由「选择城市」页带过来的预选城市名（?city=xxx），即旅行城市（终点） */
   initialCityName?: string;
 }) {
   const M = MESSAGES.TRY.NEW;
   const router = useRouter();
 
-  const [keyword, setKeyword] = useState('');
-  const [city, setCity] = useState<{ id: string; name: string; adcode: string } | null>(null);
+  /** 旅行城市（终点）：来自 ?city= 或草稿，本页不可修改，标题前缀与落库城市都用它 */
+  const [destCity, setDestCity] = useState<{ id: string; name: string; adcode: string } | null>(null);
   const [title, setTitle] = useState<string>(MESSAGES.TRIP_TITLE.defaultTitle ?? '');
   const [days, setDays] = useState(1);
   const [transport, setTransport] = useState<Transport>(TRANSPORT.WALK);
-  const [lodgingName, setLodgingName] = useState('');
-  const [lodgingArea, setLodgingArea] = useState('');
+  const [trip, setTrip] = useState<TripSettingsValue>(EMPTY_TRIP_SETTINGS);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState('');
+  const [errors, setErrors] = useState<{ dest?: string; title?: string; origin?: string }>({});
+
+  const cityNames = useMemo(() => cities.map((c) => c.name), [cities]);
 
   // 回到本页时（例如从 /try/pick 返回）用已有草稿回填，避免重复输入；
   // 若由「选择城市」页带城市进来（?city=），该城市优先于草稿里的城市。
@@ -84,7 +96,8 @@ export function TryNewClient({
         ? { id: draft.cityId, name: draft.cityName, adcode: draft.cityAdcode }
         : undefined);
 
-    if (target) setCity(target);
+    if (target) setDestCity(target);
+    // 没有草稿，或草稿所属城市与当前旅行城市不一致（换城市了）就不回填，避免把旧城市的行程带过来
     if (!draft || draft.cityId !== target?.id) return;
 
     // 草稿里存的是「城市名 · 标题」的完整标题（与正常用户一致），回填时去掉城市前缀
@@ -93,50 +106,42 @@ export function TryNewClient({
     // 游客试用固定单日行程（与免费版分层一致）；历史草稿里若存过多日天数，这里统一归一为 1
     setDays(1);
     setTransport(draft.transport);
-    setLodgingName(draft.lodgingName);
-    setLodgingArea(draft.lodgingArea);
+    setTrip((prev) => ({ ...prev, originCity: draft.originCity ?? '' }));
   }, [cities, initialCityName]);
 
-  const matches = useMemo(() => {
-    const kw = keyword.trim().toLowerCase();
-    const list = kw
-      ? cities.filter((c) => {
-          if (c.name.includes(keyword.trim())) return true;
-          const { full, initials } = cityPinyin(c.name);
-          return full.includes(kw) || initials.includes(kw);
-        })
-      : cities;
-    return list.slice(0, 24);
-  }, [cities, keyword]);
+  function patchTrip(patch: Partial<TripSettingsValue>) {
+    setTrip((prev) => ({ ...prev, ...patch }));
+    if (patch.originCity !== undefined) setErrors((prev) => ({ ...prev, origin: undefined }));
+  }
 
   function submit() {
-    if (!city) {
-      setError(M.cityRequired);
-      return;
-    }
-    if (!title.trim()) {
-      setError(MESSAGES.ROUTE_TITLE_REQUIRED);
-      return;
-    }
-    setError('');
+    const nextErrors: typeof errors = {};
+    if (!destCity) nextErrors.dest = M.destRequired;
+    if (!title.trim()) nextErrors.title = MESSAGES.ROUTE_TITLE_REQUIRED;
+    if (!trip.originCity) nextErrors.origin = MESSAGES.ORIGIN_CITY_REQUIRED;
+
+    setErrors(nextErrors);
+    if (!destCity || Object.keys(nextErrors).length > 0) return;
+
     setSubmitting(true);
 
     // 同城市保留已挑选的地点与导入的地点，换城市则清空（避免跨城残留）
     const prev = readTryDraft();
-    const sameCity = prev && prev.cityId === city.id;
+    const sameCity = prev && prev.cityId === destCity.id;
     const keepPlaces = sameCity ? prev.places : [];
     const keepImported = sameCity ? prev.importedPlaces : undefined;
 
     saveTryDraft({
-      cityId: city.id,
-      cityName: city.name,
-      cityAdcode: city.adcode,
+      cityId: destCity.id,
+      cityName: destCity.name,
+      cityAdcode: destCity.adcode,
+      originCity: trip.originCity,
       // 与正常用户一致：存「城市名 · 标题」，保证保存成正式路线后标题展示相同
-      title: `${city.name} · ${title.trim()}`,
+      title: `${destCity.name} · ${title.trim()}`,
       days,
       transport,
-      lodgingName: lodgingName.trim(),
-      lodgingArea: lodgingArea.trim(),
+      lodgingName: trip.lodgingName.trim(),
+      lodgingArea: trip.lodgingArea.trim(),
       places: keepPlaces,
       importedPlaces: keepImported,
     });
@@ -161,54 +166,86 @@ export function TryNewClient({
       <h1 className="mt-2 text-2xl font-bold text-stone-900 md:text-3xl">{M.title}</h1>
       <p className="mt-2 text-sm text-stone-500">{M.desc}</p>
 
-      {error ? (
-        <div className="mt-4 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
-          <span>{error}</span>
+      {/* 未选旅行城市时的引导（终点城市只在「选择城市」页选） */}
+      {!destCity ? (
+        <div className="mt-4 flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <MapPinned className="mt-0.5 h-5 w-5 shrink-0" />
+          <span>
+            {MESSAGES.TRIP_CITY.guidePre}
+            <Link href={ROUTES.CITY} className="font-semibold underline">
+              {MESSAGES.TRIP_CITY.guideLink}
+            </Link>
+            {MESSAGES.TRIP_CITY.guidePost}
+          </span>
         </div>
       ) : null}
 
-      {/* 旅行城市 */}
-      <div className={CARD_CLS}>
-        <p className={LABEL_CLS}>
-          <MapPinned className="h-4 w-4 text-primary" />
-          {M.cityLabel}
-        </p>
-        <div className="relative mt-3">
-          <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-stone-400" />
-          <input
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-            placeholder={M.citySearchPlaceholder}
-            className={cn(INPUT_CLS, 'pl-10')}
-          />
+      {/* 旅行城市（终点，来自身份地选择，本页不可修改） */}
+      <div
+        className={cn(
+          'mt-5 flex items-center gap-3 rounded-2xl p-4',
+          errors.dest ? 'border-2 border-red-400 bg-red-50' : 'border border-stone-200 bg-white',
+        )}
+      >
+        <span
+          className={cn(
+            'grid h-11 w-11 place-items-center rounded-xl',
+            errors.dest ? 'bg-red-100 text-red-600' : 'bg-teal-50 text-teal-600',
+          )}
+        >
+          <MapPinned className="h-6 w-6" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs text-stone-500">{MESSAGES.TRIP_CITY.label}</p>
+          <p className="truncate font-semibold text-stone-900">
+            {destCity?.name ?? MESSAGES.TRIP_CITY.none}
+          </p>
+          {errors.dest ? (
+            <p className="mt-1 flex items-center gap-1 text-xs text-red-600" role="alert">
+              <CircleAlert className="h-4 w-4 shrink-0" />
+              <span>{errors.dest}</span>
+            </p>
+          ) : null}
         </div>
-        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
-          {matches.map((c) => {
-            const on = city?.id === c.id;
-            return (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => setCity(c)}
-                className={cn(
-                  'flex h-10 items-center justify-center rounded-xl border-2 px-3 text-sm font-medium',
-                  on
-                    ? 'border-primary bg-primary/5 text-primary'
-                    : 'border-stone-200 text-stone-700 hover:border-stone-300',
-                )}
-              >
-                <span className="truncate">{c.name}</span>
-              </button>
-            );
-          })}
-        </div>
-        {cities.length === 0 ? (
-          <p className="mt-2 text-xs text-stone-500">{M.cityEmpty}</p>
-        ) : matches.length === 0 ? (
-          <p className="mt-2 text-xs text-stone-500">{M.cityNoResult}</p>
-        ) : null}
+        <Link
+          href={ROUTES.CITY}
+          className={cn(
+            'flex h-9 shrink-0 items-center gap-1 whitespace-nowrap rounded-lg px-3 text-sm',
+            errors.dest
+              ? 'bg-gradient-to-r from-primary-from to-primary-to font-semibold text-white hover:brightness-110'
+              : 'border border-stone-300 hover:bg-stone-50',
+          )}
+        >
+          {destCity ? (
+            <>
+              <ArrowLeftRight className="h-4 w-4" />
+              {MESSAGES.TRIP_CITY.change}
+            </>
+          ) : (
+            <>
+              <MapPinPlus className="h-4 w-4" />
+              {MESSAGES.TRIP_CITY.pick}
+            </>
+          )}
+        </Link>
       </div>
+
+      <p className="mt-2 flex items-start gap-1 text-xs text-stone-500">
+        <Info className="mt-px h-3.5 w-3.5 shrink-0" />
+        <span>{M.cityHint}</span>
+      </p>
+
+      {/* 出发城市（必填）：与普通用户同一个组件，选它不会改动旅行城市与路线标题 */}
+      <TripSettingsFields
+        value={trip}
+        onChange={patchTrip}
+        cityOptions={cityNames}
+        destCity={destCity?.name ?? null}
+        destHint={destCity?.name ?? MESSAGES.TRIP_CITY.destFallback}
+        days={days}
+        originError={errors.origin}
+        sections={['origin']}
+      />
 
       {/* 标题 / 天数 / 市内交通 */}
       <div className={cn(CARD_CLS, 'space-y-6')}>
@@ -218,19 +255,29 @@ export function TryNewClient({
             {MESSAGES.TRIP_TITLE.label}
           </label>
           <p className="mt-1 text-xs text-stone-500">{MESSAGES.TRIP_TITLE.desc}</p>
-          <div className="mt-3 flex h-11 w-full items-stretch overflow-hidden rounded-xl border border-stone-300 bg-white focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
+          <div
+            className={cn(
+              'mt-3 flex h-11 w-full items-stretch overflow-hidden rounded-xl border bg-white',
+              errors.title
+                ? 'border-red-400 bg-red-50'
+                : 'border-stone-300 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20',
+            )}
+          >
             <span
               title={MESSAGES.TRIP_TITLE.prefixTitle}
               className="flex shrink-0 items-center gap-1 whitespace-nowrap border-r border-stone-200 bg-stone-100 pl-3 pr-2.5 text-sm font-semibold text-stone-700"
             >
               <Lock className="h-4 w-4 text-stone-400" />
-              {city?.name ?? MESSAGES.TRIP_TITLE.prefixEmpty} ·
+              {destCity?.name ?? MESSAGES.TRIP_TITLE.prefixEmpty} ·
             </span>
             <input
               id="tryTitle"
               value={title}
               maxLength={BUSINESS.MAX_ROUTE_TITLE_LENGTH}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(e) => {
+                setTitle(e.target.value);
+                setErrors((prev) => ({ ...prev, title: undefined }));
+              }}
               placeholder={MESSAGES.TRIP_TITLE.placeholder}
               className="h-full min-w-0 flex-1 bg-transparent px-3 text-sm outline-none"
             />
@@ -258,6 +305,7 @@ export function TryNewClient({
               {MESSAGES.TRIP_TITLE.warnNear(BUSINESS.MAX_ROUTE_TITLE_LENGTH - titleLength)}
             </p>
           ) : null}
+          {errors.title ? <p className="mt-1 text-xs text-red-600">{errors.title}</p> : null}
         </div>
 
         <div>
@@ -319,9 +367,9 @@ export function TryNewClient({
             </label>
             <input
               id="tryLodgingName"
-              value={lodgingName}
+              value={trip.lodgingName}
               maxLength={BUSINESS.MAX_LODGING_NAME_LENGTH}
-              onChange={(e) => setLodgingName(e.target.value)}
+              onChange={(e) => patchTrip({ lodgingName: e.target.value })}
               placeholder={M.lodgingNamePlaceholder}
               className={cn(INPUT_CLS, 'mt-1.5')}
             />
@@ -332,9 +380,9 @@ export function TryNewClient({
             </label>
             <input
               id="tryLodgingArea"
-              value={lodgingArea}
+              value={trip.lodgingArea}
               maxLength={BUSINESS.MAX_LODGING_AREA_LENGTH}
-              onChange={(e) => setLodgingArea(e.target.value)}
+              onChange={(e) => patchTrip({ lodgingArea: e.target.value })}
               placeholder={M.lodgingAreaPlaceholder}
               className={cn(INPUT_CLS, 'mt-1.5')}
             />
@@ -345,20 +393,28 @@ export function TryNewClient({
       {/* 操作 */}
       <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
         <Link
-          href={ROUTES.HOME}
-          className="flex h-12 items-center justify-center rounded-xl border border-stone-300 px-6 text-sm font-medium hover:bg-stone-50"
+          href={ROUTES.CITY}
+          className="flex h-12 items-center justify-center gap-1.5 rounded-xl border border-stone-300 px-6 text-sm font-medium hover:bg-stone-50"
         >
-          {M.backHome}
+          {MESSAGES.TRIP_FOOTER.back}
         </Link>
-        <button
-          type="button"
-          disabled={submitting}
-          onClick={submit}
-          className="flex h-12 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary-from to-primary-to px-7 font-semibold text-white hover:brightness-110 disabled:opacity-60"
-        >
-          {submitting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
-          {M.next}
-        </button>
+        <div className="flex flex-col items-stretch gap-1.5 sm:items-end">
+          <button
+            type="button"
+            disabled={submitting}
+            onClick={submit}
+            className="flex h-12 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary-from to-primary-to px-7 font-semibold text-white hover:brightness-110 disabled:opacity-60"
+          >
+            {submitting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
+            {M.next}
+          </button>
+          {errors.dest || errors.origin ? (
+            <p className="flex items-center gap-1 text-xs text-red-600 sm:justify-end">
+              <CircleAlert className="h-4 w-4 shrink-0" />
+              <span>{errors.dest ?? errors.origin}</span>
+            </p>
+          ) : null}
+        </div>
       </div>
     </div>
   );

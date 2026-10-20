@@ -21,6 +21,7 @@ import type { NavMode, PlaceType } from '@/types';
  *   points: { lat: number; lng: number; name?: string; type?: PlaceType }[],
  *   mode: NavMode,
  *   cityAdcode?: string,
+ *   manual?: boolean,
  *   lodging?: { name?: string | null; area?: string | null; city?: string | null }
  * }
  * resp: {
@@ -28,6 +29,9 @@ import type { NavMode, PlaceType } from '@/types';
  *   points: { name, type, isLodging, lat, lng }[],
  *   legs: AmapLeg[], distanceMeters, durationSeconds, estimated
  * }
+ *
+ * manual=true（游客在结果页手动调整顺序）：按传入顺序算分段，跳过距离矩阵重排，
+ * 走 T01c 的宽松限流桶；false / 缺省：按最近邻 + 2-opt 重新排序，走 T01 的 3 次/日。
  *
  * 复用 lib/amap 的 cachedDistanceMatrix（落库缓存的真实路网距离矩阵）与 lib/route-order 的
  * 最近邻 + 2-opt 排序；分段走 planDayRoute，任何一段算不出来就退化为直线距离估算，绝不抛异常。
@@ -82,30 +86,34 @@ interface MetaPoint {
 }
 
 export async function POST(request: NextRequest) {
-  const { key, newGuestId } = resolveGuestKey(request);
-  const rate = checkGuestRateLimit(key, 'order');
-  if (!rate.ok) {
-    return NextResponse.json({ ok: false, message: MESSAGES.TRY.RESULT.rateLimited }, { status: 429 });
-  }
-
-  /** 统一出口：无代理头时给浏览器补发访客标识 cookie，保证限流按浏览器区分而不是全站共用 */
-  const finish = (body: unknown, status = 200) => {
-    const response = NextResponse.json(body, { status });
-    if (newGuestId) response.cookies.set(GUEST_COOKIE, newGuestId, guestCookieOptions());
-    return response;
-  };
-
   let body: {
     points?: unknown;
     mode?: unknown;
     cityAdcode?: unknown;
+    manual?: unknown;
     lodging?: { name?: unknown; area?: unknown; city?: unknown };
   } = {};
   try {
     body = (await request.json()) as typeof body;
   } catch {
-    return finish({ ok: false, message: MESSAGES.INVALID_PARAMS }, 400);
+    return NextResponse.json({ ok: false, message: MESSAGES.INVALID_PARAMS }, { status: 400 });
   }
+
+  // 手动调整顺序：按传入顺序算分段，不重排 → 走宽松的 reorder 桶，不占「生成路线」的 3 次额度
+  const manual = body.manual === true;
+
+  const { key, newGuestId } = resolveGuestKey(request);
+  const rate = checkGuestRateLimit(key, manual ? 'reorder' : 'order');
+  if (!rate.ok) {
+    return NextResponse.json({ ok: false, message: MESSAGES.TRY.RESULT.rateLimited }, { status: 429 });
+  }
+
+  /** 统一出口：无代理头时给浏览器补发访客标识 cookie，保证限流按浏览器区分而不是全站共用 */
+  const finish = (body_: unknown, status = 200) => {
+    const response = NextResponse.json(body_, { status });
+    if (newGuestId) response.cookies.set(GUEST_COOKIE, newGuestId, guestCookieOptions());
+    return response;
+  };
 
   const rawPoints = Array.isArray(body.points) ? (body.points as PointInput[]) : [];
   const mode: NavMode = NAV_MODE_VALUES.includes(body.mode as NavMode)
@@ -164,9 +172,9 @@ export async function POST(request: NextRequest) {
     // 住宿解析成功 → 指定起点下标 0；否则让系统自选最短起点（等价于以最顺路的第一个地点起步）
     const startIndex = lodgingMeta ? 0 : -1;
 
-    // 3. 按出行方式重排：两点没有排序余地，跳过矩阵调用
+    // 3. 按出行方式重排：manual（游客手动调顺序）与两点都保持原顺序，其余走距离矩阵
     let order = allPoints.map((_, i) => i);
-    if (allPoints.length >= 3) {
+    if (!manual && allPoints.length >= 3) {
       try {
         order = orderByMatrix(await cachedDistanceMatrix(allPoints, mode), startIndex);
       } catch (err) {

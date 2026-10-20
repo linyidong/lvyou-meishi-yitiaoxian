@@ -14,7 +14,7 @@ import { BUSINESS } from '@/config/business';
  *     这一步很关键：直连时所有客户端 IP 都取不到，若统一记成同一个 'local'，
  *     限流会变成「全站共用一个额度」，把正常游客挡在门外。
  */
-export type GuestRateBucket = 'city-places' | 'order' | 'import' | 'ai-extract';
+export type GuestRateBucket = 'city-places' | 'order' | 'reorder' | 'import' | 'ai-extract';
 
 /** 浏览器访客标识 cookie 名（无代理头时用于区分不同游客） */
 export const GUEST_COOKIE = 'tfl_guest';
@@ -91,14 +91,26 @@ export function guestCookieOptions() {
 }
 
 /**
+ * 各桶的日上限。
+ * city-places 是零消耗的库内只读查询，用 T01b 的独立宽松上限；
+ * reorder 是同一批地点的手动重排（跳过距离矩阵、算路命中落库缓存），用 T01c 的宽松上限；
+ * 其余桶（import 走 DeepSeek + 高德、order 走高德距离矩阵）沿用 T01 的 3 次/日。
+ */
+function dailyLimitOf(bucket: GuestRateBucket): number {
+  if (bucket === 'city-places') return BUSINESS.GUEST_CITY_PLACES_RATE_LIMIT_PER_DAY;
+  if (bucket === 'reorder') return BUSINESS.GUEST_REORDER_RATE_LIMIT_PER_DAY;
+  return BUSINESS.GUEST_TRY_RATE_LIMIT_PER_DAY;
+}
+
+/**
  * 记一次调用并返回是否放行：
- * 达到上限（>= GUEST_TRY_RATE_LIMIT_PER_DAY）时返回 ok=false，调用方据此回 429。
+ * 达到该桶的上限时返回 ok=false，调用方据此回 429。
  */
 export function checkGuestRateLimit(
   key: string,
   bucket: GuestRateBucket,
 ): { ok: boolean; limit: number; remaining: number } {
-  const limit = BUSINESS.GUEST_TRY_RATE_LIMIT_PER_DAY;
+  const limit = dailyLimitOf(bucket);
   const day = localDayString();
 
   if (buckets.size >= CLEANUP_THRESHOLD) {

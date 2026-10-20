@@ -57,6 +57,11 @@ export const EMPTY_TRIP_SETTINGS: TripSettingsValue = {
   lodgingNights: null,
 };
 
+/** 出行设置里的三块：出发城市 / 城际交通 / 终点城市住宿 */
+export type TripSettingsSection = 'origin' | 'intercity' | 'lodging';
+
+const ALL_SECTIONS: TripSettingsSection[] = ['origin', 'intercity', 'lodging'];
+
 const INTERCITY_LIST = Object.values(INTERCITY_MODE);
 const LODGING_LIST = Object.values(LODGING_TYPE);
 
@@ -121,6 +126,7 @@ export function TripSettingsFields({
   destHint,
   days,
   originError,
+  sections = ALL_SECTIONS,
 }: {
   value: TripSettingsValue;
   onChange: (patch: Partial<TripSettingsValue>) => void;
@@ -134,6 +140,8 @@ export function TripSettingsFields({
   days: number;
   /** 提交时出发城市为空时展示的错误文案 */
   originError?: string;
+  /** 需要渲染的区块，默认三块全渲染；游客试用只渲染「出发城市」 */
+  sections?: TripSettingsSection[];
 }) {
   const M = MESSAGES.TRIP_FORM;
   const [originKeyword, setOriginKeyword] = useState('');
@@ -195,6 +203,7 @@ export function TripSettingsFields({
   return (
     <div>
       {/* ===== 出发城市（必填，目的地仍为上面的「旅行城市」） ===== */}
+      {sections.includes('origin') ? (
       <div className={CARD_CLS}>
         <div className="flex items-start gap-3">
           <span className={cn(HEAD_ICON_CLS, 'bg-sky-50 text-sky-600')}>
@@ -297,8 +306,10 @@ export function TripSettingsFields({
           </p>
         ) : null}
       </div>
+      ) : null}
 
       {/* ===== 城际交通 · 去程（选填） ===== */}
+      {sections.includes('intercity') ? (
       <div className={CARD_CLS}>
         <div className="flex items-start gap-3">
           <span className={cn(HEAD_ICON_CLS, 'bg-indigo-50 text-indigo-600')}>
@@ -337,8 +348,10 @@ export function TripSettingsFields({
         </div>
         <p className="mt-2 text-xs text-stone-500">{intercityHint}</p>
       </div>
+      ) : null}
 
       {/* ===== 终点城市住宿（选填） ===== */}
+      {sections.includes('lodging') ? (
       <div className={cn(CARD_CLS, 'space-y-4')}>
         <div className="flex items-start gap-3">
           <span className={cn(HEAD_ICON_CLS, 'bg-violet-50 text-violet-600')}>
@@ -494,6 +507,7 @@ export function TripSettingsFields({
           <p className="text-xs text-stone-400">{M.placeholder}</p>
         )}
       </div>
+      ) : null}
     </div>
   );
 }
