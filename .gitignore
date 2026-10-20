@@ -50,3 +50,6 @@ supabase/.temp
 # 站点实际使用的是裁剪隐私后的公开副本 Project/public/pay-qr-wechat.png 与 pay-qr-alipay.png
 Project/public/pay-qr.jpeg
 Project/public/pay-qr.png
+
+# CodeGraph 索引（本机生成，不共享）
+.codegraph/
