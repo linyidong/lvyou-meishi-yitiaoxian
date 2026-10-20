@@ -70,7 +70,7 @@
 | B7 | 会员到期、用量熔断、在线状态全靠「请求时惰性判定 / 浏览器轮询」，无服务端定时任务；用户不开页面则 `users.member` 存储值不翻转（读取侧判定正确） | `Project/app/api/member/orders/status/route.ts:18/:52`（`isMemberActive`）；5 处 `setInterval` 见 `docs/module-map.md` §1.6 | `[已确认]` | `[风险]` |
 | B8 | 收款码半自动核销：个人经营收款码无官方到账回调，全自动开通需营业执照 + 商户号 | 项目记忆 + `Project/app/api/member/orders/route.ts:28`（下单）→ 管理员人工核销 `Project/app/api/admin/member/orders/[id]/route.ts:21` | `[已确认]` | `[风险]` 业务约束非代码缺陷 |
 
-| B9 | **城市清单不一致**：`Project/config/cities.ts` 有 **104** 个城市条目，而迁移 `011_seed_cities.sql` 只 seed **92** 个，库内 `cities` 表也是 **92** 行；该文件头部却写着「与 011 一一对应」。用到它的地方：`Project/components/route/TripSettingsFields.tsx:30`（出发城市拼音匹配）、`Project/components/home/ImportCollectClient.tsx:25`、`Project/components/city/CitySelectClient.tsx:22` | `grep -c` 实测 104 vs `content-range: 0-0/92` vs 011 计数 92 `[已确认]` | `[风险]` 多出的 12 个城市在「出发城市/导入」里可出现但库内无对应记录，且文件注释已失真 |
+| ~~B9~~ | ~~城市清单 104 vs 92 不一致~~ → **误报，已关闭（2026-10-21 00:50）**：用 TypeScript 编译器求值 `config/cities.ts`，`CITIES` = **92**、`CITY_PINYIN` = 92、`CITY_CARDS` = 12、`HOT_CITIES` = 10；与库内 `cities` **92** 行、迁移 `011_seed_cities.sql` **92** 条完全一致，**不存在错位**。原「104」来自 `grep -c "name: "` 把 CityCard 的非城市名字段一并计入的错误口径 | 复核方式：`node -e` + typescript transpile 求值（Harness 2026-10-21）| 已关闭 |
 
 ## 3. C 级：观察项 / 环境债
 
@@ -81,6 +81,8 @@
 | C3 | `Project/public/` 有残留：`750x750png`（无扩展名、未跟踪）、`logo.svg.zip`、`.DS_Store`、`pay-qr.*` 4 份（含经营信息，禁止触碰） | `ls -la Project/public/` `[已确认]` | `[风险]` 处置需用户决定 |
 | C4 | 本地 main 领先 origin 多个提交未 push（截至 23:58 为 11 笔） | `git status -sb` `[已确认]` | `[已确认]` |
 | C5 | ~~`docs/progress.md` 阻塞表留「MCP 未注册」过时行~~ → **已修复**（Harness 23:58 删除该行，改为 A5 无鉴权） | `grep MCP docs/progress.md` 已无过时行 | 已关闭 |
+| C7 | `Project/` 下 4 项未被现有文档覆盖：`Project/docs/`（4 份历史文档）、`Project/travel-food-route.zip`（161,861 字节）、`Project/components.json`（shadcn 配置）、`Project/tsconfig.tsbuildinfo` | P6B 只读理解实测（`ls`）；处理意见：zip 与 Project/docs 需用户决定去留 | `[未知]` |
+| C8 | 文档精度债：`buildRouteSnapshot` 实为 `export async function`（`Project/lib/route-share.ts:69`），引用处未标 async，实现时须 await | P6B 实测 + Harness 复核 `sed -n '69p'` | `[风险]` 低，实现阶段注意 |
 | C6 | `routes.is_public` 公开路线第一版关闭、`routes.transport` check 仅 `walk/bike`（018 迁移扩了 4 种，需 Harness 核对最终列定义） | `Project/supabase/migrations/004_create_routes.sql`（check 约束）vs 018 迁移 `[已确认]`（004 原文） | `[未知]` 以 018 之后为准 |
 
 ## 4. 需要用户/原开发者补充确认（无法从代码判定）
