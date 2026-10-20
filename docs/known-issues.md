@@ -70,6 +70,8 @@
 | B7 | 会员到期、用量熔断、在线状态全靠「请求时惰性判定 / 浏览器轮询」，无服务端定时任务；用户不开页面则 `users.member` 存储值不翻转（读取侧判定正确） | `Project/app/api/member/orders/status/route.ts:18/:52`（`isMemberActive`）；5 处 `setInterval` 见 `docs/module-map.md` §1.6 | `[已确认]` | `[风险]` |
 | B8 | 收款码半自动核销：个人经营收款码无官方到账回调，全自动开通需营业执照 + 商户号 | 项目记忆 + `Project/app/api/member/orders/route.ts:28`（下单）→ 管理员人工核销 `Project/app/api/admin/member/orders/[id]/route.ts:21` | `[已确认]` | `[风险]` 业务约束非代码缺陷 |
 
+| B9 | **城市清单不一致**：`Project/config/cities.ts` 有 **104** 个城市条目，而迁移 `011_seed_cities.sql` 只 seed **92** 个，库内 `cities` 表也是 **92** 行；该文件头部却写着「与 011 一一对应」。用到它的地方：`Project/components/route/TripSettingsFields.tsx:30`（出发城市拼音匹配）、`Project/components/home/ImportCollectClient.tsx:25`、`Project/components/city/CitySelectClient.tsx:22` | `grep -c` 实测 104 vs `content-range: 0-0/92` vs 011 计数 92 `[已确认]` | `[风险]` 多出的 12 个城市在「出发城市/导入」里可出现但库内无对应记录，且文件注释已失真 |
+
 ## 3. C 级：观察项 / 环境债
 
 | # | 问题 | 证据 | 标记 |
