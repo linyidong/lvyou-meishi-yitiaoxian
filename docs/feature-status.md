@@ -74,7 +74,13 @@
 ### F-14 一键复位 · 游客结果页（PRD F-50 / T-005，2026-10-21 实施，**待用户人工走查**）
 - **证据**：`Project/components/try/TryResultClient.tsx:263`（`initialOrderRef` 快照 ref，仅重排 effect 成功分支 `:327` 写入——覆盖首进/切模式/重试三入口，手动调序不更新）、`:344-348`（渲染期派生 `orderDirty`，按 `sortIdOf` 比对）、`:463-485`（`resetOrder()`：`setResult` 浅拷贝快照成对还原 points+legs+总量 → `draftRef`/`saveTryDraft` 同步草稿，**零 fetch、不 setDraft**，D-04）、`:675-688`（列表头行常驻按钮，`disabled={!orderDirty || reordering || !initialOrderRef.current}`）；文案 `Project/config/messages.ts:1673-1675`（`resetBtn`/`resetDone`，未动 ROUTE_RESULT）。
 - **验收标准**：调序后按钮可点；点击即还原系统推荐顺序（住宿仍序号 0）；复位期间零网络请求；刷新后草稿保留复位顺序；未调序时按钮禁用。
-- **回归建议**：游客三步走查（拖 2 下 → 复位 → 再拖 1 下 → 保存跳登录），Network 面板确认复位 0 请求。**typecheck exit 0 与 `/try/result` 200 已实测；真实拖序交互未覆盖（无 playwright，待用户走查）**。会员结果页同款属 T-006（未开始）。
+- **回归建议**：游客三步走查（拖 2 下 → 复位 → 再拖 1 下 → 保存跳登录），Network 面板确认复位 0 请求。**typecheck exit 0 与 `/try/result` 200 已实测；真实拖序交互未覆盖（无 playwright，待用户走查）**。会员结果页同款见 F-14b（T-006，已实施）。
+
+### F-14b 一键复位 · 普通/会员结果页（PRD F-50 / T-006，2026-10-21 实施，**待用户人工走查**）
+- **口径（方案 B，用户裁决）**：复位 = 界面还原 + 经既有 `saveOrder` 防抖 PUT 落库一次（PUT 只写 route_places，**不消耗高德额度**）；不调 syncRoute、不触发系统重排、无新增 fetch。与游客页「零请求」口径不同，因本页拖拽本身即自动落库（既有行为）。
+- **证据**：`Project/components/route/RouteResultClient.tsx:732-737`（`initialOrderRef` 快照 ref：days/legs/startIds/estimated）、`:941-953`（快照写入点 = syncRoute 竞态守卫 `:920` 通过后且 `reorder===true`，覆盖 boot `:967` 与切出行方式 `:1566` 两个系统重排入口；movePlace/optimizeDay/pickStart 手动调序不更新）、`:1025-1027`（渲染期派生 `orderDirty`，`orderKeyOf` `:278-281` 比对，不加 state）、`:1033-1043`（`resetOrder()`：还原 localDays/dayLegs/customStartIds/estimated → `reqRef` 作废在途 → 调既有 `saveOrder()` 一次 → `showNavTip` 反馈；函数体零 fetch）、`:1606-1613`（列表头行常驻按钮，`disabled=!orderDirty || navBusy || orderState==='saving' || 无快照`）；文案复用 `MESSAGES.TRY.RESULT.resetBtn/resetDone`（messages.ts 零改动）。
+- **验收标准**：未调序按钮禁用；调序后可用；复位后顺序=进页系统顺序（含住宿点/出发点）；复位不触发重排；复位落库一次（重进页面顺序保持）。
+- **回归建议**：登录打开任一路线 → 拖 2 下 → 复位 → 顺序回初始且列表头出现「已保存」；**typecheck exit 0、next build webpack 编译通过、dev 路由 307 登录墙符合预期已实测；登录态渲染与真实拖序交互未覆盖（无测试账号/playwright，待用户走查）**。
 
 ## 2. 部分实现（代码在，开关/配置/外部条件未满足）
 

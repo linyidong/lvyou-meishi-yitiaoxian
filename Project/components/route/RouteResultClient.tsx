@@ -275,6 +275,11 @@ function applyOrder(places: ResultPlace[], order: number[], dropHead: boolean): 
   return indices.map((i) => places[i]);
 }
 
+/** 顺序签名：每天 dayIndex + 当天各地点 id 按序；用于「一键复位」的脏比对（F-50） */
+function orderKeyOf(days: ResultDay[]): string {
+  return days.map((d) => `${d.dayIndex}:${d.places.map((p) => p.id).join(',')}`).join('|');
+}
+
 /** 调一次高德路线接口，失败返回 null（不打断界面） */
 async function postRoute(body: {
   points: string[];
@@ -721,6 +726,15 @@ export function RouteResultClient({
   daysRef.current = localDays;
   const modeRef = useRef(mode);
   modeRef.current = mode;
+  const dayLegsRef = useRef(dayLegs);
+  dayLegsRef.current = dayLegs;
+  /** 系统推荐顺序快照：仅在 syncRoute(reorder=true) 竞态守卫通过后写入（进页 / 切出行方式）；手动调序不更新；「一键复位」还原到这里（F-50） */
+  const initialOrderRef = useRef<{
+    days: ResultDay[];
+    legs: Record<number, AmapLeg[]>;
+    startIds: Record<number, string>;
+    estimated: boolean;
+  } | null>(null);
   /** 切换方式的请求序号：只应用最后一次，避免连点后旧结果覆盖新结果 */
   const reqRef = useRef(0);
   const legTimerRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
@@ -906,14 +920,13 @@ export function RouteResultClient({
       if (reqRef.current !== reqId) return;
 
       setMode(next);
-      setLocalDays(
-        snapshot.map((day) => {
-          const hit = results.find((r) => r?.dayIndex === day.dayIndex);
-          if (!hit) return day;
-          // 没重排（点太少 / 距离矩阵不可用）时接口返回的就是原顺序，照样能对上
-          return reorder ? { ...day, places: applyOrder(day.places, hit.res.order, hit.req.dropHead) } : day;
-        }),
-      );
+      const nextDays = snapshot.map((day) => {
+        const hit = results.find((r) => r?.dayIndex === day.dayIndex);
+        if (!hit) return day;
+        // 没重排（点太少 / 距离矩阵不可用）时接口返回的就是原顺序，照样能对上
+        return reorder ? { ...day, places: applyOrder(day.places, hit.res.order, hit.req.dropHead) } : day;
+      });
+      setLocalDays(nextDays);
       setDayLegs((prev) => {
         const updated = { ...prev };
         for (const hit of results) {
@@ -923,7 +936,21 @@ export function RouteResultClient({
         }
         return updated;
       });
-      setEstimated(results.some((r) => r?.res.estimated));
+      const nextEstimated = results.some((r) => r?.res.estimated);
+      setEstimated(nextEstimated);
+      if (reorder) {
+        // 系统重排完成（进页 / 切方式）：更新「一键复位」快照；手动调序不走这里（F-50）
+        const snapLegs = { ...dayLegsRef.current };
+        for (const hit of results) {
+          if (hit) snapLegs[hit.dayIndex] = hit.req.dropHead ? hit.res.legs.slice(1) : hit.res.legs;
+        }
+        initialOrderRef.current = {
+          days: nextDays,
+          legs: snapLegs,
+          startIds: { ...customStartIds },
+          estimated: nextEstimated,
+        };
+      }
       setNavBusy(false);
     },
     [cityAdcode, lodging, customStartIds],
@@ -994,6 +1021,26 @@ export function RouteResultClient({
     if (navTipTimer.current) window.clearTimeout(navTipTimer.current);
     navTipTimer.current = window.setTimeout(() => setNavTip(''), 4000);
   }, []);
+
+  /** 当前顺序是否已偏离系统推荐快照（渲染期派生，不加 state；F-50） */
+  const orderDirty =
+    !!initialOrderRef.current && orderKeyOf(localDays) !== orderKeyOf(initialOrderRef.current.days);
+
+  /**
+   * 一键复位（F-50 · 方案 B）：还原进页面时的系统顺序快照（顺序 / 路段 / 出发点 / 降级标记），
+   * 再经既有 saveOrder 防抖 PUT 落库一次。不新增 fetch、不调 syncRoute、不触发系统重排。
+   */
+  function resetOrder() {
+    const snap = initialOrderRef.current;
+    if (!snap || navBusy || orderState === 'saving' || !orderDirty) return;
+    reqRef.current += 1; // 防御：作废可能仍在途的 syncRoute 响应，避免覆盖复位结果
+    setLocalDays(snap.days);
+    setDayLegs(snap.legs);
+    setCustomStartIds(snap.startIds);
+    setEstimated(snap.estimated);
+    saveOrder();
+    showNavTip(MESSAGES.TRY.RESULT.resetDone);
+  }
 
   /**
    * 某一天交给高德导航的点：住宿在名单外时以住宿行开头，缺坐标的点跳过（无法导航）；
@@ -1555,16 +1602,26 @@ export function RouteResultClient({
           <div className="order-2 px-5 pb-6 md:px-6 lg:order-1 lg:col-span-2 lg:border-r lg:border-stone-100">
             <div className="mb-1 flex items-center justify-between gap-2">
               <p className="text-xs font-semibold text-stone-700">{M.orderTitle}</p>
-              {orderStateText ? (
-                <span
-                  className={cn(
-                    'text-[11px]',
-                    orderState === 'failed' ? 'text-red-500' : 'text-stone-400',
-                  )}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={resetOrder}
+                  disabled={!orderDirty || navBusy || orderState === 'saving' || !initialOrderRef.current}
+                  className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  {orderStateText}
-                </span>
-              ) : null}
+                  {MESSAGES.TRY.RESULT.resetBtn}
+                </button>
+                {orderStateText ? (
+                  <span
+                    className={cn(
+                      'text-[11px]',
+                      orderState === 'failed' ? 'text-red-500' : 'text-stone-400',
+                    )}
+                  >
+                    {orderStateText}
+                  </span>
+                ) : null}
+              </div>
             </div>
             <p className="mb-3 text-[11px] leading-relaxed text-stone-400">{M.orderHint}</p>
 

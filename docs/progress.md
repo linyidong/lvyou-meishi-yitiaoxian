@@ -8,16 +8,16 @@
 - 当前阶段：阶段 6 目标架构与实施计划
 - 阶段状态：已完成（G4 通过）
 - 当前门禁：G1–G5 已通过；**G6 待首个任务验收**
-- 当前任务：T-001 已完成（等用户终验）；T-005（游客页一键复位）实施完成，等用户人工走查
-- 任务状态：T-005 待验收（拖序→复位交互需真人浏览器走查，无 playwright）；T-001 登录态 200 需人工确认
-- 下一步：用户走查 T-005 复位与 T-001 周边知名地点；通过后派 T-006（会员结果页同款复位）
-- 阻塞：无（MCP 已打通；阶段 3 的 12 个 `[未知]` 待关闭）
-- 最近更新：2026-10-21 01:10（本机）
+- 当前任务：T-001 已完成（等用户终验）；T-005/T-006（两页一键复位）实施完成，等用户人工走查
+- 任务状态：T-005/T-006 待验收（拖序→复位交互需真人浏览器走查，无 playwright）；T-001 登录态 200 需人工确认
+- 下一步：用户走查 T-005/T-006 复位与 T-001 周边知名地点；通过后派下一卡（T-007 需先批分享图片粒度）
+- 阻塞：无（MCP 已打通；阶段 3 的 12 个 `[未知]` 待关闭）；新发现：`next build` lint 阶段被既有错误挡住（`ImportCollectClient.tsx:374` rules-of-hooks，fa7d4ac 引入，非本期改动）
+- 最近更新：2026-10-21 01:26（本机）
 
 **状态行**（每次汇报第一行）：
 
 ```text
-【阶段 7 · G6 待终验 · 任务：T-005 · 下一步：用户走查游客页「一键复位」+ T-001 登录态周边知名地点】
+【阶段 7 · G6 待终验 · 任务：T-006 · 下一步：用户走查两页「一键复位」+ T-001 登录态周边知名地点】
 ```
 
 ## 2. 阶段进度
@@ -55,7 +55,8 @@
 | ID | 目标 | 状态 | 开始 | 完成 | commit | 验收证据 | 备注 |
 |---|---|---|---|---|---|---|---|
 | T-001 | A5 修复：删死接口 + landmarks 加登录 | **实施完成（待用户验收）** | 2026-10-21 01:00 | 2026-10-21（本机 00:58） | `ee0c4ea`（Harness 已提交） | typecheck exit 0；匿名 curl：landmarks→401、search→404（实测）；登录态 200 **未执行**（无测试账号，用户人工验收） | 风险低；改动=删 search 目录 + landmarks 加鉴权分支（+9 行）+ 4 份 docs 同步 |
-| T-005 | F-50 一键复位 · 游客结果页 | **实施完成（待用户验收）** | 2026-10-21 01:04 | 2026-10-21（本机 01:10） | 未 commit（待 Harness 验收后提交） | typecheck exit 0；`/try/result` dev 实测 200（编译无错误）；复位函数体 grep 无 fetch、diff 无新增 setDraft、`/api/try/order` 未动（实测）；拖序→复位真实交互与 Network 零请求 **未执行**（需真人浏览器，无 playwright，用户走查） | 风险低；改动=TryResultClient +45 行（快照 ref/派生 orderDirty/resetOrder/常驻禁用态按钮）+ messages 2 常量 + 3 docs；会员页同款属 T-006 |
+| T-005 | F-50 一键复位 · 游客结果页 | **实施完成（待用户验收）** | 2026-10-21 01:04 | 2026-10-21（本机 01:10） | `5131d6c` | typecheck exit 0；`/try/result` dev 实测 200（编译无错误）；复位函数体 grep 无 fetch、diff 无新增 setDraft、`/api/try/order` 未动（实测）；拖序→复位真实交互与 Network 零请求 **未执行**（需真人浏览器，无 playwright，用户走查） | 风险低；改动=TryResultClient +45 行（快照 ref/派生 orderDirty/resetOrder/常驻禁用态按钮）+ messages 2 常量 + 3 docs |
+| T-006 | F-50 一键复位 · 普通/会员结果页 | **实施完成（待用户验收）** | 2026-10-21 01:14 | 2026-10-21（本机 01:26） | 未 commit（待 Harness 验收后提交） | typecheck exit 0；`next build` webpack「Compiled successfully」（lint 失败点为既有 `ImportCollectClient:374`，非本次引入）；dev 实测 /login、/try/result 200，/route/[id] 307 登录墙符合预期；resetOrder 函数体 grep 零 fetch/syncRoute（实测）；登录态渲染与拖序→复位交互 **未执行**（无测试账号/playwright，用户走查） | 风险低；口径=方案 B（用户裁决：复位=界面还原+既有 saveOrder 落库一次，不耗高德额度）；改动=RouteResultClient +~50 行（快照 ref/写入点/orderDirty/resetOrder/常驻按钮），messages.ts 零改动（复用 TRY.RESULT），4 docs 同步 |
 
 ## 5. 阻塞与待确认
 
@@ -71,6 +72,7 @@
 
 ## 6. 最近变更摘要
 
+- 2026-10-21 01:26（本机）：T-006 实施完成（方案 B，用户裁决）——`RouteResultClient.tsx` 新增 `initialOrderRef` 快照（写入点=syncRoute 竞态守卫后且 reorder=true，覆盖 boot 与切出行方式两个系统重排入口，手动调序不更新）+ 渲染期派生 `orderDirty`（`orderKeyOf` 比对，不加 state）+ `resetOrder()`（还原 localDays/dayLegs/customStartIds/estimated → 调既有 `saveOrder()` 防抖 PUT 落库一次；函数体零 fetch、不调 syncRoute、不触发重排）+ 列表头常驻按钮（disabled=未偏离/navBusy/保存中/无快照）；文案复用 `MESSAGES.TRY.RESULT`（messages.ts 零改动）；typecheck exit 0；build 编译通过（lint 挡点为既有问题）；登录态渲染与真实交互待用户走查
 - 2026-10-21 01:10（本机）：T-005 实施完成——`TryResultClient.tsx` 新增 `initialOrderRef` 系统推荐快照（仅 order 响应/重新生成时写入，手动调序不更新）+ 渲染期派生 `orderDirty` + `resetOrder()`（零请求：`setResult` 浅拷贝快照 + `draftRef`/`saveTryDraft` 同步草稿，不 setDraft，D-04）+ 列表头行常驻「一键复位」按钮（未偏离/reordering/无快照时 disabled）；`messages.ts` TRY.RESULT 新增 `resetBtn`/`resetDone`（未动 ROUTE_RESULT）；typecheck exit 0；dev 实测 `/try/result` 200；真实拖序交互待用户走查
 - 2026-10-21 00:58（本机）：T-001 实施完成——删 `Project/app/api/amap/search/` 整目录；`landmarks/route.ts` 读 body 前加 `auth.getUser()`，未登录 401 + `MESSAGES.LOGIN_FIRST`（`message` 字段，同 collected 惯例）；typecheck exit 0；匿名 curl 实测 landmarks=401 / search=404；同步 api-contract/feature-status/known-issues（A5 关闭）/progress 四文档；登录态 200 未执行（无测试账号）
 - 2026-10-20 22:12：建立盘外完整备份（含 `.env.local`）
@@ -82,6 +84,7 @@
 - 2026-10-20 23:11：CodeGraph MCP 打通（根因：GUI PATH 无 node + 工具名带 mcp_ 前缀），P0 自检通过
 - 2026-10-20 23:12：派发 P2 建立代码地图
 - 2026-10-20 23:38：用户授权连自建 Supabase（只读自由、写操作需报备+备份+回滚）；派 P3
+- 2026-10-21 01:34：T-006 实施完成（方案 B：复位+落库一次），T-005/T-006 均待用户走查
 - 2026-10-21 01:10：T-001 实施完成并自测通过（typecheck exit 0 / 匿名 landmarks 401 / search 404），待用户终验
 - 2026-10-21 00:52：P6 交付三份计划（11 张任务卡）；P6B 只读理解通过并抓出 5 处差异；**撤销 B9 误报**（CITIES 真值 92=92=92）
 - 2026-10-21 00:40：需求访谈 10 问完成，PRD 可评审版产出；新增 F-50（一键复位）/F-51（会员到期定时任务）/F-52（分享分级）

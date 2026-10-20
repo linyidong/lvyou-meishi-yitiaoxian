@@ -116,3 +116,10 @@
 3. D-11「手动开通不计入付费订单」在 `member_logs.member_source` 的取值枚举与统计口径需结合 `Project/config/enums.ts` 再确认 [高度可能]。
 4. D-13「单 Key 95% 熔断跳过槽位」的槽位跳过分支（`pickWebKeySlot` 内部与 `getExhaustedWebKeySlots` 的接线）未逐行核（`docs/architecture.md` §8-2 同项）[高度可能]。
 5. 各决策的**原始拍板时间**多数来自 project_memory/历史文档转述，本仓库 git log 未逐条对应到决策提交 [未知]。
+
+## D-12 一键复位在普通/会员结果页要落库（方案 B）
+
+- 背景：游客结果页拖拽不落库，复位天然「零请求」；但 `RouteResultClient` 是**拖拽即防抖 PUT 自动落库**的页面（`saveOrder :730-761`，调用点 movePlace/optimizeDay/boot）。因此「复位后不保存离开库内不变」在该页不可达。
+- 决定（用户 2026-10-21 01:25 裁决）：复位 = **界面还原 + 立即经既有 `saveOrder()` 落库一次**。
+- 理由：「不调接口、不耗额度」的真实意图是**不消耗高德 order 桶（3 次/日）**；一次本地 PUT 不碰高德、不占额度。
+- 影响：复位后 Network 会出现 1 次 `PUT /api/routes/[id]/places`；离开重进显示复位后顺序。
