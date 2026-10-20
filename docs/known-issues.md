@@ -54,7 +54,8 @@
 - 位置：`Project/app/api/amap/search/route.ts:10`（POST 全文无 `auth.getUser`、无 `checkGuestRateLimit`）；`Project/app/api/amap/landmarks/route.ts:27`（同样无登录校验，仅有额度熔断判断 `isAmapQuotaCritical`）。
 - 依据：本轮对 30 个 route 的鉴权矩阵实测——这两个文件 `getUser=0 admin=0 guestRL=0`；且 `Project/middleware.ts:25-50` 的 `PROTECTED_ROUTES`（`Project/config/routes.ts:56` = `/routes`、`/route`、`/profile`、`/collected`）**不覆盖 `/api/*`**，middleware 对未匹配路径直接放行（`:53`）。
 - 影响：任何未登录访客可无限调用地点搜索与周边地标，直接消耗高德 Web 服务额度（地标虽有 12 小时进程内缓存 `Project/app/api/amap/landmarks/route.ts:17-18`，但搜索无此保护）。
-- 待验证：`searchPlaces` 有 `(city,keywords)` 30 天落库缓存（项目记忆），实际消耗速度需 Harness 用真实调用评估。`[未知]`
+- 精确化（Harness 复核）：`/api/amap/search` **无任何调用方**（前端/服务端/脚本 grep 均为 0），属**死接口**；真正的搜索走 `Project/app/api/places/route.ts:92`（有 `getUser`）。`/api/amap/landmarks` 仅被 `Project/components/route/RouteResultClient.tsx:1119` 调用，所在页面受保护但接口本身不验身份。
+- **已决策（用户 2026-10-21）**：删除 `/api/amap/search`；`/api/amap/landmarks` 加 `getUser`。**执行阶段：阶段 7 任务卡**。
 
 ## 2. B 级：需排期处理
 

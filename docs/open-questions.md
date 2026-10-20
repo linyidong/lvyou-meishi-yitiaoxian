@@ -7,7 +7,6 @@
 
 | ID | 问题 | 为什么无法确定 | 需要谁 | 影响 | 优先级 | 状态 |
 |---|---|---|---|---|---|---|
-| Q-001 | 两个高德代理 API（`Project/app/api/amap/search/route.ts`、`Project/app/api/amap/landmarks/route.ts`）无登录校验，是有意做成公开代理，还是遗漏 | 代码只证明「没有鉴权」，证明不了「产品是否有意」 | 用户（产品决策） | 匿名可刷高德额度＝直接花钱；若是有意则要补限流而不是加登录 | 高 | 开放 |
 | Q-002 | 24 份迁移是否都已在目标 Supabase 应用（025 曾用 `/pg/query` 执行过） | PostgREST 不暴露迁移表；需直连 Postgres 或查 `supabase_migrations.schema_migrations` | Harness（需数据库直连凭据） | 影响「改表结构前能否信任迁移链」 | 中 | 开放 |
 | Q-003 | `Project/public/750x750png`（无扩展名 750×750 PNG）是素材还是下载残留 | 文件名与内容无法区分用途 | 用户 | 误提交污染仓库 / 误删丢素材 | 低 | 开放 |
 | Q-004 | 两张对外收款码（`pay-qr-wechat.png` / `pay-qr-alipay.png`）裁剪是否彻底、有无头像昵称残留 | 需人眼看图 | 用户 | 泄露经营者信息 | 中 | 开放 |
@@ -24,6 +23,7 @@
 | Q-102 | RLS 是否真的挡住匿名读取 | **是**。匿名 key 请求 users / member_orders / places / routes / user_daily_usage / imports / events / amap_usage 全部返回 0 行；而 places 实际有 1326 行，排除「表本来就空」 | Harness 用 `NEXT_PUBLIC_SUPABASE_ANON_KEY` 实测 8 张表 | 2026-10-20 |
 | Q-103 | 本地能否跑起来 | 能。`npm run typecheck` exit 0；dev server 起得来（阶段 1 验证过 4 个页面 200、接口可调） | 阶段 1/3 实跑 | 2026-10-20 |
 | Q-104 | 是否已有付费订单 | 没有。`member_orders` 0 行 | 只读计数 | 2026-10-20 |
+| Q-001 | A5 两个无鉴权高德接口怎么处理 | **用户 2026-10-21 决定**：删除死接口 `Project/app/api/amap/search/route.ts`（无任何调用方）；`Project/app/api/amap/landmarks/route.ts` 增加 `getUser` 校验。作为阶段 7 任务执行 | 用户决策 + Harness 调用链排查（`grep amap/search` 零引用） | 2026-10-21 |
 
 ## 3. 假设清单
 
