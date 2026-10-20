@@ -104,17 +104,17 @@
 - **证据**：`Project/app/api/member/route.ts:18`；`ENABLE_REAL_PAYMENT=true` 时恒 400（`:28-33`），设计上仅供后台/内部调用，前台无直接入口（正常购买走 F-06 订单流）。
 - **回归建议**：确认收银台不依赖该接口；后台直授走 `/api/admin/member`。
 
-### F-36 `POST /api/amap/search`（POI 搜索代理）
-- **证据**：`Project/app/api/amap/search/route.ts:9`；全仓无调用方（阶段 2 审计 + Q-001 实测），属死接口；且无鉴权（见 F-50）。
-- **回归建议**：处置已决策（`docs/decisions.md` D-010），执行前保留现状即可。
+### F-36 ~~`POST /api/amap/search`（POI 搜索代理）~~ → **已删除（T-001，2026-10-21）**
+- **证据**：原 `Project/app/api/amap/search/route.ts:9`；全仓无调用方（阶段 2 审计 + Q-001 实测），属死接口；且无鉴权（见 F-50）。
+- **处置**：按 D-010 决策，目录已整体删除；匿名 POST 实测 404。
 
 ## 5. 有缺陷（当前行为与既定口径不符，已记录待修）
 
-### F-50 两个高德代理接口无鉴权（known-issues A5）
-- **证据**：`Project/app/api/amap/search/route.ts:10` 与 `Project/app/api/amap/landmarks/route.ts:27` 全文无 `auth.getUser`、无 `checkGuestRateLimit`（本轮鉴权矩阵 getUser=0/admin=0/guestRL=0）；`Project/middleware.ts:25-50` 的 `PROTECTED_ROUTES`（`Project/config/routes.ts:56`）不覆盖 `/api/*`，未匹配路径直接放行（`:53`）。
+### F-50 两个高德代理接口无鉴权（known-issues A5）→ **已修复（T-001，2026-10-21，待用户人工验收）**
+- **证据**：修复前 `Project/app/api/amap/search/route.ts:10` 与 `Project/app/api/amap/landmarks/route.ts:27` 全文无 `auth.getUser`、无 `checkGuestRateLimit`（本轮鉴权矩阵 getUser=0/admin=0/guestRL=0）；`Project/middleware.ts:25-50` 的 `PROTECTED_ROUTES`（`Project/config/routes.ts:56`）不覆盖 `/api/*`，未匹配路径直接放行（`:53`）。
 - **后果**：匿名可刷，消耗高德 Web 服务额度（landmarks 仅受整体熔断 `isAmapQuotaCritical` 约束）。
-- **处置状态**：用户已决策（Q-001/A5：删 search、landmarks 加 getUser），**代码尚未改**——本文只记录现状。
-- **回归建议**：修复后验证匿名 POST 两接口应 401；登录用户正常调用不受影响。
+- **处置状态**：**已执行**——`/api/amap/search` 整目录删除（匿名 POST 实测 404）；`/api/amap/landmarks` 在读取 body 前加 `createClient()+auth.getUser()`，未登录返回 401 + `MESSAGES.LOGIN_FIRST`（实测匿名 401）。熔断/缓存/返回结构未动。
+- **回归建议**：登录用户打开 `/route/[id]` 点「周边知名地点」懒加载应正常（200，本轮无测试账号未执行，由用户人工验收）。
 
 ### F-51 重复实现导致的口径漂移风险（known-issues A4 + module-map §4.3）
 - **证据**：`straightMeters`/`estimateLeg` 两份（`Project/app/api/amap/route/route.ts:29/:43` vs `Project/app/api/try/order/route.ts:50/:64`）、`localDayString` 三份（`Project/lib/member-quota.ts:148`/`Project/lib/guest-rate-limit.ts:37`/`Project/lib/amap-usage.ts:81`）、`fmtTime` 五份、`SortablePlaceRow` 两份。

@@ -53,10 +53,10 @@
 |---|---|---|---|---|---|---|
 | 19 | POST /api/amap/route | getUser 按 tier 分流（`route/route.ts:52`） | body: points[]/mode/cityAdcode? | `{ok, mode, order, legs, distanceMeters, durationSeconds}` | 502 整体失败；单段失败降级直线估算（`estimateLeg` :43-50） | cachedDistanceMatrix+orderByMatrix（`Project/lib/route-order.ts:173`）+逐段算路；读写 amap_leg_cache；Key 池计数 |
 | 20 | POST /api/amap/order | getUser + 配额 profile（`order/route.ts:21-59`） | body: points/mode | `{ok, mode, order}` | 502 矩阵失败 | **免费/游客用直线伪矩阵，会员/管理员用高德真实距离矩阵**（tier 分流） |
-| 21 | POST /api/amap/landmarks | **无鉴权**（`landmarks/route.ts:27`，grep getUser=0） | body: points/excludeNames | `{ok, items, quotaCritical}` | 400；查询失败返回 200 空结果 | 高德周边搜（评分前 8，商场/商业街/风景名胜）；结果缓存 |
-| 22 | POST /api/amap/search | **无鉴权**（`search/route.ts:9`，grep getUser=0） | body: keywords, city | `{ok, results}` | 404 无结果 / 429 额度限流 / 502 失败 | 高德 place/text（命中 023 缓存） |
+| 21 | POST /api/amap/landmarks | **需登录**（`createClient()+auth.getUser()`，未登录 401；A5 已修，T-001 2026-10-21） | body: points/excludeNames | `{ok, items, quotaCritical}` | 401 未登录 / 400 参数非法；查询失败返回 200 空结果 | 高德周边搜（评分前 8，商场/商业街/风景名胜）；结果缓存 |
+| 22 | ~~POST /api/amap/search~~ | **已删除**（T-001，2026-10-21：零调用方死接口，匿名可刷高德额度，A5 关闭） | —— | —— | 404 | 原高德 place/text 代理，`Project/app/api/amap/search/` 目录已整体删除 |
 
-> #21/#22 即 known-issues A5。**已决策（Q-001，用户 2026-10-21）**：#22 删除（grep 全项目零调用方）；#21 加 getUser。代码现状仍无鉴权，改动排入阶段 7。[已确认]
+> #21/#22 即 known-issues A5。**已修复（T-001，2026-10-21）**：#22 整目录删除（匿名 POST 实测 404）；#21 加 `auth.getUser()`，未登录 401（实测）。A5 关闭。[已确认]
 
 ## 7. 游客试用（Project/app/api/try/）
 

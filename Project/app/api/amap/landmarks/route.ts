@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { BUSINESS } from '@/config/business';
 import { MESSAGES } from '@/config/messages';
+import { createClient } from '@/lib/supabase/server';
 import { searchLandmarks } from '@/lib/amap';
 import { isAmapQuotaCritical } from '@/lib/amap-usage';
 import type { AmapPlaceResult } from '@/types';
@@ -25,6 +26,15 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 export async function POST(request: NextRequest) {
+  // A5 修复：周边知名地点仅登录用户可触发，未登录直接 401（写法同 api/collected）
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ ok: false, message: MESSAGES.LOGIN_FIRST }, { status: 401 });
+  }
+
   let points: { lat: number; lng: number }[] = [];
   let excludeNames: string[] = [];
 

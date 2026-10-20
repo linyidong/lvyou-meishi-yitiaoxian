@@ -20,12 +20,12 @@
 | 核实项 | 结果 |
 |---|---|
 | A1 `limitsOf` 14 调用方 | ✅ 实跑 `codegraph callers limitsOf` = **14** |
-| A5 两个高德代理接口无鉴权 | ✅ **确认**：`app/api/amap/search/route.ts:9` 的 POST 全文无 `getUser`、无 `checkGuestRateLimit`；`app/api/amap/landmarks/route.ts:27` 仅 `isAmapQuotaCritical` 熔断判断；`Project/middleware.ts` 对 `/api/*` 一律放行（只在页面路由上做重定向） |
+| A5 两个高德代理接口无鉴权 | ✅ 确认 → **已修复并关闭（T-001，2026-10-21）**：`search/route.ts` 整目录删除（匿名 POST 实测 404）；`landmarks/route.ts` 读 body 前加 `auth.getUser()`，未登录 401（实测）。原确认：`app/api/amap/search/route.ts:9` 的 POST 全文无 `getUser`、无 `checkGuestRateLimit`；`app/api/amap/landmarks/route.ts:27` 仅 `isAmapQuotaCritical` 熔断判断；`Project/middleware.ts` 对 `/api/*` 一律放行（只在页面路由上做重定向） |
 | 技术栈版本 | ✅ 抽查 next 14.2.15 / typescript 5.9.3 / tailwind 3.4.19 / @supabase/supabase-js 2.117.3 与 `package-lock.json` 一致 |
 | typecheck | ✅ 独立复跑 `tsc --noEmit` exit 0 |
 | 文档是否泄密 | ✅ 全文扫描无真实密钥形态串；18 个变量名齐全、无值 |
 
-> `[风险]` A5 已升级为**需要产品决策**（Q-001）：无论「有意」与否，当前状态下匿名可无限调用高德搜索，直接消耗额度。
+> `[风险]` A5 已升级为**需要产品决策**（Q-001）：无论「有意」与否，当前状态下匿名可无限调用高德搜索，直接消耗额度。→ **后续：决策完成且 T-001 已修复（2026-10-21），A5 关闭。**
 
 ## 1. A 级：最高优先风险
 
@@ -55,7 +55,8 @@
 - 依据：本轮对 30 个 route 的鉴权矩阵实测——这两个文件 `getUser=0 admin=0 guestRL=0`；且 `Project/middleware.ts:25-50` 的 `PROTECTED_ROUTES`（`Project/config/routes.ts:56` = `/routes`、`/route`、`/profile`、`/collected`）**不覆盖 `/api/*`**，middleware 对未匹配路径直接放行（`:53`）。
 - 影响：任何未登录访客可无限调用地点搜索与周边地标，直接消耗高德 Web 服务额度（地标虽有 12 小时进程内缓存 `Project/app/api/amap/landmarks/route.ts:17-18`，但搜索无此保护）。
 - 精确化（Harness 复核）：`/api/amap/search` **无任何调用方**（前端/服务端/脚本 grep 均为 0），属**死接口**；真正的搜索走 `Project/app/api/places/route.ts:92`（有 `getUser`）。`/api/amap/landmarks` 仅被 `Project/components/route/RouteResultClient.tsx:1119` 调用，所在页面受保护但接口本身不验身份。
-- **已决策（用户 2026-10-21）**：删除 `/api/amap/search`；`/api/amap/landmarks` 加 `getUser`。**执行阶段：阶段 7 任务卡**。
+- **已决策（用户 2026-10-21）**：删除 `/api/amap/search`；`/api/amap/landmarks` 加 `getUser`。
+- **已修复（T-001，2026-10-21）**：`Project/app/api/amap/search/` 整目录已删除（匿名 POST 实测 404）；`Project/app/api/amap/landmarks/route.ts` 在读取 body 前加 `auth.getUser()`，未登录 401 + `MESSAGES.LOGIN_FIRST`（匿名实测 401）。熔断、缓存、返回结构均未动。登录态 200 由用户人工验收。**A5 关闭**。
 
 ## 2. B 级：需排期处理
 
