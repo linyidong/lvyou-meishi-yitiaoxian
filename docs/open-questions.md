@@ -13,6 +13,8 @@
 | Q-005 | 是否引入自动化测试框架（playwright 候选） | 属投入决策，代码侧无依据 | 用户 | 决定阶段 7–8 验收强度与回归成本 | 中 | 开放 |
 | Q-006 | 本地提交是否推送到 `origin/main` | 属用户发布习惯 | 用户 | 单点故障风险（目前仅本地 + 盘外备份） | 低 | 开放 |
 | Q-007 | 企业微信自建应用通道何时启用（依赖备案域名 + 固定公网 IP） | 依赖外部条件（域名备案、固定 IP） | 用户 | 个人微信推送暂不可用，只能群机器人 | 中 | 开放 |
+| Q-010 | A5 鉴权修复是否算「本期缺陷」 | 用户本期勾选里没勾它，但已决议且改动小 | 用户 | 影响本期任务清单 | 低 | 开放 |
+| Q-011 | F-50 一键复位的覆盖页面与是否消耗额度 | 需产品确认交互口径 | 用户 | 影响实现方式与游客额度 | 高 | 开放 |
 | Q-009 | `config/cities.ts` 多出的 12 个城市（104 vs 92）是历史遗留还是有意保留 | 代码只能证明数量不一致，无法判断是否需要这些城市 | 用户 | 影响出发城市搜索与导入匹配的准确性 | 中 | 开放 |
 | Q-008 | `routes.transport` 的最终取值集合（004 迁移 check 为 walk/bike，018 扩到 4 种） | 需读 018 之后所有迁移并核对真实列定义 | Harness（可读迁移或查库） | 影响路线表单与分享校验口径 | 低 | 开放 |
 
@@ -23,6 +25,7 @@
 | Q-101 | 库里到底有哪些表、多少数据 | 14 张表；users 3 / places 1326 / cities 92 / routes 5 / route_places 41 / imports 6 / events 42 / member_orders 0 / member_logs 3 / user_daily_usage 2 / route_shares 1 / amap_leg_cache 503 / amap_geocode_cache 228 / amap_usage 15 | Harness 直连 PostgREST（service_role 只读计数）＋ OpenAPI 表清单 | 2026-10-20 |
 | Q-102 | RLS 是否真的挡住匿名读取 | **是**。匿名 key 请求 users / member_orders / places / routes / user_daily_usage / imports / events / amap_usage 全部返回 0 行；而 places 实际有 1326 行，排除「表本来就空」 | Harness 用 `NEXT_PUBLIC_SUPABASE_ANON_KEY` 实测 8 张表 | 2026-10-20 |
 | Q-103 | 本地能否跑起来 | 能。`npm run typecheck` exit 0；dev server 起得来（阶段 1 验证过 4 个页面 200、接口可调） | 阶段 1/3 实跑 | 2026-10-20 |
+| Q-012 | 会员到期定时任务用哪种实现（pg_cron / 系统计划任务 / 应用内调度） | 需结合部署形态定，本期尚无生产部署 | Harness（阶段 6 方案） | 影响实现成本与可运维性 | 中 | 开放 |
 | Q-104 | 是否已有付费订单 | 没有。`member_orders` 0 行 | 只读计数 | 2026-10-20 |
 | Q-001 | A5 两个无鉴权高德接口怎么处理 | **用户 2026-10-21 决定**：删除死接口 `Project/app/api/amap/search/route.ts`（无任何调用方）；`Project/app/api/amap/landmarks/route.ts` 增加 `getUser` 校验。作为阶段 7 任务执行 | 用户决策 + Harness 调用链排查（`grep amap/search` 零引用） | 2026-10-21 |
 
