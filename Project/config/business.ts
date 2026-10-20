@@ -142,6 +142,22 @@ export const BUSINESS = {
   MAX_PENDING_ORDERS: 2,
   /** 管理端订单列表单次读取上限 */
   ADMIN_ORDER_LIMIT: 200,
+  /** 管理端「待核销订单」红色角标的刷新间隔（秒） */
+  ADMIN_PENDING_BADGE_REFRESH_SECONDS: 30,
+  /** 角标数字显示上限，超过则显示为「上限+」，避免角标被撑破 */
+  ADMIN_PENDING_BADGE_MAX: 99,
+  /** A 半自动链路：收银台提交订单后「等待到账确认」态的轮询间隔（秒） */
+  ORDER_STATUS_POLL_SECONDS: 5,
+  /** A 半自动链路：等待态最长轮询时长（分钟），超过后停止轮询并提示用户稍后再看 */
+  ORDER_STATUS_POLL_TIMEOUT_MINUTES: 30,
+  /** 新订单外发提醒（企业微信群机器人 / 企业微信自建应用）的请求超时（毫秒），失败只记日志不影响下单 */
+  ORDER_NOTIFY_TIMEOUT_MS: 3000,
+  /** 企业微信应用 access_token 提前刷新余量（秒）：距过期不足该值就重新获取，避免频繁调 gettoken */
+  WECOM_APP_TOKEN_REFRESH_MARGIN_SECONDS: 300,
+  /** 忘记密码自助重置的限流窗口（分钟） */
+  PASSWORD_RESET_RATE_WINDOW_MINUTES: 60,
+  /** 忘记密码自助重置：同一 IP 在限流窗口内允许的重置次数，超出回 429 */
+  PASSWORD_RESET_RATE_LIMIT_PER_WINDOW: 5,
 
   /** C07 管理员邮箱（数据库 users.role 已设为 admin） */
   ADMIN_EMAIL: '1035940028@qq.com',

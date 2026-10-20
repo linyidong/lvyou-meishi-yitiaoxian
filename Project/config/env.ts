@@ -66,6 +66,23 @@ export const ENV = {
   AMAP_WEB_KEYS: amapWebKeySlotsList,
   /** C06 DeepSeek API Key（服务端 AI 提取） */
   DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY!,
+  /**
+   * C07 会员订单到账提醒 Webhook（服务端）。
+   * 目前接「企业微信群机器人」：在企业微信里建一个群 → 添加群机器人 → 复制 Webhook 地址填到这里。
+   * 留空则关闭外发提醒（站内角标不受影响）。服务端提交新订单后 POST 一条 markdown 消息给管理员。
+   */
+  ORDER_NOTIFY_WECOM_WEBHOOK: process.env.ORDER_NOTIFY_WECOM_WEBHOOK ?? '',
+
+  /**
+   * 会员订单到账提醒 · 企业微信「自建应用」通道（服务端）。
+   * 与上面的群机器人 Webhook 可同时启用、互不影响。四项齐全才启用：
+   * 企业ID / 自建应用 Secret / 应用 AgentId / 接收人（默认 @all）。
+   * 该通道的消息可通过「微信插件」送达成员的个人微信（需在企业微信后台开启微信插件）。
+   */
+  WECOM_CORP_ID: process.env.WECOM_CORP_ID ?? '',
+  WECOM_APP_SECRET: process.env.WECOM_APP_SECRET ?? '',
+  WECOM_AGENT_ID: process.env.WECOM_AGENT_ID ?? '',
+  WECOM_APP_TOUSER: process.env.WECOM_APP_TOUSER ?? '@all',
 } as const;
 
 /** 校验前端必需变量是否已配置，供地图组件在报错前给出人话提示。 */

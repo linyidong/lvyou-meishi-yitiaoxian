@@ -16,6 +16,7 @@ import {
   Wifi,
   type LucideIcon,
 } from 'lucide-react';
+import { BUSINESS } from '@/config/business';
 import { MESSAGES } from '@/config/messages';
 import { PRODUCT } from '@/config/product';
 import { ROUTES } from '@/config/routes';
@@ -42,7 +43,14 @@ export const ADMIN_NAV: NavItem[] = [
  * 底部保留「返回用户端」入口；移动端（< lg）由 AdminShell 底部工具栏导航，
  * 退出后台 / 返回用户端入口同时保留在 AdminShell 顶栏（lg:hidden）。
  */
-export function AdminSidebar({ currentPath }: { currentPath: string }) {
+export function AdminSidebar({
+  currentPath,
+  pendingOrders = 0,
+}: {
+  currentPath: string;
+  /** 待核销会员订单数（由 AdminShell 轮询拿到），>0 时在「会员订单」右侧显示红色圆圈数字 */
+  pendingOrders?: number;
+}) {
   const router = useRouter();
 
   /** 退出后台后回管理端登录页（不回首页） */
@@ -74,6 +82,8 @@ export function AdminSidebar({ currentPath }: { currentPath: string }) {
         {ADMIN_NAV.map((item) => {
           const Icon = item.icon;
           const active = currentPath === item.href;
+          // 会员订单待核销提醒：红色圆圈 + 数字（0 时不显示）
+          const pending = item.href === ROUTES.ADMIN_ORDERS ? pendingOrders : 0;
           return (
             <Link
               key={item.href}
@@ -85,6 +95,17 @@ export function AdminSidebar({ currentPath }: { currentPath: string }) {
             >
               <Icon className="h-[18px] w-[18px]" />
               {item.label}
+              {pending > 0 ? (
+                <span
+                  aria-label={MESSAGES.ADMIN_SHELL.pendingOrdersAria(pending)}
+                  title={MESSAGES.ADMIN_SHELL.pendingOrdersAria(pending)}
+                  className="ml-auto grid h-[18px] min-w-[18px] shrink-0 place-items-center rounded-full bg-red-500 px-1 text-[10px] leading-none font-bold text-white"
+                >
+                  {pending > BUSINESS.ADMIN_PENDING_BADGE_MAX
+                    ? `${BUSINESS.ADMIN_PENDING_BADGE_MAX}+`
+                    : pending}
+                </span>
+              ) : null}
             </Link>
           );
         })}

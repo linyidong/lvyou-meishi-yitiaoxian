@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { BUSINESS } from '@/config/business';
-import { ORDER_STATUS } from '@/config/enums';
+import { MEMBER_PLAN_LABEL, ORDER_STATUS } from '@/config/enums';
 import { MESSAGES } from '@/config/messages';
+import { notifyNewMemberOrder } from '@/lib/order-notify';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 
@@ -17,6 +18,12 @@ const M = MESSAGES.MEMBER_ORDER;
 
 /** 付款备注最长字数（前端 maxLength 与之保持一致） */
 const PAY_NOTE_MAX = 60;
+
+/** 服务端本地时间 YYYY-MM-DD HH:mm（用于外发提醒里的「提交时间」） */
+function fmtLocal(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
 
 export async function POST(request: NextRequest) {
   const supabase = createClient();
@@ -79,6 +86,18 @@ export async function POST(request: NextRequest) {
     if (error || !data) {
       return NextResponse.json({ ok: false, message: M.errOrderFailed }, { status: 500 });
     }
+
+    // 外发到账提醒：推到管理员手机（企业微信群机器人），失败不影响下单结果
+    const yuan = plan.priceCents % 100 === 0 ? String(plan.priceCents / 100) : (plan.priceCents / 100).toFixed(2);
+    await notifyNewMemberOrder({
+      orderId: data.id,
+      email: user.email ?? '—',
+      planLabel: MEMBER_PLAN_LABEL[plan.key] ?? plan.key,
+      amountYuan: `¥${yuan}`,
+      channelLabel: channel.label,
+      payNote,
+      createdAt: fmtLocal(new Date()),
+    });
 
     return NextResponse.json({ ok: true, orderId: data.id });
   } catch {

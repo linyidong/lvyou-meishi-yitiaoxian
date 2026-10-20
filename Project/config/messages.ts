@@ -248,7 +248,6 @@ export const MESSAGES = {
     passwordPlaceholder: `至少 ${BUSINESS.MIN_PASSWORD_LENGTH} 位，包含字母和数字`,
     remember: '7 天内自动登录',
     forgot: '忘记密码？',
-    forgotTip: '第一版暂不提供找回密码，请联系客服邮箱 help@yitiaoxian.cn',
     submitLogin: '登录',
     submitRegister: '注册并登录',
     submitBusyLogin: '登录中…',
@@ -256,6 +255,34 @@ export const MESSAGES = {
     tryGuest: '先不登录，直接试用',
     /** 带着本地草稿进入登录页时的暂存提示 */
     fromDraftTip: '你的路线已暂存为本地草稿，登录后将自动合并到账号并继续保存。',
+  },
+
+  /**
+   * U01 忘记密码 · 自助重置（无邮件通道版）。
+   * 自建 Supabase 没有 SMTP，发不出重置邮件，故改成「凭注册邮箱直接设新密码」；
+   * 只改登录凭证、不动 public.users，会员权益保持不变。接口见 app/api/auth/reset-password/route.ts。
+   */
+  RESET_PASSWORD: {
+    title: '重置密码',
+    desc: '输入注册邮箱和新密码即可重置。账号不变，会员权益保持不变。',
+    hint: '提示：换成新密码后用新密码登录即可，无需重新注册。',
+    newPasswordLabel: '新密码',
+    confirmLabel: '确认新密码',
+    confirmPlaceholder: '再次输入新密码',
+    submit: '重置密码',
+    submitBusy: '重置中…',
+    backToLogin: '返回登录',
+    okNotice: '密码已重置，请用新密码登录。',
+    errNotRegistered: '该邮箱尚未注册，请检查后重试',
+    errAdminBlocked: '管理员账号不支持自助重置，请联系系统开发者处理',
+    errMismatch: '两次输入的密码不一致',
+    errFailed: '密码重置失败，请稍后重试',
+    errTooMany: '重置请求过于频繁，请稍后再试',
+    /** 重置成功后外发提醒给管理员（复用订单提醒同一批通道） */
+    notifyTitle: '【提醒】有用户重置了登录密码',
+    notifyLineUser: (email: string) => `**用户**：${email}`,
+    notifyLineTime: (at: string) => `**时间**：${at}`,
+    notifyFooter: '若非本人操作，请尽快联系该用户核实账号安全。',
   },
   /** M103 U02 首页首屏文案 */
   HOME_HERO: {
@@ -1108,6 +1135,8 @@ export const MESSAGES = {
     badgeReadonly: '只读',
     badgeUsers: '只读 · 会员操作除外',
     badgeOrders: '待核销置顶 · 支持核销',
+    /** 侧栏 / 底栏「会员订单」红色角标的无障碍说明与悬浮提示 */
+    pendingOrdersAria: (count: number) => `待核销会员订单 ${count} 单`,
   },
   /** M331 管理端顶栏文案（A02-A07）：更新时间、自动刷新、刷新、面包屑根（按原型原文） */
   ADMIN_HEADER: {
@@ -1372,15 +1401,31 @@ export const MESSAGES = {
     planMeta: (price: string, validity: string) => `${price} · ${validity}`,
     payChannelLabel: '选择付款方式',
     qrAlt: (channel: string) => `${channel}收款码`,
-    scanTip: '扫码付款后填写付款备注提交，管理员核销后自动开通',
+    scanTip: '扫码付款后点击「我已完成付款」，管理员核对到账后自动开通',
     qrMissing: '收款码暂未配置，请联系管理员',
     payNoteLabel: '付款备注 / 交易单号',
     payNotePlaceholder: '填写转账备注或交易单号，便于管理员核对',
-    submit: '提交订单',
+    submit: '我已完成付款',
     cancel: '取消',
     processing: '提交中…',
-    submittedTitle: '已提交，等待管理员核销',
-    submittedDesc: (orderId: string) => `订单号 ${orderId}，管理员核销后自动开通会员。`,
+    /** A 半自动链路：提交后进入「等待到账确认」态（弹窗内轮询，核销后自动关闭） */
+    waitingTitle: '等待到账确认',
+    waitingDesc: '已收到你的付款申请。管理员核对到账后会立即为你开通会员，本弹窗会自动关闭，无需手动刷新。',
+    waitingOrder: (orderId: string) => `订单号 ${orderId}`,
+    waitingHint: '请保持本页面打开，通常几分钟内即可完成',
+    /** 轮询到管理员已核销 → 自动关闭弹窗并提示成功 */
+    successTitle: '开通成功',
+    successDesc: (validity: string) => `会员已开通，有效期至 ${validity}。`,
+    successTitleForever: '会员已开通，感谢支持！',
+    /** 轮询到被驳回 → 提示原因并允许重新提交 */
+    rejectedTitle: '订单未通过核对',
+    rejectedDesc: (reason: string | null) =>
+      reason
+        ? `未通过原因：${reason}。如有疑问请联系管理员，或重新提交订单。`
+        : '管理员未能核对到这笔到账。如已付款请联系管理员核实，或重新提交订单。',
+    rejectedRetry: '重新提交',
+    /** 等待超时（未核销）提示：不阻塞用户，关闭后开通依然生效 */
+    pollTimeout: '暂时还没确认到账。你可以先关闭本窗口，管理员开通后会立即生效，稍后回来查看即可。',
     close: '知道了',
     pendingTip: '你有一笔待核销的订单，管理员核销后自动开通会员。',
     pendingTipPlan: (plan: string, time: string) => `待核销订单：${plan} · 提交于 ${time}`,
@@ -1391,6 +1436,24 @@ export const MESSAGES = {
     errInvalidChannel: '请选择有效的付款方式',
     errLoadFailed: '订单加载失败，请稍后重试',
     payNoteTooLong: (max: number) => `付款备注最多 ${max} 个字`,
+  },
+  /**
+   * M342 新会员订单到账提醒（外发到企业微信群机器人）。
+   * 管理员收到后即可上线核对流水并核销。
+   */
+  ORDER_NOTIFY: {
+    title: '【待核销】新的会员开通付款',
+    lineUser: (email: string) => `用户：${email}`,
+    linePlan: (plan: string, amount: string) => `套餐：${plan}（${amount}）`,
+    lineChannel: (channel: string) => `付款方式：${channel}`,
+    lineNote: (note: string) => `付款备注：${note}`,
+    lineNoteEmpty: '付款备注：无（请以金额与时间核对）',
+    lineTime: (time: string) => `提交时间：${time}`,
+    lineOrder: (orderId: string) => `订单号：${orderId}`,
+    footer: '请核对收款流水后到「管理后台 → 会员订单」点「确认开通」。',
+    errSendFailed: '订单提醒发送失败（群机器人通道）',
+    errTokenFailed: '订单提醒发送失败（应用通道：取 access_token 失败）',
+    errAppSendFailed: '订单提醒发送失败（应用通道）',
   },
   /** M341 A08 管理端会员订单（阶段 3）：待核销置顶、确认开通 / 驳回、状态块（按原型原文风格） */
   ADMIN_ORDERS: {

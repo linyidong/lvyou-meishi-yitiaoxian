@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check, Crown } from 'lucide-react';
 import { BUSINESS } from '@/config/business';
-import { EVENT_NAME, MEMBER_PLAN_LABEL, MEMBER_SOURCE_LABEL } from '@/config/enums';
+import { EVENT_NAME, MEMBER_PLAN_LABEL, MEMBER_SOURCE_LABEL, ORDER_STATUS } from '@/config/enums';
 import { MESSAGES } from '@/config/messages';
 import { PRODUCT } from '@/config/product';
 import { trackEvent } from '@/lib/events';
@@ -63,11 +63,18 @@ export function MemberCard({
   const [busy, setBusy] = useState(false);
   const [errorText, setErrorText] = useState('');
   const [toast, setToast] = useState<{ text: string; tone: 'ok' | 'err' } | null>(null);
-  /** 收银台：已选套餐 / 已选收款码通道 / 付款备注 / 提交成功后展示的订单号 */
+  /** 收银台：已选套餐 / 已选收款码通道 / 付款备注 */
   const [plan, setPlan] = useState<MemberPlan>('month');
   const [channel, setChannel] = useState<PayChannel>(BUSINESS.MEMBER_PAY_CHANNELS[0].key);
   const [payNote, setPayNote] = useState('');
+  /**
+   * 收银台阶段（A 半自动链路）：
+   * form 填单 → waiting 已提交、等待管理员核对到账（弹窗内轮询）
+   * → 核销后自动关闭弹窗并提示成功；驳回 / 超时则给出对应提示
+   */
+  const [stage, setStage] = useState<'form' | 'waiting' | 'rejected' | 'timeout'>('form');
   const [submittedId, setSubmittedId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState<string | null>(null);
   const [qrError, setQrError] = useState(false);
 
   function showToast(text: string, tone: 'ok' | 'err') {
@@ -79,6 +86,8 @@ export function MemberCard({
     void trackEvent(EVENT_NAME.CLICK_UPGRADE, { from: 'profile' });
     setErrorText('');
     setSubmittedId(null);
+    setRejectReason(null);
+    setStage('form');
     setModalOpen(true);
   }
 
@@ -122,6 +131,7 @@ export function MemberCard({
       void trackEvent(EVENT_NAME.CLICK_UPGRADE, { from: 'profile', plan });
       setSubmittedId(data.orderId);
       setPayNote('');
+      setStage('waiting');
       router.refresh();
     } catch {
       setErrorText(MO.errOrderFailed);
@@ -129,6 +139,59 @@ export function MemberCard({
       setBusy(false);
     }
   }
+
+  /**
+   * A 半自动链路：进入「等待到账确认」态后轮询订单状态。
+   * 管理员在后台核对流水并核销 → 这里感知到 approved 即自动关闭弹窗、提示开通成功并刷新页面；
+   * 驳回 → 展示原因并允许重新提交；超时 → 提示用户稍后回来查看（开通依然会生效）。
+   */
+  const pollStartRef = useRef(0);
+  useEffect(() => {
+    if (!modalOpen || stage !== 'waiting') return;
+    pollStartRef.current = Date.now();
+    const interval = BUSINESS.ORDER_STATUS_POLL_SECONDS * 1000;
+    const timeout = BUSINESS.ORDER_STATUS_POLL_TIMEOUT_MINUTES * 60 * 1000;
+
+    const timer = window.setInterval(async () => {
+      if (Date.now() - pollStartRef.current > timeout) {
+        window.clearInterval(timer);
+        setStage('timeout');
+        return;
+      }
+      try {
+        const res = await fetch('/api/member/orders/status', { cache: 'no-store' });
+        const data = (await res.json()) as {
+          ok: boolean;
+          order: { id: string; status: string; reject_reason: string | null } | null;
+          member: boolean;
+          memberUntil: string | null;
+        };
+        if (!data.ok) return;
+
+        // 核销成功：自动关闭弹窗 + 提示开通成功（用户无需手动刷新）
+        if (data.member || data.order?.status === ORDER_STATUS.APPROVED) {
+          window.clearInterval(timer);
+          setModalOpen(false);
+          setStage('form');
+          showToast(
+            data.memberUntil ? MO.successDesc(fmtDate(data.memberUntil)) : MO.successTitleForever,
+            'ok',
+          );
+          router.refresh();
+          return;
+        }
+        if (data.order?.status === ORDER_STATUS.REJECTED) {
+          window.clearInterval(timer);
+          setRejectReason(data.order.reject_reason);
+          setStage('rejected');
+        }
+      } catch {
+        // 单次轮询失败静默，下一轮继续
+      }
+    }, interval);
+
+    return () => window.clearInterval(timer);
+  }, [modalOpen, stage, router]);
 
   /** 已开通身份（会员 / 管理员）的权益文案：管理员不限配额，会员按会员档配额 */
   const benefits = (isAdmin ? PRODUCT.ADMIN_BENEFITS : PRODUCT.MEMBER_BENEFITS).join('、');
@@ -217,16 +280,71 @@ export function MemberCard({
       {modalOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/50 p-4">
           <div className="max-h-[85vh] w-full max-w-sm overflow-y-auto rounded-2xl bg-white p-6">
-            {submittedId ? (
+            {stage === 'waiting' ? (
               <>
                 <div className="-mx-6 -mt-6 mb-4 rounded-t-2xl bg-gradient-to-r from-primary-from to-primary-to px-6 py-4 text-white">
-                  <h3 className="text-lg font-semibold">{MO.submittedTitle}</h3>
+                  <h3 className="text-lg font-semibold">{MO.waitingTitle}</h3>
                 </div>
-                <p className="mt-2 text-sm text-stone-600">{MO.submittedDesc(submittedId)}</p>
+                <p className="mt-2 text-sm text-stone-600">{MO.waitingDesc}</p>
+                {submittedId ? (
+                  <p className="mt-2 text-xs text-stone-400">{MO.waitingOrder(submittedId)}</p>
+                ) : null}
+                <div className="mt-5 flex items-center gap-3 rounded-xl border border-stone-200 bg-stone-50 px-4 py-3">
+                  <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-stone-300 border-t-primary-from" />
+                  <span className="text-xs text-stone-500">{MO.waitingHint}</span>
+                </div>
                 <div className="mt-6">
                   <button
                     type="button"
-                    onClick={() => setModalOpen(false)}
+                    onClick={() => {
+                      setModalOpen(false);
+                      setStage('form');
+                    }}
+                    className="h-11 w-full rounded-xl border border-stone-300 text-sm font-medium text-stone-700 hover:bg-stone-50"
+                  >
+                    {MO.close}
+                  </button>
+                </div>
+              </>
+            ) : stage === 'rejected' ? (
+              <>
+                <div className="-mx-6 -mt-6 mb-4 rounded-t-2xl bg-red-500 px-6 py-4 text-white">
+                  <h3 className="text-lg font-semibold">{MO.rejectedTitle}</h3>
+                </div>
+                <p className="mt-2 text-sm text-stone-600">{MO.rejectedDesc(rejectReason)}</p>
+                <div className="mt-6 grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModalOpen(false);
+                      setStage('form');
+                    }}
+                    className="h-11 rounded-xl border border-stone-300 text-sm"
+                  >
+                    {MO.close}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStage('form')}
+                    className="h-11 rounded-xl bg-gradient-to-r from-primary-from to-primary-to text-sm font-semibold text-white hover:brightness-110"
+                  >
+                    {MO.rejectedRetry}
+                  </button>
+                </div>
+              </>
+            ) : stage === 'timeout' ? (
+              <>
+                <div className="-mx-6 -mt-6 mb-4 rounded-t-2xl bg-gradient-to-r from-primary-from to-primary-to px-6 py-4 text-white">
+                  <h3 className="text-lg font-semibold">{MO.waitingTitle}</h3>
+                </div>
+                <p className="mt-2 text-sm text-stone-600">{MO.pollTimeout}</p>
+                <div className="mt-6">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModalOpen(false);
+                      setStage('form');
+                    }}
                     className="h-11 w-full rounded-xl bg-gradient-to-r from-primary-from to-primary-to text-sm font-semibold text-white hover:brightness-110"
                   >
                     {MO.close}

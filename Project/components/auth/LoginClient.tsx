@@ -42,7 +42,11 @@ export function LoginClient({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(initialError ?? '');
   const [notice, setNotice] = useState('');
-  const [toast, setToast] = useState('');
+
+  /** 是否处于「忘记密码 · 自助重置」视图：复用同一张卡片，不额外开页面 */
+  const [resetMode, setResetMode] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
   const isLogin = tab === 'login';
 
@@ -60,11 +64,6 @@ export function LoginClient({
     setTab(next);
     setError('');
     setNotice('');
-  }
-
-  function showToast(msg: string) {
-    setToast(msg);
-    setTimeout(() => setToast(''), 2600);
   }
 
   async function submit() {
@@ -111,6 +110,82 @@ export function LoginClient({
     }
   }
 
+  /** 进入「忘记密码」视图：清空上一步的提示与新密码输入 */
+  function openReset() {
+    setResetMode(true);
+    setError('');
+    setNotice('');
+    setNewPassword('');
+    setConfirmPassword('');
+  }
+
+  /** 回到登录 / 注册视图 */
+  function closeReset() {
+    setResetMode(false);
+    setError('');
+    setNotice('');
+    setNewPassword('');
+    setConfirmPassword('');
+  }
+
+  /**
+   * 提交自助重置：凭注册邮箱直接设新密码（自建库没有 SMTP）。
+   * 成功后回到登录视图并回填邮箱，让用户直接用新密码登录。
+   */
+  async function submitReset() {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      setError(MESSAGES.AUTH_EMAIL_REQUIRED);
+      setNotice('');
+      return;
+    }
+    if (!EMAIL_RE.test(trimmedEmail)) {
+      setError(MESSAGES.AUTH_EMAIL_INVALID);
+      setNotice('');
+      return;
+    }
+    if (!newPassword) {
+      setError(MESSAGES.AUTH_PASSWORD_REQUIRED);
+      setNotice('');
+      return;
+    }
+    if (newPassword.length < BUSINESS.MIN_PASSWORD_LENGTH) {
+      setError(MESSAGES.AUTH_PASSWORD_TOO_SHORT);
+      setNotice('');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError(MESSAGES.RESET_PASSWORD.errMismatch);
+      setNotice('');
+      return;
+    }
+
+    setBusy(true);
+    setError('');
+    setNotice('');
+    try {
+      const res = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: trimmedEmail, password: newPassword }),
+      });
+      const data = (await res.json()) as { ok: boolean; message?: string };
+      if (!data.ok) {
+        setError(data.message ?? MESSAGES.RESET_PASSWORD.errFailed);
+        return;
+      }
+      setResetMode(false);
+      setPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setNotice(data.message ?? MESSAGES.RESET_PASSWORD.okNotice);
+    } catch {
+      setError(MESSAGES.NETWORK_ERROR);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const submitText = busy
     ? isLogin
       ? MESSAGES.LOGIN_FORM.submitBusyLogin
@@ -121,18 +196,14 @@ export function LoginClient({
 
   const title = isAdmin
     ? MESSAGES.ADMIN_LOGIN.title
-    : isLogin
-      ? MESSAGES.LOGIN_FORM.titleLogin
-      : MESSAGES.LOGIN_FORM.titleRegister;
+    : resetMode
+      ? MESSAGES.RESET_PASSWORD.title
+      : isLogin
+        ? MESSAGES.LOGIN_FORM.titleLogin
+        : MESSAGES.LOGIN_FORM.titleRegister;
 
   return (
     <div className={isAdmin ? 'w-full' : 'grid items-stretch gap-6 md:grid-cols-2 md:gap-10'}>
-      {toast ? (
-        <div className="fixed left-1/2 top-20 z-50 -translate-x-1/2 rounded-xl bg-stone-900 px-4 py-2.5 text-sm text-white shadow-lg">
-          {toast}
-        </div>
-      ) : null}
-
       {/* 左：渐变面板（仅用户端登录，md 以下隐藏） */}
       {!isAdmin ? (
         <section className="relative hidden flex-col justify-between overflow-hidden rounded-3xl bg-gradient-to-br from-primary-from to-primary-to p-10 text-white md:flex">
@@ -198,7 +269,7 @@ export function LoginClient({
           </Link>
         ) : null}
 
-        {!isAdmin ? (
+        {!isAdmin && !resetMode ? (
           <div className="mb-6 flex rounded-xl bg-stone-100 p-1">
             <button type="button" onClick={() => switchTab('login')} className={tabCls(isLogin)}>
               {MESSAGES.LOGIN_FORM.tabLogin}
@@ -210,7 +281,9 @@ export function LoginClient({
         ) : null}
 
         <h2 className="text-2xl font-bold text-stone-900">{title}</h2>
-        {isAdmin ? (
+        {resetMode ? (
+          <p className="mt-2 text-sm text-stone-500">{MESSAGES.RESET_PASSWORD.desc}</p>
+        ) : isAdmin ? (
           <p className="mt-2 text-sm text-stone-500">{MESSAGES.ADMIN_LOGIN.desc}</p>
         ) : (
           <p className="mt-2 flex items-center gap-1.5 text-sm text-stone-500">
@@ -219,7 +292,7 @@ export function LoginClient({
           </p>
         )}
 
-        {!isAdmin && initialRedirect ? (
+        {!isAdmin && !resetMode && initialRedirect ? (
           <div className="mt-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
             <Save className="mt-0.5 h-4 w-4 shrink-0" />
             <span>{MESSAGES.LOGIN_FORM.fromDraftTip}</span>
@@ -238,6 +311,7 @@ export function LoginClient({
           </div>
         ) : null}
 
+        {resetMode ? null : (
         <form
           className="mt-6 space-y-4"
           noValidate
@@ -317,13 +391,15 @@ export function LoginClient({
                 <input type="checkbox" defaultChecked className="h-4 w-4 accent-primary" />
                 {MESSAGES.LOGIN_FORM.remember}
               </label>
-              <button
-                type="button"
-                onClick={() => showToast(MESSAGES.LOGIN_FORM.forgotTip)}
-                className="text-primary hover:underline"
-              >
-                {MESSAGES.LOGIN_FORM.forgot}
-              </button>
+              {isAdmin ? null : (
+                <button
+                  type="button"
+                  onClick={openReset}
+                  className="text-primary hover:underline"
+                >
+                  {MESSAGES.LOGIN_FORM.forgot}
+                </button>
+              )}
             </div>
           ) : null}
 
@@ -336,8 +412,104 @@ export function LoginClient({
             <span>{submitText}</span>
           </button>
         </form>
+        )}
 
-        {!isAdmin ? (
+        {resetMode ? (
+          <form
+            className="mt-6 space-y-4"
+            noValidate
+            onSubmit={(e) => {
+              e.preventDefault();
+              void submitReset();
+            }}
+          >
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-stone-700" htmlFor="reset-email">
+                {MESSAGES.LOGIN_FORM.emailLabel}
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
+                <input
+                  id="reset-email"
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder={MESSAGES.LOGIN_FORM.emailPlaceholder}
+                  className={inputCls}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-stone-700" htmlFor="reset-password">
+                {MESSAGES.RESET_PASSWORD.newPasswordLabel}
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
+                <input
+                  id="reset-password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="new-password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder={MESSAGES.LOGIN_FORM.passwordPlaceholder}
+                  className={`${inputCls} pr-10`}
+                />
+                <button
+                  type="button"
+                  aria-label="显示或隐藏密码"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600"
+                >
+                  {showPassword ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-stone-700" htmlFor="reset-confirm">
+                {MESSAGES.RESET_PASSWORD.confirmLabel}
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
+                <input
+                  id="reset-confirm"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="new-password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder={MESSAGES.RESET_PASSWORD.confirmPlaceholder}
+                  className={inputCls}
+                />
+              </div>
+            </div>
+
+            <p className="flex items-start gap-1.5 rounded-xl bg-stone-50 px-3 py-2.5 text-xs text-stone-500">
+              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+              {MESSAGES.RESET_PASSWORD.hint}
+            </p>
+
+            <button
+              type="submit"
+              disabled={busy}
+              className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary-from to-primary-to font-semibold text-white hover:brightness-110 disabled:opacity-60"
+            >
+              {busy ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
+              <span>{busy ? MESSAGES.RESET_PASSWORD.submitBusy : MESSAGES.RESET_PASSWORD.submit}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={closeReset}
+              className="h-11 w-full rounded-xl border border-stone-300 text-sm font-medium text-stone-700 hover:bg-stone-50"
+            >
+              {MESSAGES.RESET_PASSWORD.backToLogin}
+            </button>
+          </form>
+        ) : null}
+
+        {!isAdmin && !resetMode ? (
           <Link
             href={ROUTES.CITY}
             className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-stone-300 text-sm font-medium text-stone-700 hover:bg-stone-50"

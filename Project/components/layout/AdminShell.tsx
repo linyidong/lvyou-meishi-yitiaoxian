@@ -53,6 +53,27 @@ export function AdminShell({
   // 概览页自动刷新默认开启（与 A02 原型勾选态一致，管理员可手动关闭）
   const [auto, setAuto] = useState(true);
   const [banner, setBanner] = useState(false);
+  // 「会员订单」待核销红色角标：管理端所有页面都轮询同一个轻量 count 接口
+  const [pendingOrders, setPendingOrders] = useState(0);
+
+  useEffect(() => {
+    let alive = true;
+    async function load() {
+      try {
+        const res = await fetch('/api/admin/member/orders/pending-count', { cache: 'no-store' });
+        const data = (await res.json()) as { ok?: boolean; pending?: number };
+        if (alive && data.ok) setPendingOrders(data.pending ?? 0);
+      } catch {
+        // 角标失败静默，不影响页面主体
+      }
+    }
+    load();
+    const timer = window.setInterval(load, BUSINESS.ADMIN_PENDING_BADGE_REFRESH_SECONDS * 1000);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+    };
+  }, []);
 
   function refreshNow() {
     router.refresh();
@@ -83,7 +104,7 @@ export function AdminShell({
     // 页面宽度跟随窗口，最大 1536px（max-w-screen-2xl）
     <div className="min-h-screen bg-slate-100 text-slate-800">
       <div className="mx-auto flex min-h-screen w-full max-w-screen-2xl">
-      <AdminSidebar currentPath={currentPath} />
+      <AdminSidebar currentPath={currentPath} pendingOrders={pendingOrders} />
 
       <div className="min-w-0 flex-1">
         <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-slate-200 bg-white px-4 md:px-6">
@@ -192,6 +213,7 @@ export function AdminShell({
         <div className="flex">
           {ADMIN_NAV.map(({ href, label, icon: Icon }) => {
             const active = currentPath === href;
+            const pending = href === ROUTES.ADMIN_ORDERS ? pendingOrders : 0;
             return (
               <Link
                 key={href}
@@ -201,7 +223,19 @@ export function AdminShell({
                   active ? 'text-slate-900' : 'text-slate-500',
                 )}
               >
-                <Icon className={cn('h-5 w-5', active && 'stroke-[2.5]')} />
+                <span className="relative">
+                  <Icon className={cn('h-5 w-5', active && 'stroke-[2.5]')} />
+                  {pending > 0 ? (
+                    <span
+                      aria-label={MESSAGES.ADMIN_SHELL.pendingOrdersAria(pending)}
+                      className="absolute -top-1.5 -right-2.5 grid h-[15px] min-w-[15px] place-items-center rounded-full bg-red-500 px-1 text-[9px] leading-none font-bold text-white"
+                    >
+                      {pending > BUSINESS.ADMIN_PENDING_BADGE_MAX
+                        ? `${BUSINESS.ADMIN_PENDING_BADGE_MAX}+`
+                        : pending}
+                    </span>
+                  ) : null}
+                </span>
                 <span className="text-[10px] leading-tight">{label}</span>
               </Link>
             );
