@@ -38,6 +38,11 @@
 - 如果 CodeGraph 可用，优先利用代码图谱查询符号、调用链、依赖关系及修改影响范围。
   **MCP 通道（1.6.2）只有一个工具 `codegraph_explore`**（自然语言或符号名 → 带行号的源码 + 调用路径 + 影响面），优先用它；
   **`callers` / `callees` / `impact` / `affected` 是 CLI 子命令**，需要精确单点查询时在终端执行（`codegraph callers <符号>`），并在汇报里注明是 CLI 取证。
+- **Trae 里的 MCP 工具名带前缀**：实际可调用名是 `mcp_codegraph_codegraph_explore`，用裸名 `codegraph_explore` 搜索会返回 0 个工具（2026-10-20 实测踩过两次）。
+- **本机 MCP 配置必须是绝对路径**（GUI 进程的 PATH 不含 node 安装目录）：
+  `command` = `/Volumes/Programming/Applications/nodejs/bin/node`，
+  `args` = `["/Volumes/Programming/Applications/nodejs/lib/node_modules/@colbymchenry/codegraph/npm-shim.js", "serve", "--mcp", "--path", "/Volumes/Programming/Project-File/AI-lvcingyitiaoxian"]`。
+  写成 `codegraph` 会 spawn 失败；写成 `.../bin/codegraph` 会报 `env: node: No such file or directory`。改完必须 ⌘Q 完全退出 Trae 再打开。
 - CodeGraph 不可用时，明确说明原因，改用 `rg` 与源码阅读，**不得伪造图谱结果**。
 - 不得因为文档缺失就假设对应功能不存在。
 
