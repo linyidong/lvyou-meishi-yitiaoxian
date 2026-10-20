@@ -74,7 +74,7 @@
 | 索引是否覆盖本项目 | **是**：145 文件 / 2,364 节点 / 5,220 边；tsx 74 / typescript 69 / javascript 2 |
 | 真实查询样例（符号 → 文件:行） | `codegraph callers dailyLimitOf` → `Project/lib/guest-rate-limit.ts:99`，调用方 `checkGuestRateLimit` @ `:109` |
 | **Trae 侧 MCP** | **未接入**。Trae 会话内 `ToolSearch` 无任何 `codegraph_*` 工具；本机核查 `~/Library/Application Support/Trae CN/User/settings.json` 无 MCP 配置、无 `~/.trae-cn/mcp.json`，仅有内置 `computer-use` |
-| 若不可用，原因与降级方案 | 原因：Trae 未注册 CodeGraph MCP Server。方案二选一：① 按 CodeGraph 指南第 3 节注册（一次性，之后可用 `codegraph_explore/callers/impact`）；② 声明降级，全部用 CLI 取证并在报告写明「非 MCP」 |
+| 若不可用，原因与降级方案 | 原因：Trae 未注册 CodeGraph MCP Server。方案二选一：① 按 CodeGraph 指南第 3 节注册 MCP（一次性；注册后 MCP 侧只有 `codegraph_explore` 一个工具，`callers/callees/impact/affected` 仍走 CLI）；② 声明降级，全部用 CLI 取证并在报告写明「非 MCP」 |
 
 ## 7. 初步风险
 

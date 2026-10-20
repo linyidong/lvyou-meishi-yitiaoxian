@@ -35,7 +35,9 @@
 
 - 修改任何功能前，先读取相关项目文档和源码。
 - 开工前先读 `docs/progress.md`（唯一进度事实源）；再读 `docs/项目需求文档PRD.md`、`docs/architecture.md`、`docs/implementation-plan.md`、`docs/known-issues.md`（含从 `File-PRD/项目进展与问题汇总-*.md` 迁来的 L 系列教训）。文档不存在时以源码为准，不要假设功能不存在。
-- 如果 CodeGraph 可用，优先利用代码图谱查询符号、调用链、依赖关系及修改影响范围：`codegraph_explore`、`codegraph callers`、`codegraph callees`、`codegraph impact`、`codegraph affected`。
+- 如果 CodeGraph 可用，优先利用代码图谱查询符号、调用链、依赖关系及修改影响范围。
+  **MCP 通道（1.6.2）只有一个工具 `codegraph_explore`**（自然语言或符号名 → 带行号的源码 + 调用路径 + 影响面），优先用它；
+  **`callers` / `callees` / `impact` / `affected` 是 CLI 子命令**，需要精确单点查询时在终端执行（`codegraph callers <符号>`），并在汇报里注明是 CLI 取证。
 - CodeGraph 不可用时，明确说明原因，改用 `rg` 与源码阅读，**不得伪造图谱结果**。
 - 不得因为文档缺失就假设对应功能不存在。
 
