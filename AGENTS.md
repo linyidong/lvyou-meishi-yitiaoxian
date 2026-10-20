@@ -19,7 +19,7 @@
 - **测试命令**：**暂无自动化测试框架**（无 jest / vitest / playwright）。改动至少跑 `typecheck`；运行时行为必须人工走一遍，并在汇报里写「未覆盖」而不是「通过」
 - **数据库 / 外部服务**：自建 Supabase（地址见 `Project/.env.local`）、高德 Web 服务 Key 池（两个 Key）、高德 JS API、DeepSeek API、企业微信 Webhook
 - **禁止触碰**：`Project/.env.local`（密钥）、生产 Supabase 数据、`File-PRD/`（历史文档）、`node_modules/`、`.next/`、`Project/public/pay-qr.*`（含经营信息的收款码原图）
-- **当前阶段与主文档**：阶段 0 收尾 → 阶段 1 只读审计；主文档 `docs/00-takeover/repository-audit.md`
+- **当前进度与主文档**：**`docs/progress.md` 是唯一进度事实源**（阶段 / 门禁 / 任务 / 下一步 / 阻塞都看它）；审计报告 `docs/existing-project-audit.md`
 
 ### 本机分工（与手册 §1.1 的差异，已按实际能力调整）
 
@@ -34,7 +34,7 @@
 ## 1. 项目理解
 
 - 修改任何功能前，先读取相关项目文档和源码。
-- 优先阅读：`docs/01-product/PRD.md`、`docs/02-architecture/current-architecture.md`、`docs/03-delivery/implementation-plan.md`、`docs/00-takeover/known-issues.md`（含从 `File-PRD/项目进展与问题汇总-*.md` 迁来的 L 系列教训）。
+- 开工前先读 `docs/progress.md`（唯一进度事实源）；再读 `docs/项目需求文档PRD.md`、`docs/architecture.md`、`docs/implementation-plan.md`、`docs/known-issues.md`（含从 `File-PRD/项目进展与问题汇总-*.md` 迁来的 L 系列教训）。文档不存在时以源码为准，不要假设功能不存在。
 - 如果 CodeGraph 可用，优先利用代码图谱查询符号、调用链、依赖关系及修改影响范围：`codegraph_explore`、`codegraph callers`、`codegraph callees`、`codegraph impact`、`codegraph affected`。
 - CodeGraph 不可用时，明确说明原因，改用 `rg` 与源码阅读，**不得伪造图谱结果**。
 - 不得因为文档缺失就假设对应功能不存在。
@@ -72,7 +72,7 @@
 
 ## 5. 文档同步
 
-- 重要架构、接口、配置或业务流程变更后，同步更新对应文档和 `docs/03-delivery/progress.md`。
+- 重要架构、接口、配置或业务流程变更后，同步更新对应文档和 `docs/progress.md`（进度看板必须同步，它是唯一事实源）。
 - 不得将推测当成事实，不得将计划当成已实现功能。
 - 每个阶段/任务结束时更新 `docs/handover/` 下的交接摘要。
 
