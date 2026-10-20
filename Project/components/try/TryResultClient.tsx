@@ -259,6 +259,8 @@ export function TryResultClient({ loggedIn }: { loggedIn: boolean }) {
   const orderReqRef = useRef(0);
   /** 最新草稿（手动调整顺序后会更新，用于「保存路线」落库当次看到的顺序） */
   const draftRef = useRef<TryDraft | null>(null);
+  /** 系统推荐顺序快照：仅在首次 order 响应 / 重新生成后更新，手动调序不更新；「一键复位」还原到这里（F-50） */
+  const initialOrderRef = useRef<OrderResult | null>(null);
 
   useEffect(() => {
     const d = readTryDraft();
@@ -322,6 +324,7 @@ export function TryResultClient({ loggedIn }: { loggedIn: boolean }) {
           return;
         }
         setResult(data as OrderResult);
+        initialOrderRef.current = data as OrderResult;
         setStatus('ready');
       } catch {
         if (!cancelled) {
@@ -337,6 +340,12 @@ export function TryResultClient({ loggedIn }: { loggedIn: boolean }) {
   }, [draft, mode, nonce, M.error, M.rateLimited, lodgingBody]);
 
   const points = result?.points ?? [];
+
+  /** 当前顺序是否已偏离系统推荐快照（按 sortIdOf 比对；渲染期派生，不加 state） */
+  const orderDirty =
+    !!result &&
+    !!initialOrderRef.current &&
+    result.points.map(sortIdOf).join('|') !== initialOrderRef.current.points.map(sortIdOf).join('|');
 
   /** 住宿解析成功时固定在起点（序号 0）：可移动的下标范围从 headCount 开始 */
   const headCount = points.length > 0 && points[0].isLodging ? 1 : 0;
@@ -449,6 +458,30 @@ export function TryResultClient({ loggedIn }: { loggedIn: boolean }) {
     if (!result) return;
     if (to < headCount || to >= points.length || from < headCount || from === to) return;
     void applyOrder(arrayMove(points, from, to));
+  }
+
+  /**
+   * 一键复位（F-50）：还原到 initialOrderRef 的系统推荐快照（points+legs+总量成对还原）。
+   * 零请求——不调 /api/try/order、不消耗额度；只写 result state + draftRef + sessionStorage，
+   * 绝不 setDraft——否则会触发重排 effect 再发一次系统重排（D-04）。
+   */
+  function resetOrder() {
+    const initial = initialOrderRef.current;
+    if (!result || !initial || reordering || !orderDirty) return;
+    orderReqRef.current += 1; // 防御：作废可能仍在途的 applyOrder 响应，避免覆盖复位结果
+    setResult({ ...initial });
+    const base = draftRef.current ?? draft;
+    if (base) {
+      const rank = new Map(initial.points.filter((p) => !p.isLodging).map((p, i) => [p.name, i]));
+      draftRef.current = {
+        ...base,
+        places: [...base.places].sort(
+          (a, b) => (rank.get(a.name) ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.name) ?? Number.MAX_SAFE_INTEGER),
+        ),
+      };
+      saveTryDraft(draftRef.current);
+    }
+    setToast(M.resetDone);
   }
 
   function kmText(meters: number) {
@@ -641,7 +674,17 @@ export function TryResultClient({ loggedIn }: { loggedIn: boolean }) {
           <div className="mt-4 rounded-2xl border border-stone-200 bg-white p-4 md:p-5">
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold text-stone-900">{M.singleDay}</p>
-              <p className="text-xs text-stone-500">{M.placesTotal(points.filter((p) => !p.isLodging).length)}</p>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={resetOrder}
+                  disabled={!orderDirty || reordering || !initialOrderRef.current}
+                  className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {M.resetBtn}
+                </button>
+                <p className="text-xs text-stone-500">{M.placesTotal(points.filter((p) => !p.isLodging).length)}</p>
+              </div>
             </div>
             <p className="mt-1 text-xs text-stone-500">{M.reorderTip}</p>
             {reordering ? (

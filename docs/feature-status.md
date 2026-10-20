@@ -71,6 +71,11 @@
 - **验收标准**：花钱桶（import/order）3 次/日、city-places 100/日、reorder 60/日；超限 429 带明确文案；同 IP 私有地址豁免逻辑存在（`isPrivateOrLoopbackIp :55`）。
 - **回归建议**：用 `curl -b jar -c jar` 复用同一 cookie 连打 4 次 order 桶接口，第 4 次应 429（不带 cookie 的循环测试无效——历史教训）。
 
+### F-14 一键复位 · 游客结果页（PRD F-50 / T-005，2026-10-21 实施，**待用户人工走查**）
+- **证据**：`Project/components/try/TryResultClient.tsx:263`（`initialOrderRef` 快照 ref，仅重排 effect 成功分支 `:327` 写入——覆盖首进/切模式/重试三入口，手动调序不更新）、`:344-348`（渲染期派生 `orderDirty`，按 `sortIdOf` 比对）、`:463-485`（`resetOrder()`：`setResult` 浅拷贝快照成对还原 points+legs+总量 → `draftRef`/`saveTryDraft` 同步草稿，**零 fetch、不 setDraft**，D-04）、`:675-688`（列表头行常驻按钮，`disabled={!orderDirty || reordering || !initialOrderRef.current}`）；文案 `Project/config/messages.ts:1673-1675`（`resetBtn`/`resetDone`，未动 ROUTE_RESULT）。
+- **验收标准**：调序后按钮可点；点击即还原系统推荐顺序（住宿仍序号 0）；复位期间零网络请求；刷新后草稿保留复位顺序；未调序时按钮禁用。
+- **回归建议**：游客三步走查（拖 2 下 → 复位 → 再拖 1 下 → 保存跳登录），Network 面板确认复位 0 请求。**typecheck exit 0 与 `/try/result` 200 已实测；真实拖序交互未覆盖（无 playwright，待用户走查）**。会员结果页同款属 T-006（未开始）。
+
 ## 2. 部分实现（代码在，开关/配置/外部条件未满足）
 
 ### F-20 企业微信自建应用消息通道
