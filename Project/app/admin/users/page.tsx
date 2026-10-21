@@ -9,6 +9,7 @@ import {
 import { AdminErrorState } from '@/components/admin/AdminState';
 import { AdminShell } from '@/components/layout/AdminShell';
 import { MESSAGES } from '@/config/messages';
+import { isMemberActive } from '@/lib/member-quota';
 import { createClient } from '@/lib/supabase/server';
 import { DatabaseZap } from 'lucide-react';
 import type { MemberAction, MemberSource, UserRole } from '@/types';
@@ -20,7 +21,7 @@ export default async function AdminUsersPage() {
   const [usersRes, logsRes] = await Promise.all([
     supabase
       .from('users')
-      .select('id,email,username,role,member,member_since,member_source,last_seen_at,created_at')
+      .select('id,email,username,role,member,member_until,member_since,member_source,last_seen_at,created_at')
       .order('created_at', { ascending: false })
       .limit(BUSINESS.ADMIN_LIST_LIMIT),
     supabase
@@ -40,6 +41,10 @@ export default async function AdminUsersPage() {
       username: u.username,
       role: u.role as UserRole,
       member: u.member,
+      // T-018：member_until 透传 + 服务端复用 isMemberActive 判定有效性
+      //（lib/member-quota 为服务端专用模块，不可被 'use client' 组件直接 import）
+      memberUntil: (u.member_until as string | null) ?? null,
+      memberActive: isMemberActive(u.role, u.member, u.member_until),
       memberSince: u.member_since,
       memberSource: (u.member_source as MemberSource | null) ?? null,
       lastSeenAt: u.last_seen_at,

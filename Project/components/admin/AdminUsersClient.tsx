@@ -23,6 +23,10 @@ export interface AdminUserItem {
   username: string | null;
   role: UserRole;
   member: boolean;
+  /** T-018：会员到期时间（ISO）；null = 永久或未开通 */
+  memberUntil: string | null;
+  /** T-018：服务端按 isMemberActive 判定的「有效会员」（管理员/永久/未到期为 true，已过期为 false） */
+  memberActive: boolean;
   memberSince: string | null;
   memberSource: MemberSource | null;
   lastSeenAt: string | null;
@@ -41,12 +45,20 @@ export interface MemberLogItem {
 type StatusFilter = 'all' | 'on' | 'off';
 type IdentityFilter = 'all' | 'free' | 'member';
 
-/** YYYY-MM-DD HH:mm */
+/** YYYY-MM-DD */
 function fmt(iso: string | null) {
   if (!iso) return '—';
   const d = new Date(iso);
   const p = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+/** YYYY-MM-DD（T-018 会员到期日展示） */
+function fmtDate(iso: string | null) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
 /** 最后活跃：≤ ONLINE_THRESHOLD_MINUTES 分钟为在线 */
@@ -56,11 +68,23 @@ function minutesAgo(iso: string | null) {
 }
 
 /**
- * 会员权益判定：管理员默认最高级会员（DB 侧由 015_admin_default_member.sql 触发器兜底，
- * 此处同步派生，保证回填 SQL 执行前后界面表现一致）。
+ * 会员权益判定（T-018）：改用服务端 `isMemberActive` 的派生结果 `memberActive`
+ * （管理员恒为 true；付费会员按 member_until 惰性判定，已过期视为非会员，
+ * 与用户端配额口径一致）。用于身份筛选与「会员 N 位」统计。
  */
 function isMemberRow(u: AdminUserItem) {
-  return u.member || u.role === USER_ROLE.ADMIN;
+  return u.memberActive;
+}
+
+/**
+ * T-018 三态徽章派生：管理员永久 / 永久会员 / 有效会员（带到期日）/ 已过期 / 非会员。
+ * 有效性来自服务端 isMemberActive；`member && !memberActive` 即「曾开通但已到期」。
+ */
+function memberStateOf(u: AdminUserItem): 'admin' | 'forever' | 'active' | 'expired' | 'none' {
+  if (u.role === USER_ROLE.ADMIN) return 'admin';
+  if (!u.member) return 'none';
+  if (!u.memberActive) return 'expired';
+  return u.memberUntil ? 'active' : 'forever';
 }
 
 /** 筛选 Tab（原型：白底描边容器 + 内嵌按钮） */
@@ -316,6 +340,7 @@ export function AdminUsersClient({
               <tbody className="divide-y divide-slate-100">
                 {rows.map((u) => {
                   const online = minutesAgo(u.lastSeenAt) <= BUSINESS.ONLINE_THRESHOLD_MINUTES;
+                  const mstate = memberStateOf(u);
                   return (
                     <tr key={u.id}>
                       <td className="px-4 py-3">{u.email ?? '—'}</td>
@@ -344,26 +369,45 @@ export function AdminUsersClient({
                       </td>
                       <td className="px-4 py-3 text-slate-500">{fmt(u.lastSeenAt)}</td>
                       <td className="px-4 py-3">
-                        <span
-                          className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs ${
-                            isMemberRow(u)
-                              ? 'bg-amber-100 font-medium text-amber-700'
-                              : 'bg-slate-100 text-slate-500'
-                          }`}
-                        >
-                          {isMemberRow(u) ? (
-                            <>
-                              <Crown className="h-3 w-3" />
-                              {u.role === USER_ROLE.ADMIN ? M.memberFixed : M.memberBadge}
-                            </>
-                          ) : (
-                            M.memberNone
-                          )}
-                        </span>
+                        {/* T-018 三态徽章：有效=绿色系 / 永久=紫色系 / 已过期=琥珀色 / 非会员=灰 */}
+                        {mstate === 'none' ? (
+                          <span className="inline-flex items-center rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-500">
+                            {M.memberNone}
+                          </span>
+                        ) : (
+                          <span
+                            className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium ${
+                              mstate === 'expired'
+                                ? 'bg-amber-50 text-amber-600'
+                                : mstate === 'active'
+                                  ? 'bg-emerald-50 text-emerald-700'
+                                  : 'bg-violet-100 text-violet-700'
+                            }`}
+                          >
+                            {mstate !== 'expired' && <Crown className="h-3 w-3" />}
+                            {mstate === 'admin'
+                              ? M.memberAdminBadge
+                              : mstate === 'forever'
+                                ? M.memberForever
+                                : mstate === 'active'
+                                  ? M.memberActiveUntil(fmtDate(u.memberUntil))
+                                  : M.memberExpired}
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         {u.role === USER_ROLE.ADMIN ? (
                           <span className="text-xs text-slate-500">{M.memberActionFixed}</span>
+                        ) : mstate === 'expired' ? (
+                          /* T-018：已过期用户不再显示可点的「取消会员」（误导操作），禁用并显示「已过期」；不新增写库行为 */
+                          <button
+                            type="button"
+                            disabled
+                            aria-disabled="true"
+                            className="cursor-not-allowed rounded-lg border border-slate-200 px-2.5 py-1 text-xs text-slate-400"
+                          >
+                            {M.memberExpired}
+                          </button>
                         ) : (
                           <button
                             type="button"

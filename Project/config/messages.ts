@@ -1261,6 +1261,11 @@ export const MESSAGES = {
     memberFixed: '最高级会员',
     memberBadge: '会员用户',
     memberNone: '普通用户',
+    /** T-018 会员三态徽章（仅新增，不改既有键语义） */
+    memberAdminBadge: '管理员 · 永久',
+    memberForever: '永久会员',
+    memberActiveUntil: (d: string) => `会员 · 到期 ${d}`,
+    memberExpired: '已过期',
     memberActionFixed: '默认最高级会员',
     memberGrant: '开通会员',
     memberRevoke: '取消会员',
