@@ -1551,6 +1551,10 @@ export const MESSAGES = {
     backHome: '返回首页',
     linkInvalidTitle: '链接已失效',
     linkInvalidDesc: '该分享链接不存在或已被作者关闭，请向对方重新索取。',
+    /** T-017 C9：查询异常/超时与「链接失效」区分（仅新增，不改既有键） */
+    loadFailedTitle: '加载失败，请稍后重试',
+    loadFailedDesc: '网络或服务暂时不可用，链接本身可能仍然有效，稍后重试即可。',
+    reload: '重试',
     sharedBy: '分享的路线',
     /** 访问者档位角标 */
     tierMember: '会员',

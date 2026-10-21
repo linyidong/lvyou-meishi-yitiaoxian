@@ -1,9 +1,10 @@
 import Link from 'next/link';
-import { LinkIcon } from 'lucide-react';
+import { LinkIcon, TriangleAlert } from 'lucide-react';
 import { MESSAGES } from '@/config/messages';
 import { PRODUCT } from '@/config/product';
 import { ROUTES } from '@/config/routes';
 import { SharePosterCard, type SharePosterView } from '@/components/share/SharePosterCard';
+import { ShareReloadButton } from '@/components/share/ShareReloadButton';
 import { ShareViewClient } from '@/components/share/ShareViewClient';
 import { getQuotaProfile } from '@/lib/member-quota';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -34,18 +35,38 @@ function buildPosterView(snapshot: RouteShareSnapshot): SharePosterView {
  */
 export default async function SharePage({ params }: { params: { token: string } }) {
   let share: { token: string; snapshot: unknown; view_count: number } | null = null;
+  /** T-017 C9：查询异常/超时（loadFailed）与「查无记录」（notFound）必须分开，超时不能说链接失效 */
+  let loadFailed = false;
 
   try {
     const admin = createAdminClient();
-    const { data } = await admin
+    const { data, error } = await admin
       .from('route_shares')
       .select('token,snapshot,view_count')
       .eq('token', params.token)
       .is('revoked_at', null)
       .maybeSingle();
-    share = data ?? null;
+    if (error) {
+      loadFailed = true;
+    } else {
+      share = data ?? null;
+    }
   } catch {
-    share = null;
+    // noStoreFetch 超时（TimeoutError）或网络错误：属「加载失败」，不是「链接失效」
+    loadFailed = true;
+  }
+
+  if (loadFailed) {
+    return (
+      <main className="grid min-h-screen place-items-center bg-stone-100 px-4">
+        <div className="w-full max-w-md rounded-2xl border border-stone-200 bg-white p-8 text-center">
+          <TriangleAlert className="mx-auto h-12 w-12 text-amber-400" />
+          <p className="mt-3 font-semibold text-stone-900">{MESSAGES.SHARE.loadFailedTitle}</p>
+          <p className="mt-1 text-sm text-stone-500">{MESSAGES.SHARE.loadFailedDesc}</p>
+          <ShareReloadButton />
+        </div>
+      </main>
+    );
   }
 
   const snapshot = (share?.snapshot ?? null) as RouteShareSnapshot | null;
