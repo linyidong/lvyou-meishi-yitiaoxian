@@ -76,7 +76,7 @@ export default async function AdminOrdersPage() {
     >
       {failed ? (
         <AdminErrorState
-          icon={DatabaseZap}
+          icon={<DatabaseZap className="mx-auto h-12 w-12 text-red-400" />}
           title={MESSAGES.ADMIN_ORDERS.errorTitle}
           desc={MESSAGES.ADMIN_ORDERS.errorDesc}
         />

@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import type { ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { MESSAGES } from '@/config/messages';
 import { cn } from '@/lib/utils';
@@ -63,12 +64,12 @@ export function AdminEmptyState({
 export function AdminErrorState({
   title,
   desc,
-  icon: Icon,
+  icon,
   className,
 }: {
   title: string;
   desc?: string;
-  icon: LucideIcon;
+  icon: ReactNode;
   className?: string;
 }) {
   return (
@@ -78,7 +79,7 @@ export function AdminErrorState({
         className,
       )}
     >
-      <Icon className="mx-auto h-12 w-12 text-red-400" />
+      {icon}
       <p className="mt-3 font-semibold text-red-700">{title}</p>
       {desc ? <p className="mt-1 text-sm text-red-600">{desc}</p> : null}
       <AdminRetryButton className="mt-4" />

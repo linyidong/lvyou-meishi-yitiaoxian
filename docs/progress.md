@@ -11,13 +11,13 @@
 - 当前任务：T-001 已完成（等用户终验）；T-005/T-006（两页一键复位）实施完成，等用户人工走查
 - 任务状态：T-005/T-006 待验收（拖序→复位交互需真人浏览器走查，无 playwright）；T-001 登录态 200 需人工确认
 - 下一步：用户走查 T-005/T-006 复位与 T-001 周边知名地点；通过后派下一卡（T-007 需先批分享图片粒度）
-- 阻塞：`next build` 仍失败——lint 已修复（T-012），现卡在预渲染：`/admin/orders` 把组件函数当 prop 传给客户端组件（T-013 处理）
-- 最近更新：2026-10-21 01:26（本机）
+- 阻塞：无（`next build` 已完整通过：lint 修复 T-012 + 预渲染 RSC 传参修复 T-013）
+- 最近更新：2026-10-21 23:50（本机）
 
 **状态行**（每次汇报第一行）：
 
 ```text
-【阶段 7 · G6 待终验 · 任务：T-006 · 下一步：用户走查两页「一键复位」+ T-001 登录态周边知名地点】
+【阶段 7 · G6 待终验 · 任务：T-007 待启动 · 下一步：定分享图片粒度 → 派 T-007】
 ```
 
 ## 2. 阶段进度
@@ -57,6 +57,8 @@
 | T-001 | A5 修复：删死接口 + landmarks 加登录 | **实施完成（待用户验收）** | 2026-10-21 01:00 | 2026-10-21（本机 00:58） | `ee0c4ea`（Harness 已提交） | typecheck exit 0；匿名 curl：landmarks→401、search→404（实测）；登录态 200 **未执行**（无测试账号，用户人工验收） | 风险低；改动=删 search 目录 + landmarks 加鉴权分支（+9 行）+ 4 份 docs 同步 |
 | T-005 | F-50 一键复位 · 游客结果页 | **实施完成（待用户验收）** | 2026-10-21 01:04 | 2026-10-21（本机 01:10） | `5131d6c` | typecheck exit 0；`/try/result` dev 实测 200（编译无错误）；复位函数体 grep 无 fetch、diff 无新增 setDraft、`/api/try/order` 未动（实测）；拖序→复位真实交互与 Network 零请求 **未执行**（需真人浏览器，无 playwright，用户走查） | 风险低；改动=TryResultClient +45 行（快照 ref/派生 orderDirty/resetOrder/常驻禁用态按钮）+ messages 2 常量 + 3 docs |
 | T-006 | F-50 一键复位 · 普通/会员结果页 | **实施完成（待用户验收）** | 2026-10-21 01:14 | 2026-10-21（本机 01:26） | 未 commit（待 Harness 验收后提交） | typecheck exit 0；`next build` webpack「Compiled successfully」（lint 失败点为既有 `ImportCollectClient:374`，非本次引入）；dev 实测 /login、/try/result 200，/route/[id] 307 登录墙符合预期；resetOrder 函数体 grep 零 fetch/syncRoute（实测）；登录态渲染与拖序→复位交互 **未执行**（无测试账号/playwright，用户走查） | 风险低；口径=方案 B（用户裁决：复位=界面还原+既有 saveOrder 落库一次，不耗高德额度）；改动=RouteResultClient +~50 行（快照 ref/写入点/orderDirty/resetOrder/常驻按钮），messages.ts 零改动（复用 TRY.RESULT），4 docs 同步 |
+| T-012 | build lint 阻塞修复（useSample→applySample 重命名） | **已完成** | 2026-10-21 | 2026-10-21 | 未 commit（待 Harness 验收后提交） | lint exit 0（0 error / 3 既有 warning）；build 推进到预渲染阶段后死于 `/admin/orders` RSC 传参（新阻塞，按派单条款停手上报→催生 T-013） | 改动仅 ImportCollectClient.tsx 2 行 |
+| T-013 | build 预渲染阻塞修复（AdminErrorState icon 改 ReactNode） | **已完成** | 2026-10-21 23:44 | 2026-10-21（本机 23:50） | 未 commit（待 Harness 验收后提交） | lint exit 0；`npm run build` **完整成功 exit 0**（Compiled successfully + 41/41 静态页 + 全 Route 表）；AdminErrorState 实际 7 处调用点（派单清单 5 处 + 漏掉的 admin/page:177、routes:39，不改则类型检查必失败）；AdminEmptyState 同型运行时隐患**未修**（不挡 build，已上报） | 改动=8 代码文件 +11/−10（AdminState.tsx + 7 页面） |
 
 ## 5. 阻塞与待确认
 
@@ -72,6 +74,7 @@
 
 ## 6. 最近变更摘要
 
+- 2026-10-21 23:50（本机）：T-013 实施完成——`AdminState.tsx` 的 `AdminErrorState` icon prop 由 `LucideIcon`（组件函数）改为 `ReactNode`，内部渲染 `<Icon/>` 改 `{icon}`；全部 7 处服务端调用点（orders/places/imports/users/online + 派单清单外的 admin/page、routes）改为传元素 `<DatabaseZap className="mx-auto h-12 w-12 text-red-400" />`（online 用 `Unplug`）；lint exit 0；**`npm run build` 完整成功 exit 0**（41/41 静态页 + 全 Route 表），build 阻塞链（T-012 lint → T-013 预渲染）全部解除；`AdminEmptyState`（admin/page:179 传 `BarChart3`）同型运行时隐患未修不扩大范围，待 Harness 决策
 - 2026-10-21 01:26（本机）：T-006 实施完成（方案 B，用户裁决）——`RouteResultClient.tsx` 新增 `initialOrderRef` 快照（写入点=syncRoute 竞态守卫后且 reorder=true，覆盖 boot 与切出行方式两个系统重排入口，手动调序不更新）+ 渲染期派生 `orderDirty`（`orderKeyOf` 比对，不加 state）+ `resetOrder()`（还原 localDays/dayLegs/customStartIds/estimated → 调既有 `saveOrder()` 防抖 PUT 落库一次；函数体零 fetch、不调 syncRoute、不触发重排）+ 列表头常驻按钮（disabled=未偏离/navBusy/保存中/无快照）；文案复用 `MESSAGES.TRY.RESULT`（messages.ts 零改动）；typecheck exit 0；build 编译通过（lint 挡点为既有问题）；登录态渲染与真实交互待用户走查
 - 2026-10-21 01:10（本机）：T-005 实施完成——`TryResultClient.tsx` 新增 `initialOrderRef` 系统推荐快照（仅 order 响应/重新生成时写入，手动调序不更新）+ 渲染期派生 `orderDirty` + `resetOrder()`（零请求：`setResult` 浅拷贝快照 + `draftRef`/`saveTryDraft` 同步草稿，不 setDraft，D-04）+ 列表头行常驻「一键复位」按钮（未偏离/reordering/无快照时 disabled）；`messages.ts` TRY.RESULT 新增 `resetBtn`/`resetDone`（未动 ROUTE_RESULT）；typecheck exit 0；dev 实测 `/try/result` 200；真实拖序交互待用户走查
 - 2026-10-21 00:58（本机）：T-001 实施完成——删 `Project/app/api/amap/search/` 整目录；`landmarks/route.ts` 读 body 前加 `auth.getUser()`，未登录 401 + `MESSAGES.LOGIN_FIRST`（`message` 字段，同 collected 惯例）；typecheck exit 0；匿名 curl 实测 landmarks=401 / search=404；同步 api-contract/feature-status/known-issues（A5 关闭）/progress 四文档；登录态 200 未执行（无测试账号）

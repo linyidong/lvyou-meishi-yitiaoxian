@@ -67,7 +67,7 @@ export default async function AdminUsersPage() {
       showAdminName
     >
       {usersRes.error ? (
-        <AdminErrorState icon={DatabaseZap} title={MESSAGES.ADMIN_USERS.errorTitle} />
+        <AdminErrorState icon={<DatabaseZap className="mx-auto h-12 w-12 text-red-400" />} title={MESSAGES.ADMIN_USERS.errorTitle} />
       ) : (
         <AdminUsersClient users={users} logs={logs} />
       )}

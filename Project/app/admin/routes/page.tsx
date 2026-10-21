@@ -36,7 +36,7 @@ export default async function AdminRoutesPage() {
         title={MESSAGES.ADMIN_SHELL.navRoutes}
         badge={MESSAGES.ADMIN_SHELL.badgeReadonly}
       >
-        <AdminErrorState icon={DatabaseZap} title={MESSAGES.ADMIN_ROUTES.errorTitle} />
+        <AdminErrorState icon={<DatabaseZap className="mx-auto h-12 w-12 text-red-400" />} title={MESSAGES.ADMIN_ROUTES.errorTitle} />
       </AdminShell>
     );
   }

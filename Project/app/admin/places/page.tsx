@@ -30,7 +30,7 @@ export default async function AdminPlacesPage() {
         title={MESSAGES.ADMIN_SHELL.navPlaces}
         badge={MESSAGES.ADMIN_SHELL.badgeReadonly}
       >
-        <AdminErrorState icon={DatabaseZap} title={MESSAGES.ADMIN_PLACES.errorTitle} />
+        <AdminErrorState icon={<DatabaseZap className="mx-auto h-12 w-12 text-red-400" />} title={MESSAGES.ADMIN_PLACES.errorTitle} />
       </AdminShell>
     );
   }

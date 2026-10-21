@@ -64,7 +64,7 @@ export default async function AdminOnlinePage() {
       refreshBanner={MESSAGES.ADMIN_ONLINE.refreshedBanner}
     >
       {error ? (
-        <AdminErrorState icon={Unplug} title={MESSAGES.ADMIN_ONLINE.errorTitle} />
+        <AdminErrorState icon={<Unplug className="mx-auto h-12 w-12 text-red-400" />} title={MESSAGES.ADMIN_ONLINE.errorTitle} />
       ) : (
         <AdminOnlineClient
           rows={rows}

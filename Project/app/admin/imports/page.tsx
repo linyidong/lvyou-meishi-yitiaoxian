@@ -28,7 +28,7 @@ export default async function AdminImportsPage() {
         title={MESSAGES.ADMIN_SHELL.navImports}
         badge={MESSAGES.ADMIN_SHELL.badgeReadonly}
       >
-        <AdminErrorState icon={DatabaseZap} title={MESSAGES.ADMIN_IMPORTS.errorTitle} />
+        <AdminErrorState icon={<DatabaseZap className="mx-auto h-12 w-12 text-red-400" />} title={MESSAGES.ADMIN_IMPORTS.errorTitle} />
       </AdminShell>
     );
   }

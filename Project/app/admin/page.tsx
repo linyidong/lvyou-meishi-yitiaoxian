@@ -174,7 +174,7 @@ export default async function AdminHomePage() {
       refreshBanner={MESSAGES.ADMIN_HEADER.refreshed}
     >
       {hasError ? (
-        <AdminErrorState title={M.errorTitle} desc={M.errorDesc} icon={DatabaseZap} />
+        <AdminErrorState title={M.errorTitle} desc={M.errorDesc} icon={<DatabaseZap className="mx-auto h-12 w-12 text-red-400" />} />
       ) : isEmpty ? (
         <AdminEmptyState icon={BarChart3} title={M.emptyTitle} desc={M.emptyDesc} />
       ) : (
