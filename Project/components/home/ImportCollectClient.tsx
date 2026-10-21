@@ -108,7 +108,7 @@ export function ImportCollectClient({
     setError('');
   }
 
-  function useSample(i: number) {
+  function applySample(i: number) {
     setText(MESSAGES.HOME_IMPORT.samples[i].value);
     setTab(i === 1 || i === 2 ? 'link' : 'text');
     setNeedText(false);
@@ -371,7 +371,7 @@ export function ImportCollectClient({
               <button
                 key={s.label}
                 type="button"
-                onClick={() => useSample(i)}
+                onClick={() => applySample(i)}
                 className={`rounded-full px-3 py-1.5 ${
                   i === 0
                     ? 'bg-primary/5 text-primary hover:bg-primary/10'
