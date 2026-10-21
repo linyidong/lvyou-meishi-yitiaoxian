@@ -53,3 +53,7 @@ Project/public/pay-qr.png
 
 # CodeGraph 索引（本机生成，不共享）
 .codegraph/
+
+# 测试产物（T-019：vitest / playwright）
+test-results/
+playwright-report/
