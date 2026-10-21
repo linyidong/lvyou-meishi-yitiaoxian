@@ -1552,6 +1552,13 @@ export const MESSAGES = {
     /** 访问者档位角标 */
     tierMember: '会员',
     tierAdmin: '管理员',
+    /** T-007 F-52 非会员/游客分享海报视图 */
+    posterGenerating: '正在生成路线图片…',
+    posterFailed: '图片生成失败，以下为路线清单（仅名称与顺序）。',
+    posterSave: '保存为图片',
+    posterAlt: '路线海报图片',
+    posterGuestTip: '完整路线与导入为会员功能，注册登录后升级会员即可使用。',
+    posterGuestCta: '注册 / 登录',
   },
   /** M343 游客试用（免登录）：设置路线 / 挑选地点 / 查看结果三步（草稿存 sessionStorage，关闭页面即清空） */
   TRY: {

@@ -3,11 +3,30 @@ import { LinkIcon } from 'lucide-react';
 import { MESSAGES } from '@/config/messages';
 import { PRODUCT } from '@/config/product';
 import { ROUTES } from '@/config/routes';
+import { SharePosterCard, type SharePosterView } from '@/components/share/SharePosterCard';
 import { ShareViewClient } from '@/components/share/ShareViewClient';
 import { getQuotaProfile } from '@/lib/member-quota';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import type { RouteShareSnapshot } from '@/types';
+
+/**
+ * T-007 F-52 分享分级：非会员/游客的最小视图模型（服务端裁剪）。
+ * 仅保留海报展示所需字段；坐标、地址、行程方式、住宿信息一律不下发。
+ */
+function buildPosterView(snapshot: RouteShareSnapshot): SharePosterView {
+  return {
+    title: snapshot.title ?? '',
+    cityName: snapshot.cityName ?? null,
+    days: snapshot.days ?? 1,
+    totalPlaces: snapshot.totalPlaces ?? 0,
+    dayPlans: (snapshot.dayPlans ?? []).map((day) => ({
+      dayIndex: day.dayIndex,
+      places: (day.places ?? []).map((place) => ({ name: place.name, type: place.type })),
+    })),
+    exportedAt: snapshot.exportedAt ?? '',
+  };
+}
 
 /**
  * 阶段 3 公开分享页（服务端组件，位于 app/share 下，不套用户端布局）。
@@ -74,6 +93,19 @@ export default async function SharePage({ params }: { params: { token: string } 
     const profile = await getQuotaProfile(user.id);
     viewerTier = profile.tier;
     canImport = profile.tier !== 'free';
+  }
+
+  // T-007 F-52 分享分级：非会员/游客只看海报图片（服务端裁剪，敏感字段不下发）
+  if (viewerTier === 'free') {
+    return (
+      <main className="min-h-screen bg-stone-100 pb-10">
+        <SharePosterCard
+          view={buildPosterView(snapshot)}
+          loggedIn={loggedIn}
+          productName={PRODUCT.NAME}
+        />
+      </main>
+    );
   }
 
   return (

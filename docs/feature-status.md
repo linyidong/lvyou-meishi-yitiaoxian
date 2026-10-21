@@ -43,6 +43,7 @@
 
 ### F-08 路线分享（令牌 + 长图 + 二维码 + 分享页）
 - **证据**：`Project/app/api/routes/[id]/share/route.ts:40`(POST 生成)/`:104`(DELETE 撤销)；令牌生成 `Project/lib/route-share.ts:25`；快照 `buildRouteSnapshot :69`；长图纯客户端 Canvas `Project/lib/route-poster.ts:99`(`renderRoutePoster`) + qrcode 1.5.4；分享页 `Project/app/share/[token]/page.tsx:8/:20/:54`（service_role 读快照，零高德调用）。
+- **F-52 分享分级（T-007 已实施）**：`page.tsx` 服务端按 `viewerTier` 分渲染——会员/管理员走原 `ShareViewClient`（完整快照+导入）；非会员/游客走 `buildPosterView` 最小契约（title/cityName/days/totalPlaces/dayPlans 名称与顺序/exportedAt，**不含 lat/lng/address/transport/lodging**）+ `Project/components/share/SharePosterCard.tsx`（客户端 canvas 海报 + 保存为图片 + 升级引导，二维码编码当前页 URL、token 不经 props）。匿名 curl 实测敏感数据键零下发；import 接口鉴权未动（匿名 401 复测）。海报图片渲染与会员视图回归需真人浏览器，待走查。
 - **验收标准**：仅会员可导出；每次导出生成新令牌、旧令牌/旧二维码立即失效；分享页无地图无导航按钮。
 - **回归建议**：导出两次后用第一个 token 访问应 404/失效；非会员账号点导出应被挡。
 
