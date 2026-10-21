@@ -123,3 +123,13 @@
 - 决定（用户 2026-10-21 01:25 裁决）：复位 = **界面还原 + 立即经既有 `saveOrder()` 落库一次**。
 - 理由：「不调接口、不耗额度」的真实意图是**不消耗高德 order 桶（3 次/日）**；一次本地 PUT 不碰高德、不占额度。
 - 影响：复位后 Network 会出现 1 次 `PUT /api/routes/[id]/places`；离开重进显示复位后顺序。
+
+## D-13 会员到期用 pg_cron 定时失效（T-004）
+
+- 背景：PRD Q7 要求「到期自动解除身份，不依赖用户访问」；原实现只有读取侧惰性判定，存储值永不翻转。
+- 选型：自建 Supabase 的 **pg_cron**（`shared_preload_libraries` 已含 pg_cron，扩展 1.6.4 可用），每日 **03:05** 执行一条 UPDATE。
+- 边界：仅 `member = true and member_until is not null and member_until < now()`；永久会员（member_until 为 NULL）与管理员不受影响。
+- 验证：临时改为每分钟调度，实测 `cron.job_run_details` 出现 `status=succeeded, return_message=UPDATE 0`（当前无过期会员），随后恢复 03:05。
+- 回滚：`select cron.unschedule('expire-members'); drop extension if exists pg_cron;`
+- 迁移固化：`Project/supabase/migrations/026_member_expire_cron.sql`（幂等）
+- 未做（记录为后续）：任务里不写 `member_logs` 审计；如需留痕，在 UPDATE 后追加一条 insert。
