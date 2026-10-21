@@ -1693,6 +1693,9 @@ export const MESSAGES = {
       reorderFailed: '顺序没同步成功，已恢复原来的顺序，请稍后再试',
       reorderRateLimited: '今天调整顺序的次数已用完，请明天再来或直接登录后调整',
       lodgingFirstTip: '住宿点固定在起点（序号 0），不参与移动',
+      /** T-008 转化链路：未登录结果页会员权益卡（要点取 PRODUCT.MEMBER_BENEFITS，不在此编数字） */
+      upsellTitle: '升级会员，解锁这些',
+      upsellBtn: '查看会员权益',
       /** 一键复位（F-50）：本地还原系统推荐顺序，零请求、不消耗额度 */
       resetBtn: '一键复位',
       resetDone: '已恢复系统推荐顺序',

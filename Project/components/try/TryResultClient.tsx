@@ -30,6 +30,7 @@ import { NAV_MODE, NAV_MODE_LABEL, NAV_MODE_VALUES, PLACE_TYPE } from '@/config/
 import { MESSAGES } from '@/config/messages';
 import { ROUTES } from '@/config/routes';
 import { AmapMap, type AmapPoint } from '@/components/map/AmapMap';
+import { MemberUpsellCard } from '@/components/member/MemberUpsellCard';
 import { BUSINESS } from '@/config/business';
 import { clearTryDraft, readTryDraft, saveTryDraft, type TryDraft } from '@/lib/draft';
 import { cn } from '@/lib/utils';
@@ -778,6 +779,9 @@ export function TryResultClient({ loggedIn }: { loggedIn: boolean }) {
               ) : null}
             </div>
           </div>
+
+          {/* T-008 转化链路：保存 CTA 下方的会员权益卡，仅未登录显示（已登录用户已有个人中心入口） */}
+          {!loggedIn ? <MemberUpsellCard loggedIn={loggedIn} /> : null}
         </>
       ) : null}
     </div>
