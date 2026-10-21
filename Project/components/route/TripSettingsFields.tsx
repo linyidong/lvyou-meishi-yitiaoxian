@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import {
   ArrowRight,
   Bed,
@@ -13,6 +13,7 @@ import {
   CircleCheck,
   CircleMinus,
   Ellipsis,
+  Flame,
   House,
   MapPin,
   Minus,
@@ -27,7 +28,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { BUSINESS } from '@/config/business';
-import { cityPinyin } from '@/config/cities';
+import { cityPinyin, HOT_CITIES } from '@/config/cities';
 import {
   INTERCITY_MODE,
   INTERCITY_MODE_LABEL,
@@ -147,18 +148,40 @@ export function TripSettingsFields({
   const [originKeyword, setOriginKeyword] = useState('');
   const [customOpen, setCustomOpen] = useState(false);
   const [customValue, setCustomValue] = useState('');
+  /** 手动输入并「使用」过的城市：追加到网格末尾并选中（含 92 城清单外的城市） */
+  const [extraCities, setExtraCities] = useState<string[]>([]);
 
-  const originMatches = useMemo(() => {
+  /**
+   * 出发城市候选分组：
+   * - 无关键词：热门城市置顶（带小标题）→ 其他城市（截前 26，与热门合计 36：3 列网格约 12 行，
+   *   一屏可扫视；92 城全显会把卡片拉得过长，其余城市由搜索框与手动输入兜底）→ 手动添加的城市；
+   * - 有关键词：按名称/拼音过滤后的平铺列表（上限 36）。
+   */
+  const originGroups = useMemo<{ label: string | null; cities: string[] }[]>(() => {
     const kw = originKeyword.trim().toLowerCase();
-    const list = kw
-      ? cityOptions.filter((name) => {
-          if (name.includes(kw)) return true;
-          const { full, initials } = cityPinyin(name);
-          return full.includes(kw) || initials.includes(kw);
-        })
-      : cityOptions;
-    return list.slice(0, 12);
-  }, [cityOptions, originKeyword]);
+    if (kw) {
+      const hit = (name: string) => {
+        if (name.toLowerCase().includes(kw)) return true;
+        const { full, initials } = cityPinyin(name);
+        return full.includes(kw) || initials.includes(kw);
+      };
+      const list = cityOptions.filter(hit);
+      const extras = extraCities.filter((n) => !cityOptions.includes(n) && hit(n));
+      return [{ label: null, cities: [...list, ...extras].slice(0, 36) }];
+    }
+    const hotSet = new Set<string>(HOT_CITIES);
+    const hot = HOT_CITIES.filter((n) => cityOptions.includes(n));
+    const rest = cityOptions.filter((n) => !hotSet.has(n) && !extraCities.includes(n)).slice(0, 26);
+    const custom = extraCities.filter((n) => !hotSet.has(n));
+    const groups: { label: string | null; cities: string[] }[] = [
+      { label: M.originHotTitle, cities: hot },
+      { label: M.originRestTitle, cities: rest },
+    ];
+    if (custom.length) groups.push({ label: M.originCustomTitle, cities: custom });
+    return groups;
+  }, [cityOptions, originKeyword, extraCities, M.originHotTitle, M.originRestTitle, M.originCustomTitle]);
+
+  const originCount = originGroups.reduce((s, g) => s + g.cities.length, 0);
 
   const sameCity = Boolean(destCity) && value.originCity === destCity;
   const needLodging = value.lodgingType !== null;
@@ -195,6 +218,8 @@ export function TripSettingsFields({
     const name = customValue.trim();
     if (!name) return;
     onChange({ originCity: name });
+    // 手动输入的城市追加进网格并选中（去重；若恰为热门城市则已在置顶组中可见）
+    setExtraCities((prev) => (prev.includes(name) ? prev : [...prev, name]));
     setOriginKeyword('');
     setCustomOpen(false);
     setCustomValue('');
@@ -238,30 +263,40 @@ export function TripSettingsFields({
         </div>
 
         <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3" id="originGrid">
-          {originMatches.map((name) => {
-            const on = value.originCity === name;
-            const same = name === destCity;
-            return (
-              <button
-                key={name}
-                type="button"
-                onClick={() => onChange({ originCity: name })}
-                className={originChipCls(on)}
-              >
-                <span className="truncate">{name}</span>
-                {same ? (
-                  <span className="shrink-0 text-[10px] text-stone-400">
-                    {MESSAGES.TRIP_CITY.sameCityTag}
-                  </span>
-                ) : on ? (
-                  <CircleCheck className="h-4 w-4 shrink-0 text-primary" />
-                ) : null}
-              </button>
-            );
-          })}
+          {originGroups.map((g) => (
+            <Fragment key={g.label ?? 'kw'}>
+              {g.label && g.cities.length ? (
+                <p className="col-span-full flex items-center gap-1 text-xs font-semibold text-stone-500">
+                  {g.label === M.originHotTitle ? <Flame className="h-3.5 w-3.5 text-orange-500" /> : null}
+                  {g.label}
+                </p>
+              ) : null}
+              {g.cities.map((name) => {
+                const on = value.originCity === name;
+                const same = name === destCity;
+                return (
+                  <button
+                    key={name}
+                    type="button"
+                    onClick={() => onChange({ originCity: name })}
+                    className={originChipCls(on)}
+                  >
+                    <span className="truncate">{name}</span>
+                    {same ? (
+                      <span className="shrink-0 text-[10px] text-stone-400">
+                        {MESSAGES.TRIP_CITY.sameCityTag}
+                      </span>
+                    ) : on ? (
+                      <CircleCheck className="h-4 w-4 shrink-0 text-primary" />
+                    ) : null}
+                  </button>
+                );
+              })}
+            </Fragment>
+          ))}
         </div>
 
-        {originMatches.length === 0 ? (
+        {originCount === 0 ? (
           <p className="mt-2 text-xs text-stone-500">{M.originNoResult}</p>
         ) : null}
 

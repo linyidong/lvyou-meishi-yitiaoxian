@@ -579,6 +579,10 @@ export const MESSAGES = {
     originDesc1: '你这次从哪座城市出发（居住地或上一站），用于估算城际交通。出发城市与上面的“旅行城市”（',
     originDesc2: '）是两个不同概念，请不要选成同一段行程。',
     originSearchPlaceholder: '搜索出发城市，如：重庆、cq',
+    /** T-015 出发城市网格分组小标题 */
+    originHotTitle: '热门城市',
+    originRestTitle: '其他城市',
+    originCustomTitle: '手动添加',
     originManual: '没找到？手动输入出发城市名',
     originManualPlaceholder: '输入出发城市名',
     originManualUse: '使用',
@@ -1661,7 +1665,7 @@ export const MESSAGES = {
       totalMeta: (km: string, min: string) => `全程约 ${km} 公里 · 在路上约 ${min}`,
       estimatedTip: '部分路段没算出真实路线，已按直线距离估算',
       save: '保存路线',
-      saveTip: '登录后即可保存这条路线',
+      saveTip: '注册/登录后才能保存这条路线',
       /** 已登录：按钮与提示（把试用草稿落库成当前账号的真实路线） */
       saveLoggedIn: '保存这条路线',
       saveLoggedInTip: '点击即可把这条试用路线存进你的账号',

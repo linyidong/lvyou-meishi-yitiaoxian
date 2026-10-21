@@ -50,7 +50,8 @@ function chipCls(on: boolean, layout = 'items-center justify-center gap-1.5') {
     layout,
     on
       ? 'border-primary bg-primary/5 text-primary'
-      : 'border-stone-200 text-stone-600 hover:border-stone-300',
+      : // T-015：未选中态增强可辨性（更明显边框 + 浅底 + 悬停主色反馈），选中态不变
+        'border-stone-300 bg-stone-50 text-stone-800 shadow-sm hover:border-primary/50 hover:bg-primary/5 hover:text-primary',
   );
 }
 

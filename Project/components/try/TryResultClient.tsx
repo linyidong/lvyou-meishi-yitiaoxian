@@ -761,9 +761,15 @@ export function TryResultClient({ loggedIn }: { loggedIn: boolean }) {
                 {saving ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
                 {saving ? M.saving : loggedIn ? M.saveLoggedIn : M.save}
               </button>
-              <p className="text-xs text-stone-500 sm:text-right">
-                {loggedIn ? M.saveLoggedInTip : M.saveTip}
-              </p>
+              {loggedIn ? (
+                <p className="text-xs text-stone-500 sm:text-right">{M.saveLoggedInTip}</p>
+              ) : (
+                /* T-015：未登录保存提醒改为醒目浅橙提示条（图标 + 加粗文案） */
+                <p className="flex items-center gap-1.5 rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-xs font-semibold text-orange-700 sm:justify-end">
+                  <CircleAlert className="h-4 w-4 shrink-0" />
+                  {M.saveTip}
+                </p>
+              )}
               {saveError ? (
                 <p className="flex items-start gap-1 text-xs text-red-600 sm:justify-end">
                   <CircleAlert className="mt-px h-3.5 w-3.5 shrink-0" />

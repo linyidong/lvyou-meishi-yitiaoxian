@@ -418,7 +418,18 @@ export function TryPickClient() {
                 </button>
               ))}
             </div>
-            <div className="ml-auto flex items-center gap-3 text-sm">
+            <div className="ml-auto flex flex-wrap items-center justify-end gap-3 text-sm">
+              {/* T-015：上限提示常驻为 tabs 行右侧橙色 pill，勾满时高亮（拦截逻辑不变） */}
+              <span
+                className={cn(
+                  'rounded-full border px-3 py-1 text-xs font-medium',
+                  atLimit
+                    ? 'border-orange-300 bg-orange-100 text-orange-800 shadow-sm'
+                    : 'border-amber-200 bg-amber-50 text-amber-700',
+                )}
+              >
+                {M.limitGuest}
+              </span>
               <button type="button" onClick={() => checkAllVisible(true)} className="text-primary hover:underline">
                 {RP.checkAll}
               </button>
@@ -427,12 +438,6 @@ export function TryPickClient() {
               </button>
             </div>
           </div>
-
-          {atLimit ? (
-            <p className="border-b border-stone-100 bg-amber-50 px-4 py-2 text-xs text-amber-700">
-              {M.limitGuest}
-            </p>
-          ) : null}
 
           {loading ? (
             <div className="flex flex-col items-center gap-3 p-12 text-stone-400">
