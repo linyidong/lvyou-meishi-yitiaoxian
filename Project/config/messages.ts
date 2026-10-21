@@ -1608,6 +1608,8 @@ export const MESSAGES = {
       retry: '重新加载',
       minPlaces: `至少选 ${BUSINESS.GUEST_TRY_MIN_PLACES} 个地点才能生成路线`,
       maxPlaces: (max: number) => `一次最多选 ${max} 个地点`,
+      /** 游客专属上限文案（替代对游客误导的 ROUTE_PLACES.limitNote，普通页文案不动） */
+      limitGuest: `游客试用最多选 ${BUSINESS.GUEST_TRY_MAX_PLACES} 个地点（单日行程）`,
       /** 返回上一步（与普通用户 U07 页头按钮同一位置） */
       back: '上一步：设置路线',
       /** 侧栏「起点」只读说明：游客按离住宿最近的原则自动挑起点 */

@@ -48,6 +48,9 @@ type PlaceTab = 'all' | PlaceType;
 const M = MESSAGES.TRY.PICK;
 const RP = MESSAGES.ROUTE_PLACES;
 
+/** 游客勾选上限（6 就是 6，不放宽）：拦截、置灰、提示文案共用同一数字 */
+const GUEST_MAX_PLACES = BUSINESS.GUEST_TRY_MAX_PLACES;
+
 /** 市内交通各方式的图标（与 TRANSPORT 取值一一对应） */
 const TRANSPORT_ICON: Record<Transport, LucideIcon> = {
   [TRANSPORT.WALK]: Footprints,
@@ -158,6 +161,8 @@ export function TryPickClient() {
   );
 
   const selectedList = useMemo(() => allItems.filter((it) => selected.has(it.key)), [allItems, selected]);
+  /** 已勾满上限：未选项置灰禁用 + 列表上方常驻提示 */
+  const atLimit = selected.size >= GUEST_MAX_PLACES;
   const checkedSpots = selectedList.filter((p) => p.type === PLACE_TYPE.ATTRACTION).length;
   const checkedFoods = selectedList.filter((p) => p.type === PLACE_TYPE.FOOD).length;
 
@@ -173,6 +178,11 @@ export function TryPickClient() {
 
   function toggle(key: string) {
     setGenErr('');
+    // 双保险：勾满后拦截第 7 个并即时提示（正常情况下未选项已禁用点不到）
+    if (!selected.has(key) && selected.size >= GUEST_MAX_PLACES) {
+      setGenErr(M.maxPlaces(GUEST_MAX_PLACES));
+      return;
+    }
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
@@ -185,7 +195,15 @@ export function TryPickClient() {
     setGenErr('');
     setSelected((prev) => {
       const next = new Set(prev);
-      visible.forEach((p) => (on ? next.add(p.key) : next.delete(p.key)));
+      if (!on) {
+        visible.forEach((p) => next.delete(p.key));
+        return next;
+      }
+      // 全选最多补到游客上限（与 doImport 自动勾选同一口径），剩余不勾
+      for (const p of visible) {
+        if (next.size >= GUEST_MAX_PLACES) break;
+        next.add(p.key);
+      }
       return next;
     });
   }
@@ -410,6 +428,12 @@ export function TryPickClient() {
             </div>
           </div>
 
+          {atLimit ? (
+            <p className="border-b border-stone-100 bg-amber-50 px-4 py-2 text-xs text-amber-700">
+              {M.limitGuest}
+            </p>
+          ) : null}
+
           {loading ? (
             <div className="flex flex-col items-center gap-3 p-12 text-stone-400">
               <Loader2 className="h-8 w-8 animate-spin" />
@@ -437,12 +461,26 @@ export function TryPickClient() {
               <ul className="divide-y divide-stone-100">
                 {visible.map((p) => {
                   const on = selected.has(p.key);
+                  /** 勾满后未选项置灰禁用（行样式 + checkbox disabled） */
+                  const locked = !on && atLimit;
                   return (
-                    <li key={p.key} className="flex items-center gap-3 px-4 py-3 hover:bg-stone-50">
-                      <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3">
+                    <li
+                      key={p.key}
+                      className={cn(
+                        'flex items-center gap-3 px-4 py-3',
+                        locked ? 'opacity-50' : 'hover:bg-stone-50',
+                      )}
+                    >
+                      <label
+                        className={cn(
+                          'flex min-w-0 flex-1 items-center gap-3',
+                          locked ? 'cursor-not-allowed' : 'cursor-pointer',
+                        )}
+                      >
                         <input
                           type="checkbox"
                           checked={on}
+                          disabled={locked}
                           onChange={() => toggle(p.key)}
                           className="h-5 w-5 shrink-0 accent-primary"
                         />
@@ -501,9 +539,7 @@ export function TryPickClient() {
               </button>
             </div>
             <p className="mt-1 text-[11px] text-stone-400">{MESSAGES.TRY.NEW.daysGuestHint}</p>
-            <p className="mt-1 text-[11px] text-stone-400">
-              {RP.limitNote(BUSINESS.GUEST_TRY_MAX_PLACES)}
-            </p>
+            <p className="mt-1 text-[11px] text-stone-400">{M.limitGuest}</p>
             <p className="mt-4 text-xs font-medium text-stone-500">{RP.transportLabel}</p>
             <div className="mt-2 grid grid-cols-2 gap-2">
               {Object.values(TRANSPORT).map((m) => {
