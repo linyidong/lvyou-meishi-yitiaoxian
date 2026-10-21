@@ -82,6 +82,7 @@
 | C3 | `Project/public/` 有残留：`750x750png`（无扩展名、未跟踪）、`logo.svg.zip`、`.DS_Store`、`pay-qr.*` 4 份（含经营信息，禁止触碰） | `ls -la Project/public/` `[已确认]` | `[风险]` 处置需用户决定 |
 | C4 | 本地 main 领先 origin 多个提交未 push（截至 23:58 为 11 笔） | `git status -sb` `[已确认]` | `[已确认]` |
 | C5 | ~~`docs/progress.md` 阻塞表留「MCP 未注册」过时行~~ → **已修复**（Harness 23:58 删除该行，改为 A5 无鉴权） | `grep MCP docs/progress.md` 已无过时行 | 已关闭 |
+| C9 | **分享页超时被误报为「链接已失效」**：自建 Supabase 冷启动时 `/share/[token]` 查询超时（实测 7.03s），`try/catch` 把异常吞掉后落到失效页，用户看到「该分享链接不存在」而非「稍后重试」。实测同一 token 预热后 0.04s 正常 | Harness 2026-10-22 实测（3 次 7.03s 失败 → 预热后 0.04s 成功） | `[风险]` 误伤真实分享链接的可信度；建议区分「查询失败」与「确实不存在」两种状态 |
 | C7 | `Project/` 下 4 项未被现有文档覆盖：`Project/docs/`（4 份历史文档）、`Project/travel-food-route.zip`（161,861 字节）、`Project/components.json`（shadcn 配置）、`Project/tsconfig.tsbuildinfo` | P6B 只读理解实测（`ls`）；处理意见：zip 与 Project/docs 需用户决定去留 | `[未知]` |
 | C8 | 文档精度债：`buildRouteSnapshot` 实为 `export async function`（`Project/lib/route-share.ts:69`），引用处未标 async，实现时须 await | P6B 实测 + Harness 复核 `sed -n '69p'` | `[风险]` 低，实现阶段注意 |
 | C6 | `routes.is_public` 公开路线第一版关闭、`routes.transport` check 仅 `walk/bike`（018 迁移扩了 4 种，需 Harness 核对最终列定义） | `Project/supabase/migrations/004_create_routes.sql`（check 约束）vs 018 迁移 `[已确认]`（004 原文） | `[未知]` 以 018 之后为准 |
