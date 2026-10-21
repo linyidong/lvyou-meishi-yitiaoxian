@@ -152,9 +152,8 @@ export function TripSettingsFields({
   const [extraCities, setExtraCities] = useState<string[]>([]);
 
   /**
-   * 出发城市候选分组：
-   * - 无关键词：热门城市置顶（带小标题）→ 其他城市（截前 26，与热门合计 36：3 列网格约 12 行，
-   *   一屏可扫视；92 城全显会把卡片拉得过长，其余城市由搜索框与手动输入兜底）→ 手动添加的城市；
+   * 出发城市候选分组（T-016 口径：网格只展示热门城市，其余城市由搜索框与手动输入兜底）：
+   * - 无关键词：热门城市（带小标题）→ 手动添加的城市（若有）；
    * - 有关键词：按名称/拼音过滤后的平铺列表（上限 36）。
    */
   const originGroups = useMemo<{ label: string | null; cities: string[] }[]>(() => {
@@ -171,15 +170,13 @@ export function TripSettingsFields({
     }
     const hotSet = new Set<string>(HOT_CITIES);
     const hot = HOT_CITIES.filter((n) => cityOptions.includes(n));
-    const rest = cityOptions.filter((n) => !hotSet.has(n) && !extraCities.includes(n)).slice(0, 26);
     const custom = extraCities.filter((n) => !hotSet.has(n));
     const groups: { label: string | null; cities: string[] }[] = [
       { label: M.originHotTitle, cities: hot },
-      { label: M.originRestTitle, cities: rest },
     ];
     if (custom.length) groups.push({ label: M.originCustomTitle, cities: custom });
     return groups;
-  }, [cityOptions, originKeyword, extraCities, M.originHotTitle, M.originRestTitle, M.originCustomTitle]);
+  }, [cityOptions, originKeyword, extraCities, M.originHotTitle, M.originCustomTitle]);
 
   const originCount = originGroups.reduce((s, g) => s + g.cities.length, 0);
 

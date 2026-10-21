@@ -50,8 +50,7 @@ function chipCls(on: boolean, layout = 'items-center justify-center gap-1.5') {
     layout,
     on
       ? 'border-primary bg-primary/5 text-primary'
-      : // T-015：未选中态增强可辨性（更明显边框 + 浅底 + 悬停主色反馈），选中态不变
-        'border-stone-300 bg-stone-50 text-stone-800 shadow-sm hover:border-primary/50 hover:bg-primary/5 hover:text-primary',
+      : 'border-stone-200 text-stone-600 hover:border-stone-300',
   );
 }
 
@@ -106,7 +105,8 @@ export function TryNewClient({
     setTitle(draft.title.startsWith(prefix) ? draft.title.slice(prefix.length) : draft.title);
     // 游客试用固定单日行程（与免费版分层一致）；历史草稿里若存过多日天数，这里统一归一为 1
     setDays(1);
-    setTransport(draft.transport);
+    // T-016：游客试用固定步行；历史草稿里若存了其它方式，进页统一归一为 walk
+    setTransport(TRANSPORT.WALK);
     setTrip((prev) => ({ ...prev, originCity: draft.originCity ?? '' }));
   }, [cities, initialCityName]);
 
@@ -337,14 +337,23 @@ export function TryNewClient({
           <p className={LABEL_CLS}>{M.transportLabel}</p>
           <p className="mt-1 text-xs text-stone-500">{M.transportHint}</p>
           <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {/* T-016：游客交通锁定步行——步行选中且禁用，其余置灰禁用（注册/登录后可选） */}
             {Object.values(TRANSPORT).map((mode) => {
               const Icon = TRANSPORT_ICON[mode];
+              const isWalk = mode === TRANSPORT.WALK;
               return (
                 <button
                   key={mode}
                   type="button"
+                  disabled
+                  aria-disabled="true"
                   onClick={() => setTransport(mode)}
-                  className={chipCls(transport === mode)}
+                  className={
+                    isWalk
+                      ? cn(chipCls(true), 'cursor-not-allowed')
+                      : // 显式禁用样式（不套 hover 反馈）：置灰 + 半透明 + 不可点光标
+                        'flex h-12 items-center justify-center gap-1.5 rounded-xl border-2 border-stone-200 bg-stone-100 text-sm font-medium text-stone-400 opacity-50 cursor-not-allowed'
+                  }
                 >
                   <Icon className="h-5 w-5" />
                   {TRANSPORT_LABEL[mode]}
@@ -352,6 +361,7 @@ export function TryNewClient({
               );
             })}
           </div>
+          <p className="mt-2 text-xs text-stone-500">{M.transportGuestLocked}</p>
         </div>
       </div>
 

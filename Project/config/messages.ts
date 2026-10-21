@@ -579,9 +579,8 @@ export const MESSAGES = {
     originDesc1: '你这次从哪座城市出发（居住地或上一站），用于估算城际交通。出发城市与上面的“旅行城市”（',
     originDesc2: '）是两个不同概念，请不要选成同一段行程。',
     originSearchPlaceholder: '搜索出发城市，如：重庆、cq',
-    /** T-015 出发城市网格分组小标题 */
+    /** T-015 出发城市网格分组小标题（T-016 起网格只展示热门+手动添加） */
     originHotTitle: '热门城市',
-    originRestTitle: '其他城市',
     originCustomTitle: '手动添加',
     originManual: '没找到？手动输入出发城市名',
     originManualPlaceholder: '输入出发城市名',
@@ -1590,6 +1589,8 @@ export const MESSAGES = {
       daysUnitPost: '天',
       transportLabel: '市内交通',
       transportHint: '整条路线在旅行城市内统一使用一种交通方式，用于估算距离和时间。',
+      /** T-016：游客交通锁定步行的说明 */
+      transportGuestLocked: '游客试用固定为步行，注册/登录后可选择骑行、公交地铁、驾车',
       lodgingTitle: '住宿（选填）',
       lodgingHint: '填了住宿名称或区域，路线会以住宿为起点；不填则以第一个地点为起点。',
       lodgingNameLabel: '住宿名称',
