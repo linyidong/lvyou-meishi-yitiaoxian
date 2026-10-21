@@ -70,3 +70,34 @@ EXIT_CODE=0
 | 迁移执行方式 | 手工经 Supabase SQL Editor / `/pg/query` 通道执行（迁移 025 即如此） | 项目记忆 `[已确认]` | `[已确认]` |
 | 上线计划 | 腾讯云轻量服务器 + 整套 Supabase Docker 迁移（国内），域名备案为前置 | 2026-10-20 决策记录（项目记忆）`[已确认]`（决策已定，未实施） | `[已确认]` |
 | Git 状态 | `main` 领先 `origin/main` 9 个提交未 push；工作区仅 `?? Project/public/750x750png` 残留 | `git status -sb` → `## main...origin/main [ahead 9]` `[已确认]` | `[已确认]` |
+
+## 6. 每天开工三步（2026-10-22 新增，务必按顺序）
+
+```bash
+# ① 环境自检（只读，不启服务、不改数据）
+cd Project && npm run check:env
+
+# ② 若 dev server 未在跑，启动（局域网可访问）
+npm run dev -- -H 0.0.0.0 -p 3000
+
+# ③ 浏览器打开
+#    本机：http://localhost:3000
+#    手机/局域网：http://192.168.1.12:3000
+```
+
+`check:env` 会检查 4 项并给出失败时的处置建议：
+
+| 检查项 | 内容 | 失败时 |
+|---|---|---|
+| 环境变量 | `.env.local` 里 6 个必需变量是否齐全（只报名字，不打印值） | 补到 `Project/.env.local` |
+| 自建 Supabase | `GET /rest/v1/cities`（业务接口探活，不用 `/auth/v1/health`，见 L42） | 确认 192.168.1.11 的 Docker 在跑；刚重启容器先热身一次（L43） |
+| dev server 本机 | `http://127.0.0.1:3000/` | `npm run dev -- -H 0.0.0.0 -p 3000` |
+| dev server 局域网 | `http://192.168.1.12:3000/` | 同上；确认在同一 Wi-Fi |
+
+> 自建 Supabase 跑在另一台机器（192.168.1.11）的 Docker 里，**它是否在线不取决于本项目**。
+> 若整台机器重启，需要在那台 Windows 上把 Supabase 容器起来（`docker compose up -d`），再回到这里跑 `check:env`。
+
+## 7. 每天收工（可选）
+
+- dev server 可直接关掉（`Ctrl+C`）；它不持久化任何状态（游客限流是内存 Map，重启即清零）
+- 数据库定时任务（`expire-members`，每天 03:05）跑在 Supabase 侧，**与本机关不关机无关**
