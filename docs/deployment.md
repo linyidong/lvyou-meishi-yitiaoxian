@@ -468,7 +468,7 @@ docker exec -i <postgres_container> psql -U postgres -d postgres < backup_YYYYMM
 ### 4.12 域名状态与 DNS 记录（2026-10-22 确认）
 
 **当前状态**：`lyytx.com` 服务状态「正常」（命名审核通过），注册商帝思普（DNSPod），所有者 林艺东，到期 2028-10-22。
-**待确认**：域名「实名认证」是否为「已实名」——**未实名不得提交备案**，且注册后 5 天内须完成。
+**实名认证：✅ 已通过**（2026-10-22，个人 / 林艺东，与备案主体一致）→ **已满足提交备案的域名条件**。
 
 **备案通过后要加的两条记录**（现在都不要加）：
 
@@ -481,4 +481,4 @@ docker exec -i <postgres_container> psql -U postgres -d postgres < backup_YYYYMM
 
 **验证**：`dig +short lyytx.com A`、`dig +short www.lyytx.com A` 应返回云机 IP；当前实测**均无记录**（符合备案前要求）。
 
-**安全**：建议开启「域名安全锁」与「禁止更新锁」（免费，防恶意转移/篡改）。
+**安全**：建议开启「禁止转移锁」与「禁止更新锁」（免费，防恶意转移/篡改）；「注册局安全锁」收费可不买。
