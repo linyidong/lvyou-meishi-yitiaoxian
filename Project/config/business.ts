@@ -36,7 +36,7 @@ export const BUSINESS = {
    * 企业主体 + 经营性备案就绪后改 true 即恢复收费。
    * 后台人工核销历史订单、已有会员身份与配额均不受本开关影响。
    */
-  BILLING_ENABLED: false,
+  BILLING_ENABLED: true,
   /** B11 是否启用公开路线（第一版关闭） */
   ENABLE_PUBLIC_ROUTES: false,
   /** B12 是否启用分享链接（第一版关闭） */
