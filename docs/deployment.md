@@ -400,3 +400,23 @@ docker exec -i <postgres_container> psql -U postgres -d postgres < backup_YYYYMM
 **踩坑记录**：隧道最初把 Supabase 目标写成 `127.0.0.1:8000`，但自建 Supabase 实际在局域网另一台机器 `192.168.1.11:8000` → 8081 不通。已在 `deploy/tunnel.sh` 中改为可配置的 `SUPABASE_HOST`（默认 192.168.1.11）。
 
 **frp 未使用**：云机从 GitHub 下载 frp release 超时，改用系统自带 SSH 反向隧道（零第三方二进制）。
+
+### 4.8 设备依赖矩阵与演进路径（2026-10-22 用户提问后补充）
+
+**关键事实**：融合方案里，**应用（Next）跑在家机、数据库跑在 Windows、云机只是入口**。
+因此"只开 Windows、Mac 随便关"**不成立**——Mac 关机 = 应用消失。
+
+| 形态 | 云机 | Windows(DB) | Mac(App) | 手机可访问 | 代价 |
+|---|---|---|---|---|---|
+| A. 现状（App + 隧道在 Mac） | 入口 | 必须开 | **必须开** | ✅ | 0 |
+| B. **App 上云**（推荐过渡） | App + 入口 | 必须开 | **可关** | ✅ | 云机需装 Node 并 build（2C2G 可跑）；隧道客户端移到 Windows |
+| C. 全上云 | 全部 | 可关 | 可关 | ✅ | DB 迁移 + 云机建议升 2C4G（Supabase ~1G + Next ~0.5G） |
+
+**推荐路径**：备案通过 → 先做 B（改动小）→ 观察 1–2 个月 → 需要时做 C。
+
+**B 的具体改动**：
+1. 云机安装 Node 20/22，`git clone` + `npm ci` + `npm run build` + systemd `next start`
+2. 隧道客户端从 Mac 移到 Windows（Windows 自带 OpenSSH：`ssh -N -R 127.0.0.1:8081:127.0.0.1:8000 ubuntu@云机`，用「任务计划程序」开机自启）
+3. 云机 Nginx 的 `/` 改为 `proxy_pass 127.0.0.1:3000`（本机 App），`/rest /auth` 仍走 8081 隧道
+
+**风险提示**：家用 Windows 关机/断电即断库；正式运营建议配 UPS，或尽早走 C。
