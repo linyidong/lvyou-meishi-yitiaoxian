@@ -3,7 +3,7 @@
 # 用法：sudo bash cloud-oneclick.sh lyytx.com admin@example.com
 set -euo pipefail
 DOMAIN="${1:?域名}"
-EMAIL="${2:?邮箱（Let's Encrypt 通知用）}"
+EMAIL="${2:?邮箱，用于 LetEncrypt 证书通知}"
 
 apt-get update
 apt-get install -y nginx frp certbot python3-certbot-nginx rsync ufw
