@@ -381,3 +381,22 @@ docker exec -i <postgres_container> psql -U postgres -d postgres < backup_YYYYMM
 注意：
 - 家宽 IP 会变；变了 SSH 连不上时，用控制台「登录」（网页终端）改规则即可，网页终端不受此限制
 - 系统内还有一层 `ufw`（`cloud-oneclick.sh` 会配置），两层都要放行
+
+#### 联调记录（2026-10-22，备案前预演）
+
+云机已初始化并完成隧道联调（未启用公网服务、未解析域名）：
+
+| 项 | 结果 |
+|---|---|
+| SSH 登录 | ✅ `ubuntu@139.199.191.102`（密钥 `~/.ssh/id_lyytx_deploy`） |
+| 系统 | Ubuntu 22.04.5 / 2C2G / 40G（32G 可用） |
+| 时区 / swap | Asia/Shanghai / 2G swap |
+| ufw | 已启用，放行 22/80/443 |
+| fail2ban | active |
+| nginx | 已安装、配置 `nginx -t` 通过、**禁用中**（备案后再启用） |
+| 隧道 | ✅ SSH 反向隧道：`8080→家机3000`（HTTP 200，约 70ms）、`8081→Supabase Kong`（HTTP 401 正常） |
+| 域名解析 | **未添加**（备案要求） |
+
+**踩坑记录**：隧道最初把 Supabase 目标写成 `127.0.0.1:8000`，但自建 Supabase 实际在局域网另一台机器 `192.168.1.11:8000` → 8081 不通。已在 `deploy/tunnel.sh` 中改为可配置的 `SUPABASE_HOST`（默认 192.168.1.11）。
+
+**frp 未使用**：云机从 GitHub 下载 frp release 超时，改用系统自带 SSH 反向隧道（零第三方二进制）。
