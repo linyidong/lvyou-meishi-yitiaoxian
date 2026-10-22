@@ -364,7 +364,7 @@ export function RouteEditClient({
       </div>
 
       <div className="mt-6 grid lg:grid-cols-3 gap-6">
-        <section className="lg:col-span-2 space-y-4">
+        <section className="min-w-0 lg:col-span-2 space-y-4">
           {plan.map((day, d) => {
             const dayKm = dayKms[d];
             return (
@@ -450,7 +450,7 @@ export function RouteEditClient({
           })}
         </section>
 
-        <aside className="space-y-4">
+        <aside className="min-w-0 space-y-4">
           <div className="rounded-2xl bg-white border border-stone-200 p-5 lg:sticky lg:top-24">
             <h3 className="font-semibold">{M.transportTitle}</h3>
             <p className="mt-1 text-[11px] text-stone-400">{M.transportNote}</p>

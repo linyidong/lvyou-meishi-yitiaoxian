@@ -206,7 +206,7 @@ export function LoginClient({
     <div className={isAdmin ? 'w-full' : 'grid items-stretch gap-6 md:grid-cols-2 md:gap-10'}>
       {/* 左：渐变面板（仅用户端登录，md 以下隐藏） */}
       {!isAdmin ? (
-        <section className="relative hidden flex-col justify-between overflow-hidden rounded-3xl bg-gradient-to-br from-primary-from to-primary-to p-10 text-white md:flex">
+        <section className="relative min-w-0 hidden flex-col justify-between overflow-hidden rounded-3xl bg-gradient-to-br from-primary-from to-primary-to p-10 text-white md:flex">
           <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/10" />
           <div className="absolute bottom-32 right-10 h-40 w-40 rounded-full bg-amber-400/30" />
 
@@ -259,11 +259,11 @@ export function LoginClient({
         className={
           isAdmin
             ? 'rounded-2xl border border-border bg-background p-6'
-            : 'rounded-3xl border border-stone-200 bg-white p-6 shadow-sm md:p-10'
+            : 'min-w-0 rounded-3xl border border-stone-200 bg-white p-6 shadow-sm md:p-10'
         }
       >
         {!isAdmin ? (
-          <Link href={ROUTES.HOME} className="mb-6 flex items-center gap-2 md:hidden">
+          <Link href={ROUTES.HOME} className="mb-6 flex min-h-10 items-center gap-2 md:hidden">
             <Image src={PRODUCT.LOGO_PATH} alt={PRODUCT.NAME} width={36} height={36} className="h-9 w-9" />
             <span className="font-bold text-stone-900">{PRODUCT.NAME}</span>
           </Link>
@@ -378,7 +378,7 @@ export function LoginClient({
                 type="button"
                 aria-label="显示或隐藏密码"
                 onClick={() => setShowPassword((v) => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600"
+                className="absolute right-0 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center text-stone-400 hover:text-stone-600 md:right-3 md:h-4 md:w-4"
               >
                 {showPassword ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
               </button>
@@ -395,7 +395,7 @@ export function LoginClient({
                 <button
                   type="button"
                   onClick={openReset}
-                  className="text-primary hover:underline"
+                  className="inline-flex items-center py-2.5 text-primary hover:underline md:py-0"
                 >
                   {MESSAGES.LOGIN_FORM.forgot}
                 </button>
@@ -460,7 +460,7 @@ export function LoginClient({
                   type="button"
                   aria-label="显示或隐藏密码"
                   onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600"
+                  className="absolute right-0 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center text-stone-400 hover:text-stone-600 md:right-3 md:h-4 md:w-4"
                 >
                   {showPassword ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
                 </button>

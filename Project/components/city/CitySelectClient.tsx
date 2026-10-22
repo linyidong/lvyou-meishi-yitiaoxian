@@ -71,7 +71,7 @@ function DestGroup({
   onPick: (dest: string) => void;
 }) {
   return (
-    <div>
+    <div className="min-w-0">
       {items.length === 0 ? (
         <>
           <p className="text-xs font-semibold text-stone-500">{title}</p>
@@ -133,7 +133,7 @@ function DestPanel({
         <p className="flex items-center gap-1.5 font-semibold text-stone-900">
           <CityIcon className={cn('h-4 w-4', card.color.split(' ')[1])} />
           {D.panelTitle(card.name)}
-          <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-normal text-amber-700">
+          <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-normal text-amber-700">
             {D.panelBadge}
           </span>
         </p>
@@ -164,7 +164,7 @@ function DestPanel({
           onPick={(dest) => onPick(dest, 'near')}
         />
       </div>
-      <p className="mt-4 flex items-start gap-1 text-[11px] text-stone-400">
+      <p className="mt-4 flex items-start gap-1 text-xs text-stone-400">
         <Info className="mt-px h-4 w-4 shrink-0" />
         <span>{D.footnote}</span>
       </p>
@@ -306,7 +306,7 @@ export function CitySelectClient({
                 {guest ? M.CITY_HERO.hotTitleNoteGuest : M.CITY_HERO.hotTitleNote}
               </span>
             </h2>
-            <p className="flex items-center gap-1 text-[11px] text-stone-400">
+            <p className="flex items-center gap-1 text-xs text-stone-400">
               <Database className="h-4 w-4" />
               {M.CITY_HERO.mockNote}
             </p>
@@ -322,7 +322,7 @@ export function CitySelectClient({
                 return (
                   <div
                     key={card.name}
-                    className={cn('grid gap-3', on && 'col-span-2 sm:col-span-3 lg:col-span-4')}
+                    className={cn('grid min-w-0 gap-3', on && 'col-span-2 sm:col-span-3 lg:col-span-4')}
                   >
                     <button
                       type="button"
@@ -352,7 +352,7 @@ export function CitySelectClient({
                         ) : guest ? (
                           <span
                             className={cn(
-                              'rounded px-1.5 py-0.5 text-[10px]',
+                              'rounded px-1.5 py-0.5 text-xs',
                               locked
                                 ? 'bg-stone-100 text-stone-500'
                                 : 'bg-amber-100 text-amber-700',
@@ -361,7 +361,7 @@ export function CitySelectClient({
                             {locked ? M.CITY_HERO.badgeNoData : M.CITY_HERO.badgeHasData}
                           </span>
                         ) : card.badge ? (
-                          <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700">
+                          <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">
                             {card.badge}
                           </span>
                         ) : null}
@@ -376,7 +376,7 @@ export function CitySelectClient({
                       {locked ? null : (
                         <p
                           className={cn(
-                            'mt-2 flex items-center gap-1 text-[11px]',
+                            'mt-2 flex items-center gap-1 text-xs',
                             on ? 'text-primary' : 'text-stone-400',
                           )}
                         >

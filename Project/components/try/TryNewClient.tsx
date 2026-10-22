@@ -173,7 +173,7 @@ export function TryNewClient({
           <MapPinned className="mt-0.5 h-5 w-5 shrink-0" />
           <span>
             {MESSAGES.TRIP_CITY.guidePre}
-            <Link href={ROUTES.CITY} className="font-semibold underline">
+            <Link href={ROUTES.CITY} className="font-semibold underline py-2.5 md:py-0">
               {MESSAGES.TRIP_CITY.guideLink}
             </Link>
             {MESSAGES.TRIP_CITY.guidePost}
@@ -211,7 +211,7 @@ export function TryNewClient({
         <Link
           href={ROUTES.CITY}
           className={cn(
-            'flex h-9 shrink-0 items-center gap-1 whitespace-nowrap rounded-lg px-3 text-sm',
+            'flex h-10 shrink-0 items-center gap-1 whitespace-nowrap rounded-lg px-3 text-sm md:h-9',
             errors.dest
               ? 'bg-gradient-to-r from-primary-from to-primary-to font-semibold text-white hover:brightness-110'
               : 'border border-stone-300 hover:bg-stone-50',
@@ -318,7 +318,7 @@ export function TryNewClient({
               className={chipCls(days === 1, 'flex-col items-center justify-center leading-tight')}
             >
               <span className="font-semibold">{M.daysSingle}</span>
-              <span className="text-[11px] opacity-70">{M.daysSingleSub}</span>
+              <span className="text-xs opacity-70">{M.daysSingleSub}</span>
             </button>
             <button
               type="button"
@@ -327,7 +327,7 @@ export function TryNewClient({
               className={`${chipCls(false, 'flex-col items-center justify-center leading-tight')} cursor-not-allowed opacity-50`}
             >
               <span className="font-semibold">{M.daysMany}</span>
-              <span className="text-[11px] opacity-70">{M.daysManyLocked}</span>
+              <span className="text-xs opacity-70">{M.daysManyLocked}</span>
             </button>
           </div>
           <p className="mt-2 text-xs text-stone-500">{M.daysGuestHint}</p>

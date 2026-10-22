@@ -23,8 +23,9 @@ const STEP_HREFS: readonly (string | null)[] = [
 export function FlowSteps({ current }: { current: number }) {
   return (
     <div className="-mx-4 -mt-6 border-b border-stone-200 bg-white md:-mx-6 md:-mt-10">
-      <div className="overflow-x-auto px-4 py-3 [scrollbar-width:none] md:px-6 [&::-webkit-scrollbar]:hidden">
-        <ol className="flex items-center gap-2 whitespace-nowrap text-xs md:text-sm">
+      {/* T-021：手机端步骤换行显示（不再需要左右拖），桌面 md+ 保持横向滚动 */}
+      <div className="px-4 py-3 [scrollbar-width:none] md:overflow-x-auto md:px-6 [&::-webkit-scrollbar]:hidden">
+        <ol className="flex flex-wrap items-center gap-2 text-xs md:flex-nowrap md:whitespace-nowrap md:text-sm">
           {FLOW_STEP_LABELS.map((label, index) => {
             const step = index + 1;
             const done = step < current;

@@ -88,9 +88,9 @@ const LODGING_ICON: Record<LodgingType, LucideIcon> = {
 const CARD_CLS = 'mt-5 rounded-2xl border border-stone-200 bg-white p-5 md:p-6';
 const HEAD_ICON_CLS = 'grid h-11 w-11 shrink-0 place-items-center rounded-xl';
 const LABEL_CLS = 'flex flex-wrap items-center gap-1.5 text-sm font-semibold text-stone-900';
-const BADGE_REQ = 'rounded-full bg-primary/5 px-2 py-0.5 text-[11px] font-normal text-primary';
-const BADGE_OPT = 'rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-normal text-stone-600';
-const BADGE_NEW = 'rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-normal text-amber-700';
+const BADGE_REQ = 'rounded-full bg-primary/5 px-2 py-0.5 text-xs font-normal text-primary';
+const BADGE_OPT = 'rounded-full bg-stone-100 px-2 py-0.5 text-xs font-normal text-stone-600';
+const BADGE_NEW = 'rounded-full bg-amber-50 px-2 py-0.5 text-xs font-normal text-amber-700';
 const INPUT_CLS =
   'h-11 w-full rounded-xl border border-stone-300 bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
 
@@ -280,7 +280,7 @@ export function TripSettingsFields({
                   >
                     <span className="truncate">{name}</span>
                     {same ? (
-                      <span className="shrink-0 text-[10px] text-stone-400">
+                      <span className="shrink-0 text-xs text-stone-400">
                         {MESSAGES.TRIP_CITY.sameCityTag}
                       </span>
                     ) : on ? (
@@ -317,7 +317,7 @@ export function TripSettingsFields({
           <button
             type="button"
             onClick={() => setCustomOpen(true)}
-            className="mt-2 flex h-9 items-center gap-1 rounded-lg border border-dashed border-stone-300 px-3 text-xs text-stone-600 hover:bg-stone-50"
+            className="mt-2 flex h-10 items-center gap-1 rounded-lg border border-dashed border-stone-300 px-3 text-xs text-stone-600 hover:bg-stone-50 md:h-9"
           >
             <SquarePen className="h-4 w-4" />
             {M.originManual}

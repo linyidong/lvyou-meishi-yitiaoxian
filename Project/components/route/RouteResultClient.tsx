@@ -398,7 +398,7 @@ function StartPicker({
         className="fixed inset-0 z-20 cursor-default"
       />
       <div className="absolute right-0 top-9 z-30 w-60 rounded-xl border border-violet-200 bg-white p-2 shadow-lg">
-        <p className="px-1 pb-1.5 text-[11px] text-stone-500">
+        <p className="px-1 pb-1.5 text-xs text-stone-500">
           {M.startChangeTitle(options.length)}
         </p>
         <div className="max-h-56 overflow-y-auto">
@@ -414,10 +414,10 @@ function StartPicker({
                   : 'text-stone-600 hover:bg-stone-100',
               )}
             >
-              <span className="w-4 shrink-0 text-[11px] text-stone-400">{i}</span>
+              <span className="w-4 shrink-0 text-xs text-stone-400">{i}</span>
               <span className="truncate">{item.name}</span>
               {item.isLodging ? (
-                <span className="shrink-0 rounded-[4px] bg-violet-600 px-1 py-0.5 text-[10px] font-bold leading-none text-white">
+                <span className="shrink-0 rounded-[4px] bg-violet-600 px-1 py-0.5 text-xs font-bold leading-none text-white">
                   {M.lodgingBadge}
                 </span>
               ) : null}
@@ -430,11 +430,11 @@ function StartPicker({
             onClick={onBackToLodging}
             className="mt-1 flex w-full items-center gap-2 rounded-md border border-violet-200 px-2 py-1.5 text-left text-xs text-violet-600 hover:bg-violet-50"
           >
-            <span className="shrink-0 rounded-[4px] bg-violet-600 px-1 py-0.5 text-[10px] font-bold leading-none text-white">
+            <span className="shrink-0 rounded-[4px] bg-violet-600 px-1 py-0.5 text-xs font-bold leading-none text-white">
               {M.lodgingBadge}
             </span>
             <span className="truncate">{backToLodging}</span>
-            <span className="ml-auto shrink-0 text-[10px] text-stone-400">{M.startBack}</span>
+            <span className="ml-auto shrink-0 text-xs text-stone-400">{M.startBack}</span>
           </button>
         ) : null}
       </div>
@@ -532,7 +532,7 @@ function SortablePlaceRow({
             {isLodging ? (
               <span
                 title={M.lodgingHint}
-                className="shrink-0 rounded-[4px] bg-violet-600 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white"
+                className="shrink-0 rounded-[4px] bg-violet-600 px-1.5 py-0.5 text-xs font-bold leading-none text-white"
               >
                 {M.lodgingBadge}
               </span>
@@ -609,7 +609,7 @@ function SortablePlaceRow({
               className="fixed inset-0 z-20 cursor-default"
             />
             <div className="absolute right-0 top-8 z-30 w-48 rounded-xl border border-stone-200 bg-white p-2 shadow-lg">
-              <p className="px-1 pb-1.5 text-[11px] text-stone-500">{M.moveToTitle(count)}</p>
+              <p className="px-1 pb-1.5 text-xs text-stone-500">{M.moveToTitle(count)}</p>
               <div className="grid grid-cols-6 gap-1">
                 {serials.map((item, i) => (
                   <button
@@ -1548,7 +1548,7 @@ export function RouteResultClient({
               <span className="truncate font-semibold text-stone-900">{lodgingLabel}</span>
             </p>
           </div>
-          <p className="mt-2 text-[11px] text-stone-400">{M.tripNote}</p>
+          <p className="mt-2 text-xs text-stone-400">{M.tripNote}</p>
         </div>
 
         {/* 出行方式切换：切换后按该方式重排当天顺序并重算路段 */}
@@ -1584,10 +1584,10 @@ export function RouteResultClient({
               </span>
             ) : null}
             {estimated && !navBusy ? (
-              <span className="text-[11px] text-stone-400">{M.navEstimate}</span>
+              <span className="text-xs text-stone-400">{M.navEstimate}</span>
             ) : null}
           </div>
-          <p className="mt-1.5 text-[11px] leading-relaxed text-stone-400">{M.navHint}</p>
+          <p className="mt-1.5 text-xs leading-relaxed text-stone-400">{M.navHint}</p>
           <p className="mt-2 text-sm font-medium leading-relaxed text-teal-700">{M.amapNavHint}</p>
           {landmarkQuotaTip ? (
             <p className="mt-1.5 text-xs font-medium text-amber-600">{M.landmarkQuotaTip}</p>
@@ -1599,7 +1599,7 @@ export function RouteResultClient({
 
         <div className="mt-4 grid lg:grid-cols-5">
           {/* 顺序列表 */}
-          <div className="order-2 px-5 pb-6 md:px-6 lg:order-1 lg:col-span-2 lg:border-r lg:border-stone-100">
+          <div className="order-2 min-w-0 px-5 pb-6 md:px-6 lg:order-1 lg:col-span-2 lg:border-r lg:border-stone-100">
             <div className="mb-1 flex items-center justify-between gap-2">
               <p className="text-xs font-semibold text-stone-700">{M.orderTitle}</p>
               <div className="flex items-center gap-2">
@@ -1614,7 +1614,7 @@ export function RouteResultClient({
                 {orderStateText ? (
                   <span
                     className={cn(
-                      'text-[11px]',
+                      'text-xs',
                       orderState === 'failed' ? 'text-red-500' : 'text-stone-400',
                     )}
                   >
@@ -1623,7 +1623,7 @@ export function RouteResultClient({
                 ) : null}
               </div>
             </div>
-            <p className="mb-3 text-[11px] leading-relaxed text-stone-400">{M.orderHint}</p>
+            <p className="mb-3 text-xs leading-relaxed text-stone-400">{M.orderHint}</p>
 
             <ol className="relative">
               {visibleDays.map((day) => {
@@ -1659,7 +1659,7 @@ export function RouteResultClient({
                         type="button"
                         onClick={() => loadDayLandmarks(day.dayIndex)}
                         disabled={landmarkLoadingDay === day.dayIndex}
-                        className="ml-auto flex h-7 shrink-0 items-center gap-1 rounded-full border border-stone-200 bg-white px-2.5 text-[11px] font-medium text-stone-600 transition hover:border-stone-300 hover:bg-stone-50 disabled:opacity-60"
+                        className="ml-auto flex h-7 shrink-0 items-center gap-1 rounded-full border border-stone-200 bg-white px-2.5 text-xs font-medium text-stone-600 transition hover:border-stone-300 hover:bg-stone-50 disabled:opacity-60"
                       >
                         {landmarkLoadingDay === day.dayIndex ? (
                           <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1673,7 +1673,7 @@ export function RouteResultClient({
                           type="button"
                           title={M.amapNavTitle}
                           onClick={() => openAmapNav(day)}
-                          className="flex h-7 shrink-0 items-center gap-1 rounded-full bg-gradient-to-r from-emerald-500 to-green-600 px-2.5 text-[11px] font-semibold text-white shadow-sm transition hover:from-emerald-600 hover:to-green-700 hover:shadow"
+                          className="flex h-7 shrink-0 items-center gap-1 rounded-full bg-gradient-to-r from-emerald-500 to-green-600 px-2.5 text-xs font-semibold text-white shadow-sm transition hover:from-emerald-600 hover:to-green-700 hover:shadow"
                         >
                           <Navigation className="h-3.5 w-3.5" />
                           {M.amapNav}
@@ -1684,11 +1684,11 @@ export function RouteResultClient({
                           type="button"
                           title={M.amapNavLockedTitle}
                           onClick={() => setUpgradeOpen(true)}
-                          className="flex h-7 shrink-0 items-center gap-1 rounded-full bg-gradient-to-r from-emerald-500/70 to-green-600/70 px-2.5 text-[11px] font-semibold text-white shadow-sm transition hover:from-emerald-600/80 hover:to-green-700/80"
+                          className="flex h-7 shrink-0 items-center gap-1 rounded-full bg-gradient-to-r from-emerald-500/70 to-green-600/70 px-2.5 text-xs font-semibold text-white shadow-sm transition hover:from-emerald-600/80 hover:to-green-700/80"
                         >
                           <Lock className="h-3.5 w-3.5" />
                           {M.amapNav}
-                          <span className="rounded-full bg-white/25 px-1.5 py-0.5 text-[10px] font-medium leading-none">
+                          <span className="rounded-full bg-white/25 px-1.5 py-0.5 text-xs font-medium leading-none">
                             {M.amapNavLocked}
                           </span>
                         </button>
@@ -1704,12 +1704,12 @@ export function RouteResultClient({
                               <span className="truncate font-medium">{lodging.name}</span>
                               <span
                                 title={M.lodgingHint}
-                                className="shrink-0 rounded-[4px] bg-violet-600 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white"
+                                className="shrink-0 rounded-[4px] bg-violet-600 px-1.5 py-0.5 text-xs font-bold leading-none text-white"
                               >
                                 {M.lodgingBadge}
                               </span>
                             </p>
-                            <p className="truncate text-[11px] text-violet-700/70">{M.startHint}</p>
+                            <p className="truncate text-xs text-violet-700/70">{M.startHint}</p>
                           </div>
                           <div className="flex shrink-0 items-center">
                             {day.places.length > 0 ? (
@@ -1844,7 +1844,7 @@ export function RouteResultClient({
                       </SortableContext>
                     </DndContext>
                     {lodging ? (
-                      <li className="mt-1 flex items-center gap-1.5 border-l-2 border-dashed border-violet-300 py-1 pl-3 text-[11px] text-violet-700">
+                      <li className="mt-1 flex items-center gap-1.5 border-l-2 border-dashed border-violet-300 py-1 pl-3 text-xs text-violet-700">
                         <BedDouble className="h-3.5 w-3.5 shrink-0" />
                         <span>
                           {returnLegs[day.dayIndex]
@@ -1869,7 +1869,7 @@ export function RouteResultClient({
               <div className="mt-3 rounded-xl border border-dashed border-violet-300 bg-violet-50/60 px-3 py-2.5">
                 <div className="flex flex-wrap items-center gap-1.5">
                   <BedDouble className="h-3.5 w-3.5 shrink-0 text-violet-600" />
-                  <span className="text-[11px] font-medium text-violet-700">{M.returnTitle}</span>
+                  <span className="text-xs font-medium text-violet-700">{M.returnTitle}</span>
                   {NAV_MODE_VALUES.map((item) => {
                     const Icon = MODE_ICON[item];
                     const active = returnMode === item;
@@ -1880,7 +1880,7 @@ export function RouteResultClient({
                         aria-label={`${M.returnTitle}：${NAV_MODE_LABEL[item]}`}
                         onClick={() => setReturnMode(item)}
                         className={cn(
-                          'flex h-7 items-center gap-1 rounded-full px-2.5 text-[11px] transition',
+                          'flex h-7 items-center gap-1 rounded-full px-2.5 text-xs transition',
                           active
                             ? 'bg-violet-600 font-semibold text-white'
                             : 'border border-violet-200 bg-white text-violet-700 hover:bg-violet-100',
@@ -1892,16 +1892,16 @@ export function RouteResultClient({
                     );
                   })}
                   {returnBusy ? (
-                    <span className="flex items-center gap-1 text-[11px] text-violet-600">
+                    <span className="flex items-center gap-1 text-xs text-violet-600">
                       <Loader2 className="h-3 w-3 animate-spin" />
                       {M.returnLegLoading}
                     </span>
                   ) : null}
                   {returnFailed && !returnBusy ? (
-                    <span className="text-[11px] text-violet-700/70">{M.returnLegFailed}</span>
+                    <span className="text-xs text-violet-700/70">{M.returnLegFailed}</span>
                   ) : null}
                 </div>
-                <p className="mt-1.5 text-[11px] leading-relaxed text-violet-700/70">
+                <p className="mt-1.5 text-xs leading-relaxed text-violet-700/70">
                   {M.returnHint}
                 </p>
               </div>
@@ -1909,9 +1909,9 @@ export function RouteResultClient({
           </div>
 
           {/* 真实高德地图 */}
-          <div className="order-1 px-5 pb-5 md:px-6 lg:order-2 lg:col-span-3 lg:pb-6 lg:pl-0">
+          <div className="order-1 min-w-0 px-5 pb-5 md:px-6 lg:order-2 lg:col-span-3 lg:pb-6 lg:pl-0">
             {/* 手机端限制高度，避免地图占满整屏（桌面端仍铺满右栏） */}
-            <div className="relative aspect-[4/3] max-h-[46vh] overflow-hidden rounded-2xl bg-[#eef3ec] lg:aspect-auto lg:max-h-none lg:h-full lg:min-h-[420px]">
+            <div className="relative h-[45vh] min-h-[300px] max-h-[560px] overflow-hidden rounded-2xl bg-[#eef3ec] lg:h-full lg:max-h-none lg:min-h-[420px]">
               <AmapMap
                 className="absolute inset-0"
                 points={mapPoints}
@@ -1920,7 +1920,7 @@ export function RouteResultClient({
                 interactive
                 onReady={setMapApi}
               />
-              <div className="absolute bottom-3 left-3 rounded bg-white/80 px-2 py-1 text-[10px] text-stone-500">
+              <div className="absolute bottom-3 left-3 rounded bg-white/80 px-2 py-1 text-xs text-stone-500">
                 {M.mapNote}
               </div>
               <div className="absolute right-3 top-3 flex flex-col gap-1">

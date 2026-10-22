@@ -403,7 +403,7 @@ export function TryPickClient() {
 
       {/* 勾选地点 + 路线设置（与普通用户 U07 同构） */}
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
-        <section className="rounded-2xl border border-stone-200 bg-white lg:col-span-2">
+        <section className="min-w-0 rounded-2xl border border-stone-200 bg-white lg:col-span-2">
           <div className="flex flex-wrap items-center gap-2 border-b border-stone-100 p-4">
             <div className="flex rounded-xl bg-stone-100 p-1">
               {(
@@ -502,7 +502,7 @@ export function TryPickClient() {
                               {p.name}
                             </span>
                             {p.imported ? (
-                              <span className="shrink-0 rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                              <span className="shrink-0 rounded bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-700">
                                 {M.importGroup}
                               </span>
                             ) : null}
@@ -531,7 +531,7 @@ export function TryPickClient() {
           )}
         </section>
 
-        <aside className="space-y-4">
+        <aside className="min-w-0 space-y-4">
           <div className="rounded-2xl border border-stone-200 bg-white p-5">
             <h3 className="font-semibold">{RP.settingsTitle}</h3>
             <p className="mt-3 text-xs font-medium text-stone-500">{RP.daysLabel}</p>
@@ -543,8 +543,8 @@ export function TryPickClient() {
                 {RP.many}
               </button>
             </div>
-            <p className="mt-1 text-[11px] text-stone-400">{MESSAGES.TRY.NEW.daysGuestHint}</p>
-            <p className="mt-1 text-[11px] text-stone-400">{M.limitGuest}</p>
+            <p className="mt-1 text-xs text-stone-400">{MESSAGES.TRY.NEW.daysGuestHint}</p>
+            <p className="mt-1 text-xs text-stone-400">{M.limitGuest}</p>
             <p className="mt-4 text-xs font-medium text-stone-500">{RP.transportLabel}</p>
             <div className="mt-2 grid grid-cols-2 gap-2">
               {Object.values(TRANSPORT).map((m) => {
@@ -558,7 +558,7 @@ export function TryPickClient() {
               })}
             </div>
             <p className="mt-4 text-xs font-medium text-stone-500">{RP.startLabel}</p>
-            <p className="mt-1 text-[11px] text-stone-400">{M.startAuto}</p>
+            <p className="mt-1 text-xs text-stone-400">{M.startAuto}</p>
             {genErr ? (
               <div className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{genErr}</div>
             ) : null}

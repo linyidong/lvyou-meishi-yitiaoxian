@@ -227,7 +227,7 @@ export function MemberCard({
       ) : (
         <section className="relative grid items-center gap-5 overflow-hidden rounded-2xl bg-gradient-to-br from-primary-from to-primary-to p-5 text-white md:grid-cols-3 md:p-6">
           <div className="absolute -bottom-10 -right-10 h-48 w-48 rounded-full bg-white/10" />
-          <div className="relative md:col-span-2">
+          <div className="relative min-w-0 md:col-span-2">
             <p className="flex items-center gap-1 text-xs font-semibold text-white/90">
               <Crown className="h-4 w-4" />
               {M.upgradeTag}
@@ -242,7 +242,7 @@ export function MemberCard({
               ))}
             </ul>
           </div>
-          <div className="relative">
+          <div className="relative min-w-0">
             {BUSINESS.ENABLE_UPGRADE_BUTTON ? (
               <button
                 type="button"

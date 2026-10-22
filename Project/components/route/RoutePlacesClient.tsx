@@ -305,7 +305,7 @@ export function RoutePlacesClient({
       {header}
 
       <div className="mt-6 grid lg:grid-cols-3 gap-6">
-        <section className="lg:col-span-2 rounded-2xl bg-white border border-stone-200">
+        <section className="min-w-0 lg:col-span-2 rounded-2xl bg-white border border-stone-200">
           <div className="p-4 border-b border-stone-100 flex flex-wrap items-center gap-2">
             <div className="flex bg-stone-100 rounded-xl p-1">
               {(
@@ -386,7 +386,7 @@ export function RoutePlacesClient({
           ) : null}
         </section>
 
-        <aside className="space-y-4">
+        <aside className="min-w-0 space-y-4">
           <div className="rounded-2xl bg-white border border-stone-200 p-5">
             <h3 className="font-semibold">{M.settingsTitle}</h3>
             <p className="mt-3 text-xs font-medium text-stone-500">{M.daysLabel}</p>

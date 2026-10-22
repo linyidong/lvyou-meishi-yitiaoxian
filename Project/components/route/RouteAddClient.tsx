@@ -746,7 +746,7 @@ export function RouteAddClient({
       </div>
 
       <div className="mt-6 grid lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
+        <div className="min-w-0 lg:col-span-2">
           {/* 当前城市的收藏地点和美食 */}
           <section className={cardCls} id="favorites">
             <div className="flex flex-wrap items-start gap-3 justify-between">
@@ -811,7 +811,7 @@ export function RouteAddClient({
         </div>
 
         {/* 右侧：导入小贴士（醒目卡片：加粗描边 + 标题徽标 + 底部已导入信息条） */}
-        <aside className="space-y-4">
+        <aside className="min-w-0 space-y-4">
           <div className="rounded-2xl border-2 border-amber-300 bg-gradient-to-b from-amber-50 to-amber-100/60 p-5 text-sm text-amber-900 shadow-sm ring-1 ring-amber-100">
             <h3 className="flex items-center gap-2 text-base font-bold">
               <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-amber-500 text-white shadow-sm">

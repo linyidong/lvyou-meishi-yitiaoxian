@@ -315,6 +315,9 @@ export function AmapMap({
             zoomEnable: interactive,
             scrollWheel: interactive,
             doubleClickZoom: interactive,
+            // 手机端双指捏合缩放：显式开启，不随 interactive 关闭
+            // （T-021：游客反馈手机地图"看不清"，需要能放大）
+            touchZoom: true,
             // 只保留背景、道路、建筑物：隐藏周边商家 / POI 的图标与名称
             // （参考主流地图的路线页，底图越干净，路线越突出）
             features: ['bg', 'road', 'building'],

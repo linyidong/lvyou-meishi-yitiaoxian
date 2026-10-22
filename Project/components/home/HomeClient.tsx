@@ -78,7 +78,7 @@ export function HomeClient({ isLoggedIn, recentRoutes, draft, collectedCount }: 
     <>
       {/* 首屏：左白卡 + 右示意路线卡 */}
       <section className="grid items-stretch gap-6 lg:grid-cols-5">
-        <div className="flex flex-col justify-center rounded-3xl border border-stone-200 bg-white p-6 md:p-10 lg:col-span-3">
+        <div className="flex min-w-0 flex-col justify-center rounded-3xl border border-stone-200 bg-white p-6 md:p-10 lg:col-span-3">
           <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-primary/5 px-3 py-1 text-xs font-semibold text-primary">
             <Sparkles className="h-4 w-4" />
             {MESSAGES.HOME_HERO.badge}
@@ -124,7 +124,7 @@ export function HomeClient({ isLoggedIn, recentRoutes, draft, collectedCount }: 
           <p className="mt-3 text-xs text-stone-500">{MESSAGES.GUEST_TRY_HINT}</p>
         </div>
 
-        <div className="relative min-h-[320px] overflow-hidden rounded-3xl bg-teal-900 p-6 text-white lg:col-span-2">
+        <div className="relative min-w-0 min-h-[320px] overflow-hidden rounded-3xl bg-teal-900 p-6 text-white lg:col-span-2">
           <div
             className="absolute inset-0 opacity-20"
             style={{
@@ -207,7 +207,7 @@ export function HomeClient({ isLoggedIn, recentRoutes, draft, collectedCount }: 
             const style = STEP_STYLES[i];
             const Icon = style.icon;
             return (
-              <div key={step.no} className="rounded-2xl border border-stone-200 bg-white p-5">
+              <div key={step.no} className="min-w-0 rounded-2xl border border-stone-200 bg-white p-5">
                 <div className="flex items-center justify-between">
                   <span className={`grid h-10 w-10 place-items-center rounded-xl ${style.box}`}>
                     <Icon className="h-5 w-5" />
@@ -224,10 +224,10 @@ export function HomeClient({ isLoggedIn, recentRoutes, draft, collectedCount }: 
 
       {/* 我的最近路线 + 和照搬路线不一样 */}
       <section className="mt-10 grid gap-6 lg:grid-cols-3">
-        <div className="rounded-2xl border border-stone-200 bg-white p-5 md:p-6 lg:col-span-2">
+        <div className="min-w-0 rounded-2xl border border-stone-200 bg-white p-5 md:p-6 lg:col-span-2">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold text-stone-900">{MESSAGES.HOME_RECENT.title}</h2>
-            <Link href={ROUTES.MY_ROUTES} className="text-sm text-primary hover:underline">
+            <Link href={ROUTES.MY_ROUTES} className="inline-flex h-10 items-center px-1 text-sm text-primary hover:underline md:h-auto md:px-0">
               {MESSAGES.HOME_RECENT.viewAll}
             </Link>
           </div>
@@ -239,7 +239,7 @@ export function HomeClient({ isLoggedIn, recentRoutes, draft, collectedCount }: 
                 <p className="mt-2">{MESSAGES.HOME_RECENT.guestEmpty}</p>
                 <Link
                   href={ROUTES.LOGIN}
-                  className="mt-3 inline-flex h-9 items-center rounded-lg bg-stone-900 px-4 text-white hover:bg-stone-800"
+                  className="mt-3 inline-flex h-10 items-center rounded-lg bg-stone-900 px-4 text-white hover:bg-stone-800 md:h-9"
                 >
                   {MESSAGES.HOME_RECENT.guestLogin}
                 </Link>
@@ -250,7 +250,7 @@ export function HomeClient({ isLoggedIn, recentRoutes, draft, collectedCount }: 
                 <p className="mt-2">{MESSAGES.HOME_RECENT.noneEmpty}</p>
                 <Link
                   href={ROUTES.CITY}
-                  className="mt-3 inline-flex h-9 items-center gap-1 rounded-lg bg-gradient-to-r from-primary-from to-primary-to px-4 font-semibold text-white hover:brightness-110"
+                  className="mt-3 inline-flex h-10 items-center gap-1 rounded-lg bg-gradient-to-r from-primary-from to-primary-to px-4 font-semibold text-white hover:brightness-110 md:h-9"
                 >
                   <MapPinPlus className="h-4 w-4" />
                   {MESSAGES.HOME_RECENT.noneCreate}
@@ -284,7 +284,7 @@ export function HomeClient({ isLoggedIn, recentRoutes, draft, collectedCount }: 
           </div>
         </div>
 
-        <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5 md:p-6">
+        <div className="min-w-0 rounded-2xl border border-primary/20 bg-primary/5 p-5 md:p-6">
           <h2 className="text-lg font-bold text-stone-900">{MESSAGES.HOME_DIFF.title}</h2>
           <ul className="mt-4 space-y-3 text-sm text-stone-700">
             {MESSAGES.HOME_DIFF.items.map((item) => (

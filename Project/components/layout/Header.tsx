@@ -110,7 +110,7 @@ export function Header({
               </span>
               <Link
                 href={ROUTES.LOGIN}
-                className="flex h-9 items-center rounded-lg bg-gradient-to-r from-primary-from to-primary-to px-4 text-sm font-semibold text-white hover:brightness-110"
+                className="flex h-11 items-center rounded-lg bg-gradient-to-r from-primary-from to-primary-to px-4 text-sm font-semibold text-white hover:brightness-110 md:h-9"
               >
                 {MESSAGES.NAV_LOGIN_REGISTER}
               </Link>

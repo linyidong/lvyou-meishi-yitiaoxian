@@ -192,7 +192,7 @@ export function MyRoutesClient({
               return (
                 <article
                   key={r.id}
-                  className="flex flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white"
+                  className="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white"
                 >
                   <div
                     className="relative h-36 bg-teal-50"

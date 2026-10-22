@@ -92,7 +92,7 @@ export function ImportCollectClient({
     : MESSAGES.HOME_IMPORT.cityUnknown;
 
   const tabCls = (on: boolean) =>
-    `flex-1 rounded-lg px-4 py-2 text-sm font-semibold sm:flex-none ${
+    `flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold sm:flex-none md:py-2 ${
       on ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-500'
     }`;
 
@@ -280,10 +280,10 @@ export function ImportCollectClient({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <p className="font-semibold text-stone-900">{MESSAGES.HOME_COLLECT.title}</p>
-            <span className="rounded-full bg-primary/5 px-2 py-0.5 text-[11px] text-primary">
+            <span className="rounded-full bg-primary/5 px-2 py-0.5 text-xs text-primary">
               {MESSAGES.HOME_COLLECT.badgeNew}
             </span>
-            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] text-amber-700">
+            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-700">
               {MESSAGES.HOME_COLLECT.badgePrd}
             </span>
           </div>
@@ -372,7 +372,7 @@ export function ImportCollectClient({
                 key={s.label}
                 type="button"
                 onClick={() => applySample(i)}
-                className={`rounded-full px-3 py-1.5 ${
+                className={`rounded-full px-3 py-3 md:py-1.5 ${
                   i === 0
                     ? 'bg-primary/5 text-primary hover:bg-primary/10'
                     : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
