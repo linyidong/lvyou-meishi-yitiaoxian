@@ -5,7 +5,7 @@
 
 ## 1. 当前状态（一眼看懂）
 
-- 当前阶段：阶段 7 逐任务开发
+- 当前阶段：收尾（内测交付完成）
 - 阶段状态：进行中（3 个任务完成，11 个待走查：T-001/T-005/T-006/T-007/T-008/T-014/T-015/T-016/T-017/T-018/T-019）
 - 当前门禁：G1–G5 已通过；**G6 待首个任务验收**
 - 当前任务：T-025（内测模式：关闭对外付费入口，合规依据 D-14）实施完成：`config/business.ts` 新增 `BILLING_ENABLED=false`（B28，注释写明「企业主体 + 经营性备案就绪后改 true」）与纯函数 `billingOrderBlocked()`；MemberCard 购买区关闭时只显示「内测阶段暂未开放购买」、MemberUpsellCard 关闭时返回 null；`POST /api/member/orders` 鉴权后服务端兜底 403（curl 实测：未登录 401、登录态 403+内测文案；临时改 true 后 403 消失进入正常校验，已改回 false）；新增单测 3 条，test:run 33 passed、typecheck exit 0、未跑 build；T-024（阶段 8 验收：核心链路 E2E + 验收结果落档）执行完成：`test:e2e` 8 条全过（新增 E2E-01~06 + smoke 2）、单测 30 passed、仓库无明文密码；结果已落档 `acceptance-test-plan.md` §2.1b；E2E-02 首轮失败为测试自身 URL 断言过松，收紧后复跑通过，**未发现产品缺陷**；等 Harness 复核与用户走查；T-023（移动端第二轮：C 端列表行密度与图标 18px + 后台路线/用户/订单三页加手机卡片视图、桌面表格保留，其余三页 overflow-x-auto 兜底已有）实施完成，audit:mobile after 全绿（静态 12 项+4 流程测量、溢出 0），typecheck exit 0、test:run 30 passed，等用户真机走查（后台卡片需管理员登录人工核对）；T-022（修复移动端整页被撑宽：grid 子项 `min-width:auto` 被 min-content 撑破，11 文件 23 处补 `min-w-0`）实施完成，audit:mobile 双机全绿且两条流程用例通过（/try/pick 有草稿 innerW==visualW，/try/result 地图 45% 视口，Playwright 点通「生成路线」），等用户真机走查；T-021（移动端体验专项：地图 touchZoom+45vh、触控≥40px、小字号清零、步骤条手机换行）实施完成，audit:mobile 双机 6 页全绿（溢出 0/小字号 0/小按钮 0），等用户真机走查；T-001 已完成（等用户终验）；T-005/T-006（两页一键复位）实施完成，等用户人工走查；T-007（F-52 分享分级）实施完成，等用户人工走查；T-014（游客勾选上限+结果页地图自适应）实施完成，等用户人工走查；T-015（游客试用四处 UI 修改）实施完成，其中两处已被 T-016 按新口径修正；T-016（网格只展热门+游客交通锁步行）实施完成，等用户人工走查；T-017（C9 分享页三态拆分）实施完成（已被 Harness 提交 `0585685`）；T-018（后台用户列表会员三态）实施完成（已被 Harness 提交 `64ce427`）；T-004（pg_cron 会员到期定时失效）已由 Harness 完成（`dfd456d`）；T-008（结果页会员权益卡·转化链路）实施完成（已被 Harness 提交 `51f517c`）；T-019（自动化测试体系 vitest+playwright）实施完成，等用户人工走查；T-011（幂等与并发审计，只读）审计完成，产出 `docs/concurrency-audit.md`（7 项全有结论，4 处真实风险 R1–R4 已入 known-issues B10–B13），等 Harness 复核
@@ -35,8 +35,8 @@
 | 6 | 目标架构与实施计划 | 未开始 | `target-architecture.md`、`implementation-plan.md`、`acceptance-test-plan.md` | —— |
 | 7 | 逐任务开发 | 未开始 | `tasks/T-00X.md`、commit | —— |
 | 8 | 验收、部署与上线 | **进行中** | 验收：8 条 E2E 全绿；部署：本期不做 | 2026-10-22 14:40 |
-| 9 | 运营维护与下一轮 | 未开始 | `operations.md` | —— |
-| 收尾 | 交接与项目总结 | 未开始 | `PROJECT_SUMMARY.md` | —— |
+| 9 | 运营维护与下一轮 | **已完成** | `operations.md` | 2026-10-22 15:05 |
+| 收尾 | 交接与项目总结 | **已完成** | `PROJECT_SUMMARY.md` | 2026-10-22 15:06 |
 
 ## 3. 门禁状态
 
