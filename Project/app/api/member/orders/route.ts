@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { BUSINESS } from '@/config/business';
+import { BUSINESS, billingOrderBlocked } from '@/config/business';
 import { MEMBER_PLAN_LABEL, ORDER_STATUS } from '@/config/enums';
 import { MESSAGES } from '@/config/messages';
 import { notifyNewMemberOrder } from '@/lib/order-notify';
@@ -32,6 +32,11 @@ export async function POST(request: NextRequest) {
   } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ ok: false, message: MESSAGES.LOGIN_FIRST }, { status: 401 });
+  }
+
+  // T-025 内测模式：鉴权通过后、创建订单前，服务端兜底拦截下单（双保险，不能只靠前端隐藏入口）
+  if (billingOrderBlocked()) {
+    return NextResponse.json({ ok: false, message: M.paused }, { status: 403 });
   }
 
   let body: { plan?: unknown; payNote?: unknown; payChannel?: unknown } = {};

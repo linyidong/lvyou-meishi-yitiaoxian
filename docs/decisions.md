@@ -133,3 +133,13 @@
 - 回滚：`select cron.unschedule('expire-members'); drop extension if exists pg_cron;`
 - 迁移固化：`Project/supabase/migrations/026_member_expire_cron.sql`（幂等）
 - 未做（记录为后续）：任务里不写 `member_logs` 审计；如需留痕，在 UPDATE 后追加一条 insert。
+
+## D-14 内测阶段不开放收费（个人主体备案）
+
+- 背景：用户 2026-10-22 决定以**个人主体**提交 ICP 备案。个人备案属"非经营性"，**不得开展在线收费**；而本项目商业模式是会员付费，严格讲属经营性，需企业主体 + ICP 许可证。
+- 决定：**内测阶段关闭对外付费入口**（会员购买/下单），保留会员权益展示与后台核销（内部验证用）。
+- 实现：新增配置开关 `BILLING_ENABLED`（默认 `false`）。
+  - `false`：隐藏「升级会员 / 立即开通」及收银台，展示"内测阶段暂未开放购买"；`MemberUpsellCard` 不渲染。
+  - `true`：恢复现状（等企业主体与经营性备案就绪后开启）。
+- 影响：用户侧无法下单；后台仍可手工核销历史订单；`/api/member/orders` 建议同时拒绝新下单（服务端兜底，不能只靠前端隐藏）。
+- 何时开启：企业/个体户主体 + 经营性备案（或 ICP 许可证）就绪后，改一个开关即可。

@@ -1443,6 +1443,8 @@ export const MESSAGES = {
     errInvalidPlan: '请选择有效的套餐',
     errInvalidChannel: '请选择有效的付款方式',
     errLoadFailed: '订单加载失败，请稍后重试',
+    /** T-025 内测模式（BILLING_ENABLED=false）：付费入口关闭时的统一提示（前端购买区 + 服务端 403 兜底共用） */
+    paused: '内测阶段暂未开放购买，感谢关注',
     payNoteTooLong: (max: number) => `付款备注最多 ${max} 个字`,
   },
   /**

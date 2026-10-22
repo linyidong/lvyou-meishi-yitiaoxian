@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { Check, Crown } from 'lucide-react';
+import { BUSINESS } from '@/config/business';
 import { MESSAGES } from '@/config/messages';
 import { PRODUCT } from '@/config/product';
 import { ROUTES } from '@/config/routes';
@@ -12,6 +13,8 @@ import { ROUTES } from '@/config/routes';
  * 按钮去向：未登录 → /login?redirect=/profile；已登录 → /profile。
  */
 export function MemberUpsellCard({ loggedIn }: { loggedIn: boolean }) {
+  // T-025 内测模式（BILLING_ENABLED=false）：关闭升级引导，不渲染任何付费转化入口
+  if (!BUSINESS.BILLING_ENABLED) return null;
   const M = MESSAGES.TRY.RESULT;
   const href = loggedIn
     ? ROUTES.PROFILE

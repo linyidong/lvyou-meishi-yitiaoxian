@@ -243,20 +243,29 @@ export function MemberCard({
             </ul>
           </div>
           <div className="relative min-w-0">
-            {BUSINESS.ENABLE_UPGRADE_BUTTON ? (
-              <button
-                type="button"
-                onClick={openUpgrade}
-                className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-white font-bold text-primary-from hover:bg-white/90"
-              >
-                {M.upgradeBtn}
-              </button>
+            {!BUSINESS.BILLING_ENABLED ? (
+              // T-025 内测模式（BILLING_ENABLED=false）：不渲染购买按钮，只展示内测提示
+              <p className="flex min-h-12 w-full items-center justify-center rounded-xl bg-white/15 px-3 text-center text-sm font-semibold text-white/90">
+                {MO.paused}
+              </p>
             ) : (
-              <p className="text-sm text-white/80">{MESSAGES.UPGRADE_TOAST}</p>
+              <>
+                {BUSINESS.ENABLE_UPGRADE_BUTTON ? (
+                  <button
+                    type="button"
+                    onClick={openUpgrade}
+                    className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-white font-bold text-primary-from hover:bg-white/90"
+                  >
+                    {M.upgradeBtn}
+                  </button>
+                ) : (
+                  <p className="text-sm text-white/80">{MESSAGES.UPGRADE_TOAST}</p>
+                )}
+                <p className="mt-2 text-center text-[11px] text-white/70">
+                  {BUSINESS.ENABLE_REAL_PAYMENT ? M.upgradeNoteReal : M.upgradeNoteMock}
+                </p>
+              </>
             )}
-            <p className="mt-2 text-center text-[11px] text-white/70">
-              {BUSINESS.ENABLE_REAL_PAYMENT ? M.upgradeNoteReal : M.upgradeNoteMock}
-            </p>
           </div>
         </section>
       )}

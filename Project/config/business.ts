@@ -29,6 +29,14 @@ export const BUSINESS = {
    * false = 保留旧的模拟自助升级（POST /api/member 直接置会员）。
    */
   ENABLE_REAL_PAYMENT: true,
+  /**
+   * B28 内测模式：是否开放会员付费（T-025，合规依据 docs/decisions.md D-14）。
+   * false = 关闭全部付费入口：前端隐藏购买区与升级引导卡，
+   *         服务端 POST /api/member/orders 兜底返回 403（双保险，不只靠前端隐藏）。
+   * 企业主体 + 经营性备案就绪后改 true 即恢复收费。
+   * 后台人工核销历史订单、已有会员身份与配额均不受本开关影响。
+   */
+  BILLING_ENABLED: false,
   /** B11 是否启用公开路线（第一版关闭） */
   ENABLE_PUBLIC_ROUTES: false,
   /** B12 是否启用分享链接（第一版关闭） */
@@ -188,3 +196,12 @@ export const BUSINESS = {
   /** A06 在线列表自动刷新间隔（秒，若启用） */
   ADMIN_ONLINE_REFRESH_SECONDS: 30,
 } as const;
+
+/**
+ * T-025 服务端下单兜底判断（纯函数，便于单测双向断言）：
+ * 收费开关关闭（内测模式）→ true，POST /api/member/orders 必须返回 403；
+ * 开关打开 → false，放行进入正常下单流程。
+ */
+export function billingOrderBlocked(enabled: boolean = BUSINESS.BILLING_ENABLED): boolean {
+  return !enabled;
+}
