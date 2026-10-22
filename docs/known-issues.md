@@ -72,6 +72,10 @@
 | B8 | 收款码半自动核销：个人经营收款码无官方到账回调，全自动开通需营业执照 + 商户号 | 项目记忆 + `Project/app/api/member/orders/route.ts:28`（下单）→ 管理员人工核销 `Project/app/api/admin/member/orders/[id]/route.ts:21` | `[已确认]` | `[风险]` 业务约束非代码缺陷 |
 
 | ~~B9~~ | ~~城市清单 104 vs 92 不一致~~ → **误报，已关闭（2026-10-21 00:50）**：用 TypeScript 编译器求值 `config/cities.ts`，`CITIES` = **92**、`CITY_PINYIN` = 92、`CITY_CARDS` = 12、`HOT_CITIES` = 10；与库内 `cities` **92** 行、迁移 `011_seed_cities.sql` **92** 条完全一致，**不存在错位**。原「104」来自 `grep -c "name: "` 把 CityCard 的非城市名字段一并计入的错误口径 | 复核方式：`node -e` + typescript transpile 求值（Harness 2026-10-21）| 已关闭 |
+| B10 | **T-011 审计 R1（高）**：保存点位 `PUT /api/routes/[id]/places` 先删后插无事务、`route_places` 无 unique(route_id, place_id)——并发 PUT 会静默覆盖编辑或交错产生重复行（多标签页 `saveOrder` 防抖仅单标签页有效） | `Project/app/api/routes/[id]/places/route.ts:13/:106-126`、`Project/components/route/RouteResultClient.tsx:741-775`、迁移 `005_create_route_places.sql:5-16`；`/pg/query` 实测无约束 | `[风险]` 详见 `docs/concurrency-audit.md` §3/§6 |
+| B11 | **T-011 审计 R2（中）**：核销 `POST /api/admin/member/orders/[id]` 状态机只靠应用层读检查，订单 update 无 `.eq('status','pending')` CAS——并发双核销写重复 member_logs、刷 member_since（member_until 覆盖式不翻倍） | `Project/app/api/admin/member/orders/[id]/route.ts:53-63/:108-116`；`/pg/query` 实测 member_orders 无触发器/无状态约束 | `[风险]` 详见 `docs/concurrency-audit.md` §2 |
+| B12 | **T-011 审计 R3（中）**：下单 `POST /api/member/orders` check-then-insert 非原子、无 pending 部分唯一索引——并发可突破 `MAX_PENDING_ORDERS=2` 软上限，产生多笔待核销订单 | `Project/app/api/member/orders/route.ts:65-72`、`Project/config/business.ts:155`；`/pg/query` 实测 member_orders 仅 CHECK/FK | `[风险]` 详见 `docs/concurrency-audit.md` §1 |
+| B13 | **T-011 审计 R4（低-中）**：建路线/游客转正配额 check-then-act——并发窗口可超扣 1 条并建重复路线；promote 的 15s 幂等窗口在**成功后才登记**（`route.ts:266`），不覆盖 in-flight 并发 | `Project/app/api/routes/route.ts:86-114`、`Project/app/api/try/promote/route.ts:51-52/:140-149/:266` | `[风险]` 详见 `docs/concurrency-audit.md` §4/§5 |
 
 ## 3. C 级：观察项 / 环境债
 
@@ -82,6 +86,7 @@
 | C3 | `Project/public/` 有残留：`750x750png`（无扩展名、未跟踪）、`logo.svg.zip`、`.DS_Store`、`pay-qr.*` 4 份（含经营信息，禁止触碰） | `ls -la Project/public/` `[已确认]` | `[风险]` 处置需用户决定 |
 | C4 | 本地 main 领先 origin 多个提交未 push（截至 23:58 为 11 笔） | `git status -sb` `[已确认]` | `[已确认]` |
 | C5 | ~~`docs/progress.md` 阻塞表留「MCP 未注册」过时行~~ → **已修复**（Harness 23:58 删除该行，改为 A5 无鉴权） | `grep MCP docs/progress.md` 已无过时行 | 已关闭 |
+| A6 | **保存点位非原子**：`PUT /api/routes/[id]/places` 先 delete 再 insert，无事务。并发会覆盖/产生重复行；**insert 失败时该路线地点被清空且只剩 500**（数据丢失路径） | `Project/app/api/routes/[id]/places/route.ts:108-121`；`pg_indexes` 无唯一约束；`docs/concurrency-audit.md` §0 | `[已确认]` **高** |
 | C9 | ~~**分享页超时被误报为「链接已失效」**~~ → **已修复（T-017，2026-10-22 01:24）**：`/share/[token]` 现区分三态——正常 / notFound（确实不存在或已撤销，仍显示「链接已失效」）/ loadFailed（`error` 存在或 catch 捕获超时/网络异常，显示「加载失败，请稍后重试」+ `ShareReloadButton`（`router.refresh()`））；超时不再说链接失效 | 修复见 `Project/app/share/[token]/page.tsx` loadFailed 分支；curl 实测不存在 token 仍出「链接已失效」且无「加载失败」；typecheck exit 0 | 已关闭（超时真实场景未复现，分支可达性由代码路径保证；冷启动超时根因在宿主机 Supabase，另见 D 系列） |
 | C10 | **AmapMap 自动定位下限曾高于手动缩放下限（T-014 已修复）**：`FIT_MIN_ZOOM=13` > `VIEW_MIN_ZOOM=10`，跨 8-15km 路线理想缩放 11-12 被强行抬到 13，游客结果页首屏框不住最远点（用户 2026-10-22 真人报障「地图停在城市中心需手动缩小」）；已改为下限=10，常量旁注释写明「自动定位下限不得高于手动下限」 | 诊断证据：`AmapMap.tsx` fitZoomFor 钳制（原 :110）+ `TryResultClient.tsx:667` 容器固定高 320/380px（排除首测 0）+ `setResult` 单批到达（排除 fitKey 分批）；修复后 typecheck/build exit 0 | 已关闭（地图实机效果与 /route/[id] 回归待用户终验） |
 | C7 | `Project/` 下 4 项未被现有文档覆盖：`Project/docs/`（4 份历史文档）、`Project/travel-food-route.zip`（161,861 字节）、`Project/components.json`（shadcn 配置）、`Project/tsconfig.tsbuildinfo` | P6B 只读理解实测（`ls`）；处理意见：zip 与 Project/docs 需用户决定去留 | `[未知]` |
