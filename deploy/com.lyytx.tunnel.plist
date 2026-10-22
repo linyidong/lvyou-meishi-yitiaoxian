@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- 家机（macOS）：隧道常驻，断了自动重连
+     安装：cp deploy/com.lyytx.tunnel.plist ~/Library/LaunchAgents/
+           launchctl load -w ~/Library/LaunchAgents/com.lyytx.tunnel.plist
+     日志：/tmp/lyytx-tunnel.log
+     注意：Mac 睡眠会断开；需要 7×24 时考虑换成常开的 Linux/NUC -->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.lyytx.tunnel</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>/REPLACE/WITH/PATH/AI-lvcingyitiaoxian/deploy/tunnel.sh</string>
+  </array>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>ThrottleInterval</key><integer>10</integer>
+  <key>StandardOutPath</key><string>/tmp/lyytx-tunnel.log</string>
+  <key>StandardErrorPath</key><string>/tmp/lyytx-tunnel.log</string>
+</dict>
+</plist>

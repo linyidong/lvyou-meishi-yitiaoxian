@@ -128,7 +128,7 @@
 用户 ──443──▶ 云服务器 1C2G（固定 IP、备案域名、TLS、Nginx）
                 │  ├── /            → 127.0.0.1:8080（frps 隧道入口）
                 │  └── /rest /auth  → 127.0.0.1:8081（隧道到 Supabase Kong）
-                ▼  frp 隧道（加密）
+                ▼  SSH 反向隧道（systemd/launchd 常驻，autossh 风格）
         家机（Mac / NUC）：Next :3000、Supabase Docker（postgres/auth/rest）
                 └── 每日 pg_dump → 云机备份目录（异地容灾）
 ```
@@ -143,7 +143,7 @@
 
 #### 必须做的三件事（否则融合方案不可用）
 
-1. **隧道自愈**：`frpc` 用 systemd `Restart=always` + `startup_connect_timeout`；家宽重播后自动重连
+1. **隧道自愈**：`deploy/tunnel.sh` 由 launchd `KeepAlive` 拉起，配 `ServerAliveInterval=30`；家宽重播后自动重连
 2. **入口兜底**：Nginx 配置 502/503 自定义维护页（"服务维护中，稍后重试"），不要给用户看 `Bad Gateway`
 3. **异地备份 + 演练**：每日备份，且**至少做过一次还原演练**（否则备份不算数）
 
@@ -168,7 +168,7 @@
 
 1. 买 1C2G 轻量 + 域名；**提交备案**（见 §4.6 主体选择）
 2. 云机：安全组只开 22/80/443；装 Nginx + frps + certbot
-3. 家机：装 frpc，映射 3000 与 8000 到云机本地端口
+3. 家机：`deploy/tunnel.sh`（launchd）把 3000/8000 映射到云机 127.0.0.1:8080/8081
 4. 云机 Nginx：`/` → `127.0.0.1:8080`，`/rest`、`/auth` → `127.0.0.1:8081`；502 维护页
 5. 域名 A 记录指向云机 IP；certbot 签证书
 6. 高德控制台加域名白名单；企业微信配可信域名 + 云机固定 IP
