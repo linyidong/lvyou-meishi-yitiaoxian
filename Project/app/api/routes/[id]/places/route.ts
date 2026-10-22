@@ -10,7 +10,8 @@ import { createClient } from '@/lib/supabase/server';
  * PUT /api/routes/[id]/places
  * body: { items: { placeId, dayIndex, orderIndex }[] }
  *
- * 先删旧列表再插入新列表（Supabase JS 无事务，按此顺序执行）。
+ * 经数据库函数 replace_route_places（迁移 027）单事务原子替换：
+ * delete + insert 同事务，插入失败整体回滚，原地点不被清空（修复并发审计 R1）。
  */
 
 interface ItemInput {
@@ -103,27 +104,18 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
   }
 
-  const { error: deleteError } = await supabase
-    .from('route_places')
-    .delete()
-    .eq('route_id', route.id);
-  if (deleteError) {
+  // 单 RPC = 单事务原子替换（迁移 027）；失败时 delete 一并回滚，原数据不被清空。
+  const { data: replaced, error: replaceError } = await supabase.rpc('replace_route_places', {
+    p_route_id: route.id,
+    p_items: items.map((it) => ({
+      place_id: it.placeId,
+      day_index: it.dayIndex,
+      order_index: it.orderIndex,
+    })),
+  });
+  if (replaceError) {
     return NextResponse.json({ ok: false, message: MESSAGES.NETWORK_ERROR }, { status: 500 });
   }
 
-  if (items.length > 0) {
-    const { error: insertError } = await supabase.from('route_places').insert(
-      items.map((it) => ({
-        route_id: route.id,
-        place_id: it.placeId,
-        day_index: it.dayIndex,
-        order_index: it.orderIndex,
-      })),
-    );
-    if (insertError) {
-      return NextResponse.json({ ok: false, message: MESSAGES.NETWORK_ERROR }, { status: 500 });
-    }
-  }
-
-  return NextResponse.json({ ok: true, count: items.length });
+  return NextResponse.json({ ok: true, count: replaced ?? 0 });
 }

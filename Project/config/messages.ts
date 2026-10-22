@@ -996,7 +996,7 @@ export const MESSAGES = {
     orderDrag: '拖动调整顺序',
     orderSaved: '顺序已保存',
     orderSaving: '保存顺序中…',
-    orderFailed: '顺序没保存成功，请刷新页面后重试',
+    orderFailed: '保存失败，已保留原顺序，请稍后重试',
     moveToTitle: (count: number) => `移动到第几位（共 ${count} 位）`,
     moveToCancel: '取消',
     /** 缩略图：没有照片时用色块 + 首字 */
