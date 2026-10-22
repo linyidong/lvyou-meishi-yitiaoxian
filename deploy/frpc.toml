@@ -1,0 +1,25 @@
+# 家机：frp 客户端（把本地服务暴露给云机）
+serverAddr = "139.199.191.102"
+serverPort = 7000
+auth.method = "token"
+auth.token = "REPLACE_WITH_STRONG_TOKEN"   # 与 frps 保持一致
+
+transport.tls.enable = true
+# 断线自动重连（家宽重播后自愈）
+transport.heartbeatInterval = 10
+transport.heartbeatTimeout = 30
+loginFailExit = false
+
+[[proxies]]
+name = "next"
+type = "tcp"
+localIP = "127.0.0.1"
+localPort = 3000
+remotePort = 8080
+
+[[proxies]]
+name = "supabase"
+type = "tcp"
+localIP = "127.0.0.1"
+localPort = 8000
+remotePort = 8081

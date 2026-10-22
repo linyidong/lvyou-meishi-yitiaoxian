@@ -1,0 +1,19 @@
+# 家机：Next 常驻服务
+[Unit]
+Description=Travel Food Line (Next.js)
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=REPLACE_WITH_USER
+WorkingDirectory=/REPLACE/PATH/AI-lvcingyitiaoxian/Project
+EnvironmentFile=/REPLACE/PATH/AI-lvcingyitiaoxian/Project/.env.local
+ExecStart=/REPLACE/WITH/NODE/node_modules/next/dist/bin/next start -p 3000
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
