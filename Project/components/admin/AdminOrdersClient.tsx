@@ -186,7 +186,68 @@ export function AdminOrdersClient({ orders }: { orders: AdminOrderItem[] }) {
         </section>
       ) : (
         <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-          <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {/* T-023：手机端卡片视图（桌面仍用下方表格） */}
+          <ul className="divide-y divide-slate-100 md:hidden">
+            {pageRows.map((o) => {
+              const pending = o.status === ORDER_STATUS.PENDING;
+              return (
+                <li key={o.id} className="px-4 py-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="min-w-0 flex-1 truncate font-medium">{o.email}</p>
+                    <span
+                      className={`shrink-0 rounded px-2 py-0.5 text-xs ${
+                        pending
+                          ? 'bg-amber-100 font-medium text-amber-700'
+                          : o.status === ORDER_STATUS.APPROVED
+                            ? 'bg-emerald-50 text-emerald-700'
+                            : 'bg-slate-100 text-slate-500'
+                      }`}
+                    >
+                      {ORDER_STATUS_LABEL[o.status]}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-600">
+                    {MEMBER_PLAN_LABEL[o.plan]} · {PAY_CHANNEL_LABEL[o.payChannel]} ·{' '}
+                    {M.amount(yuan(o.amountCents))}
+                  </p>
+                  {!pending && o.rejectReason ? (
+                    <p className="mt-0.5 text-[11px] text-slate-400">{o.rejectReason}</p>
+                  ) : null}
+                  <p className="mt-0.5 truncate text-xs text-slate-400">{o.payNote || M.noNote}</p>
+                  <div className="mt-2 flex items-center justify-between">
+                    <span className="text-xs text-slate-400">{fmt(o.createdAt)}</span>
+                    {pending ? (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={busyId === o.id}
+                          onClick={() => review(o, true)}
+                          className="rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-600 disabled:opacity-50"
+                        >
+                          {busyId === o.id ? M.processing : M.approve}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busyId === o.id}
+                          onClick={() => {
+                            setModalError('');
+                            setReason('');
+                            setRejectTarget(o);
+                          }}
+                          className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                        >
+                          {M.reject}
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-slate-400">—</span>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+          <div className="hidden overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:block">
             <table className="w-full min-w-[960px] text-sm">
               <thead className="bg-slate-50 text-xs text-slate-500">
                 <tr>

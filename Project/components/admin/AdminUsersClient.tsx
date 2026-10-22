@@ -322,7 +322,102 @@ export function AdminUsersClient({
         </section>
       ) : (
         <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-          <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {/* T-023：手机端卡片视图（桌面仍用下方表格） */}
+          <ul className="divide-y divide-slate-100 md:hidden">
+            {rows.map((u) => {
+              const online = minutesAgo(u.lastSeenAt) <= BUSINESS.ONLINE_THRESHOLD_MINUTES;
+              const mstate = memberStateOf(u);
+              return (
+                <li key={u.id} className="px-4 py-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="min-w-0 flex-1 truncate font-medium">{u.email ?? '—'}</p>
+                    <span
+                      className={`shrink-0 rounded px-2 py-0.5 text-xs ${
+                        u.role === USER_ROLE.ADMIN
+                          ? 'bg-slate-900 font-medium text-white'
+                          : 'bg-slate-100 text-slate-600'
+                      }`}
+                    >
+                      {USER_ROLE_LABEL[u.role]}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {u.username ?? '—'} ·{' '}
+                    <span className={online ? 'text-emerald-700' : 'text-slate-400'}>
+                      {online ? M.online : M.offline}
+                    </span>
+                  </p>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                    {mstate === 'none' ? (
+                      <span className="inline-flex items-center rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-500">
+                        {M.memberNone}
+                      </span>
+                    ) : (
+                      <span
+                        className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium ${
+                          mstate === 'expired'
+                            ? 'bg-amber-50 text-amber-600'
+                            : mstate === 'active'
+                              ? 'bg-emerald-50 text-emerald-700'
+                              : 'bg-violet-100 text-violet-700'
+                        }`}
+                      >
+                        {mstate !== 'expired' && <Crown className="h-3 w-3" />}
+                        {mstate === 'admin'
+                          ? M.memberAdminBadge
+                          : mstate === 'forever'
+                            ? M.memberForever
+                            : mstate === 'active'
+                              ? M.memberActiveUntil(fmtDate(u.memberUntil))
+                              : M.memberExpired}
+                      </span>
+                    )}
+                    <span className="text-xs text-slate-400">
+                      {M.thLastSeen} {fmt(u.lastSeenAt)}
+                    </span>
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    {u.role === USER_ROLE.ADMIN ? (
+                      <span className="text-xs text-slate-500">{M.memberActionFixed}</span>
+                    ) : mstate === 'expired' ? (
+                      <button
+                        type="button"
+                        disabled
+                        aria-disabled="true"
+                        className="cursor-not-allowed rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-400"
+                      >
+                        {M.memberExpired}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => askMember(u)}
+                        className={`rounded-lg px-3 py-1.5 text-xs ${
+                          u.member
+                            ? 'border border-slate-300 text-slate-600 hover:bg-slate-50'
+                            : 'bg-amber-500 font-medium text-white hover:bg-amber-600'
+                        }`}
+                      >
+                        {u.member ? M.memberRevoke : M.memberGrant}
+                      </button>
+                    )}
+                    {u.role === USER_ROLE.USER ? (
+                      <button
+                        type="button"
+                        onClick={() => askDelete(u)}
+                        className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-3 py-1.5 text-xs text-red-600 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                        {M.deleteAccount}
+                      </button>
+                    ) : null}
+                    <span className="ml-auto text-xs text-slate-400">{fmt(u.createdAt)}</span>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+          <div className="hidden overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:block">
             <table className="w-full min-w-[880px] text-sm">
               <thead className="bg-slate-50 text-xs text-slate-500">
                 <tr>

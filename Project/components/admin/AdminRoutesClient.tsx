@@ -139,7 +139,41 @@ export function AdminRoutesClient({ routes }: { routes: AdminRouteItem[] }) {
       </div>
 
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-        <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {/* T-023：手机端卡片视图（桌面仍用下方表格） */}
+        <ul className="divide-y divide-slate-100 md:hidden">
+          {paged.map((r) => {
+            const over = r.placeCount > BUSINESS.MAX_PLACES_PER_ROUTE;
+            return (
+              <li key={r.id} className="px-4 py-3">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="min-w-0 flex-1 truncate font-medium">{r.title}</p>
+                  <span
+                    className={`shrink-0 rounded px-2 py-0.5 text-xs ${
+                      over ? 'bg-red-50 text-red-700' : 'bg-slate-100 text-slate-600'
+                    }`}
+                  >
+                    {r.placeCount} / {BUSINESS.MAX_PLACES_PER_ROUTE}
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-slate-500">
+                  {r.cityName} · {r.days} 天 · {r.transportLabel}
+                </p>
+                <p className="mt-0.5 truncate text-xs text-slate-400">{r.userEmail}</p>
+                <div className="mt-2 flex items-center justify-between">
+                  <span className="text-xs text-slate-400">{fmtTime(r.createdAt)}</span>
+                  <button
+                    type="button"
+                    onClick={() => setDetail(r)}
+                    className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs hover:bg-slate-50"
+                  >
+                    {M.detailView}
+                  </button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+        <div className="hidden overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:block">
           <table className="w-full min-w-[920px] text-sm">
             <thead className="bg-slate-50 text-xs text-slate-500">
               <tr>

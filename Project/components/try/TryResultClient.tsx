@@ -126,7 +126,7 @@ function SortablePlaceRow({
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(isDragging && 'relative z-30 opacity-90')}
     >
-      <div className="relative flex items-center gap-3 py-1.5">
+      <div className="relative flex items-center gap-3.5 py-2.5 md:gap-3 md:py-1.5">
         {point.isLodging ? (
           <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-violet-600 text-xs font-bold text-white">
             {serial}
@@ -150,7 +150,7 @@ function SortablePlaceRow({
           </span>
         )}
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-medium text-stone-900">{point.name}</span>
+          <span className="block truncate text-[15px] font-medium text-stone-900 md:text-sm">{point.name}</span>
           {point.isLodging ? (
             <span className="text-xs text-violet-600">{MESSAGES.TRY.RESULT.lodgingFirstTip}</span>
           ) : point.type === PLACE_TYPE.FOOD ? (
@@ -166,7 +166,7 @@ function SortablePlaceRow({
               onClick={() => onStep(-1)}
               className="grid h-7 w-7 place-items-center rounded-md text-stone-400 hover:bg-stone-100 disabled:opacity-30"
             >
-              <ChevronUp className="h-4 w-4" />
+              <ChevronUp className="h-[18px] w-[18px] md:h-4 md:w-4" />
             </button>
             <button
               type="button"
@@ -175,7 +175,7 @@ function SortablePlaceRow({
               onClick={() => onStep(1)}
               className="grid h-7 w-7 place-items-center rounded-md text-stone-400 hover:bg-stone-100 disabled:opacity-30"
             >
-              <ChevronDown className="h-4 w-4" />
+              <ChevronDown className="h-[18px] w-[18px] md:h-4 md:w-4" />
             </button>
             <button
               type="button"
@@ -759,7 +759,7 @@ export function TryResultClient({ loggedIn }: { loggedIn: boolean }) {
                 disabled={saving}
                 className="flex h-12 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary-from to-primary-to px-7 font-semibold text-white hover:brightness-110 disabled:opacity-60"
               >
-                {saving ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
+                {saving ? <LoaderCircle className="h-[18px] w-[18px] animate-spin md:h-4 md:w-4" /> : null}
                 {saving ? M.saving : loggedIn ? M.saveLoggedIn : M.save}
               </button>
               {loggedIn ? (

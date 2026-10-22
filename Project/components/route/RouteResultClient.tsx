@@ -511,7 +511,7 @@ function SortablePlaceRow({
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(isDragging && 'relative z-30 opacity-90')}
     >
-      <div className="relative flex items-center gap-3">
+      <div className="relative flex items-center gap-3.5 py-2.5 md:gap-3 md:py-0">
         <OrderBadge
           position={serial}
           isFood={isFood}
@@ -565,7 +565,7 @@ function SortablePlaceRow({
             onClick={() => onStep(-1)}
             className="grid h-7 w-7 place-items-center rounded-md text-stone-400 hover:bg-stone-100 disabled:opacity-30"
           >
-            <ChevronUp className="h-4 w-4" />
+            <ChevronUp className="h-[18px] w-[18px] md:h-4 md:w-4" />
           </button>
           <button
             type="button"
@@ -574,7 +574,7 @@ function SortablePlaceRow({
             onClick={() => onStep(1)}
             className="grid h-7 w-7 place-items-center rounded-md text-stone-400 hover:bg-stone-100 disabled:opacity-30"
           >
-            <ChevronDown className="h-4 w-4" />
+            <ChevronDown className="h-[18px] w-[18px] md:h-4 md:w-4" />
           </button>
           <button
             type="button"
@@ -1426,7 +1426,7 @@ export function RouteResultClient({
               href={ROUTES.ROUTE_EDIT(routeId)}
               className="flex h-10 items-center justify-center gap-1.5 rounded-xl border border-stone-300 bg-white px-4 text-sm"
             >
-              <Pencil className="h-4 w-4" />
+              <Pencil className="h-[18px] w-[18px] md:h-4 md:w-4" />
               {M.adjust}
             </Link>
             <button
@@ -1434,7 +1434,7 @@ export function RouteResultClient({
               onClick={() => setShot(true)}
               className="flex h-10 items-center justify-center gap-1.5 rounded-xl border border-stone-300 bg-white px-4 text-sm"
             >
-              <Smartphone className="h-4 w-4" />
+              <Smartphone className="h-[18px] w-[18px] md:h-4 md:w-4" />
               {M.shotMode}
             </button>
             <RouteShareButton routeId={routeId} canExport={canExport} />
@@ -1443,7 +1443,7 @@ export function RouteResultClient({
               onClick={() => setSaved(true)}
               className="flex h-10 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-primary-from to-primary-to px-4 text-sm font-semibold text-white hover:brightness-110"
             >
-              <Save className="h-4 w-4" />
+              <Save className="h-[18px] w-[18px] md:h-4 md:w-4" />
               {M.save}
             </button>
           </div>

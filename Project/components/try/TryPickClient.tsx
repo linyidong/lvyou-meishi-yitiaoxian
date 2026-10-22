@@ -389,9 +389,9 @@ export function TryPickClient() {
             className="flex h-10 items-center gap-1.5 rounded-xl bg-gradient-to-r from-primary-from to-primary-to px-4 text-sm font-semibold text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {importLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="h-[18px] w-[18px] animate-spin md:h-4 md:w-4" />
             ) : (
-              <Sparkles className="h-4 w-4" />
+              <Sparkles className="h-[18px] w-[18px] md:h-4 md:w-4" />
             )}
             {importLoading ? M.importLoading : M.importSubmit}
           </button>
@@ -472,7 +472,7 @@ export function TryPickClient() {
                     <li
                       key={p.key}
                       className={cn(
-                        'flex items-center gap-3 px-4 py-3',
+                        'flex items-center gap-3.5 px-4 py-3 md:gap-3',
                         locked ? 'opacity-50' : 'hover:bg-stone-50',
                       )}
                     >
@@ -518,7 +518,7 @@ export function TryPickClient() {
                         aria-label={RP.delConfirm}
                         className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-stone-400 hover:bg-red-50 hover:text-red-600"
                       >
-                        <X className="h-4 w-4" />
+                        <X className="h-[18px] w-[18px] md:h-4 md:w-4" />
                       </button>
                     </li>
                   );

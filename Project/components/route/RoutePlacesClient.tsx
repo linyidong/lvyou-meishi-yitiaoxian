@@ -251,7 +251,7 @@ export function RoutePlacesClient({
         href={ROUTES.ROUTE_ADD(routeId)}
         className="h-10 px-4 rounded-xl border border-stone-300 bg-white hover:bg-stone-50 text-sm font-medium flex items-center justify-center gap-1.5"
       >
-        <Plus className="h-4 w-4" />
+        <Plus className="h-[18px] w-[18px] md:h-4 md:w-4" />
         {M.continueAdd}
       </Link>
     </div>
@@ -343,7 +343,7 @@ export function RoutePlacesClient({
             {visible.map((p) => {
               const on = checked.has(p.id);
               return (
-                <li key={p.id} className="flex items-center gap-3 px-4 py-3 hover:bg-stone-50">
+                <li key={p.id} className="flex items-center gap-3.5 px-4 py-3 hover:bg-stone-50 md:gap-3">
                   <label className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer">
                     <input
                       type="checkbox"
@@ -375,7 +375,7 @@ export function RoutePlacesClient({
                     aria-label="移除"
                     className="w-9 h-9 rounded-lg text-stone-400 hover:text-red-600 hover:bg-red-50 grid place-items-center shrink-0"
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-[18px] w-[18px] md:h-4 md:w-4" />
                   </button>
                 </li>
               );
@@ -426,8 +426,8 @@ export function RoutePlacesClient({
                 </div>
               </div>
             ) : null}
-            <p className="mt-1 text-[11px] text-stone-400">{M.daysNote}</p>
-            <p className="mt-1 text-[11px] text-stone-400">{M.limitNote(placesPerDay)}</p>
+            <p className="mt-1 text-xs text-stone-400 md:text-[11px]">{M.daysNote}</p>
+            <p className="mt-1 text-xs text-stone-400 md:text-[11px]">{M.limitNote(placesPerDay)}</p>
             <p className="mt-4 text-xs font-medium text-stone-500">{M.transportLabel}</p>
             <div className="mt-2 grid grid-cols-2 gap-2">
               {Object.values(TRANSPORT).map((m) => {
@@ -459,7 +459,7 @@ export function RoutePlacesClient({
                     </option>
                   ))}
                 </select>
-                <p className="mt-1 text-[11px] text-stone-400">{M.startNote}</p>
+                <p className="mt-1 text-xs text-stone-400 md:text-[11px]">{M.startNote}</p>
               </div>
             ) : null}
             {genErr ? (
