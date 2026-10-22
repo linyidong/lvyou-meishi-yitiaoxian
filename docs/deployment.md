@@ -1,0 +1,174 @@
+# 部署上线与回滚方案（本轮只出方案，不实施）
+
+> 阶段 8 产出。**状态：方案待用户确认，本期不执行部署**（PRD §4.2 明确「本期不做生产部署」）。
+> 依据：`docs/architecture.md`、`docs/data-model.md`、`docs/人工参数与环境配置.md`、`docs/known-issues.md`。
+> 编制：2026-10-22。价格与活动以云厂商官网为准（标注 `[需核实]`）。
+
+## 1. 发布信息
+
+| 项 | 内容 |
+|---|---|
+| 应用 | 旅行美食一条线（Next.js 14 App Router 单体） |
+| 代码 | `Project/`（GitHub `linyidong/lvyou-meishi-yitiaoxian`，分支 `main`） |
+| 现状形态 | 本机 macOS dev（`next dev`）+ 自建 Supabase（Windows Docker，192.168.1.11） |
+| 目标形态 | **单台国内云服务器**：Nginx + Next（`next start`）+ 同机 Docker 版 Supabase（裁剪版） |
+| 目标用户量 | 起步阶段（≤100 注册用户），非高并发 |
+
+## 2. 环境与技术约束（决定选型的硬条件）
+
+| 约束 | 依据 | 对选型的影响 |
+|---|---|---|
+| **必须国内** | 用户明确要求 | 排除 Vercel + Supabase Cloud（境外）；需 ICP 备案 |
+| **企业微信自建应用需「备案域名 + 固定公网 IP」** | 已知教训 L41（未配可信 IP 时 `errcode 60020` 全拦） | 必须用**带固定公网 IP 的云服务器**；不能用纯 Serverless/函数计算 |
+| **高德 JS API 需域名白名单** | 高德控制台配置 | 需要可备案的域名 |
+| 数据库仅 **15 MB**，无 Storage、无 Realtime | Harness 实测 | **不需要**托管数据库/对象存储起步；Supabase 可裁到 ~1 GB 内存 |
+| 无 CI/CD、无 Dockerfile | 现状 | 部署需补 Dockerfile 或 PM2 + 手工发布脚本 |
+
+## 3. 部署架构
+
+```text
+                 ┌──────────── 云服务器（1 台，国内） ────────────┐
+ 用户/手机 ──443──▶ Nginx（TLS 终止、gzip、反代）
+                 │    ├── /            → Next.js（next start :3000，systemd/PM2）
+                 │    └── /rest /auth → Supabase Kong（:8000，仅本机监听）
+                 │         └── postgres（:5432，仅本机） + gotrue + postgrest
+                 │    └── 备份 cron：pg_dump → 本机 + 对象存储（可选）
+                 └──────────────────────────────────────────────┘
+```
+
+- **不暴露** 5432 / 8000 到公网；仅 80/443 + SSH（限 IP）开放
+- Supabase 采用**裁剪 compose**：`postgres` + `kong` + `auth` + `rest`，**不启用** storage / realtime / studio（生产）
+- Next 用 `next build && next start`；进程由 systemd 托管（比 PM2 少一层依赖）
+
+## 4. 云服务选型（针对"卡在选套餐"）
+
+### 4.1 三种路线对比
+
+| 路线 | 说明 | 结论 |
+|---|---|---|
+| A. 轻量应用服务器（腾讯云 Lighthouse / 阿里云轻量） | 固定带宽+流量包，价格低，操作简单 | ✅ **推荐**（起步最划算） |
+| B. ECS/CVM 通用型 | 弹性更强、可升配、可挂多盘 | 用户量上来后再迁 |
+| C. Vercel + Supabase Cloud | 无需运维 | ❌ 境外节点，备案与企微可信 IP 均不满足 |
+
+### 4.2 具体套餐建议（三档）
+
+| 档位 | 配置 | 适合 | 参考价 `[需核实]` |
+|---|---|---|---|
+| **起步（推荐）** | 2 核 4G / 60–80G SSD / 3–5 Mbps 固定带宽（或流量包 1–2 TB） | 当前规模（≤100 用户），跑全套 Next + 裁剪 Supabase | 新用户活动价约 ¥100–200/年；常规续费约 ¥600–1200/年 |
+| 标准 | 4 核 8G / 100G SSD / 5 Mbps | 用户上千、并发上升 | 约 ¥1500–3000/年 |
+| 抗量 | 4C8G + 托管 PostgreSQL（云数据库 RDS） | 数据库需独立备份/高可用时 | RDS 基础版 2C4G 约 ¥1000–2500/年 起 |
+
+**为什么是 2C4G 而不是 2C2G**：Supabase 裁剪后约 700–900MB、Next 约 300–500MB、系统与 Nginx 约 500MB，2G 会在构建（`next build` 峰值 >1.5G）时 OOM。**构建可在本地做好再上传，但留 4G 更稳。**
+
+**为什么不用云数据库起步**：库只有 15MB、单用户量，RDS 一年费用 ≈ 整台服务器，收益低；等有真实付费用户再拆。
+
+### 4.3 必须一并准备的
+
+| 项 | 说明 | 成本 |
+|---|---|---|
+| 域名 | 需可备案（`.com` / `.cn`） | 约 ¥30–80/年 |
+| **ICP 备案** | 国内服务器必须；个人主体约 1–3 周 | 免费（需实名/拍照核验） |
+| TLS 证书 | Let's Encrypt 或云免费证书 | 免费 |
+| 固定公网 IP | 轻量自带；**企微可信 IP 需要它** | 含在套餐 |
+| 对象存储（可选） | 备份异地存放 | 约 ¥1–10/月 |
+
+> **时间线提醒**：备案 1–3 周是**唯一不可压缩的等待**。建议**先买服务器 + 域名并提交备案**，备案期间在本地继续开发。
+
+## 5. 配置清单
+
+- 环境变量：以 `docs/人工参数与环境配置.md` 的 18 个变量名为准；生产环境**必须补齐**当前缺的 9 个（高德私钥 3、Key 池第 3 槽、JS Key 第 2 槽、企微自建应用 4）
+- `.env.local` **不进 Git**；服务器上用 `chmod 600` 存放
+- 高德控制台：把新域名加入 **JS API 域名白名单**
+- 企业微信：备案通过后，把域名配为**可信域名**、服务器固定 IP 配为**可信 IP**，才能启用自建应用通道
+- Supabase：生产用**新的随机密码**，不复用当前 Windows 实例的密钥
+
+## 6. 数据迁移与备份
+
+迁移源：Windows Docker 上的 Supabase（`192.168.1.11:8000`，Postgres 5432）。
+
+```bash
+# ① 源库导出（在 Windows/Docker 内执行）
+docker exec -t <postgres_container> pg_dump -U postgres -d postgres --no-owner --no-privileges > backup_$(date +%Y%m%d).sql
+
+# ② 目标库导入（云服务器）
+docker exec -i <postgres_container> psql -U postgres -d postgres < backup_YYYYMMDD.sql
+
+# ③ 校验行数（必须与源库一致）
+# users/places/cities/routes/route_places/member_orders/... 见 docs/data-model.md
+```
+
+- **迁移前冻结写入**（停 dev server、通知用户）
+- 迁移后**逐表核对行数**：Harness 已记录基线（users 3 / places 1326 / cities 92 / routes 5 / route_places 41 / member_orders 0 / events 42 …）
+- `pg_cron` 扩展与 `expire-members` 任务需在新库重建（迁移 `026`）
+- 定时备份：每日 `pg_dump` → 本机保留 7 份 + 对象存储 30 份
+
+## 7. 部署步骤（预估 2–4 小时，不含备案等待）
+
+1. 购买服务器（2C4G）+ 域名；提交 ICP 备案
+2. 安全组：仅开放 22（限本人 IP）、80、443
+3. 安装 Docker + docker compose；创建 `supabase` 目录与 `.env`（新密钥）
+4. 启动裁剪版 Supabase（postgres/kong/auth/rest），初始化 schema（执行 `supabase/migrations/001…027`）
+5. 导入数据（§6），核对行数，验证 `pg_cron` 任务存在
+6. 服务器安装 Node 20/22；`git clone` 仓库；`npm ci`
+7. **本地或服务器** `npm run build`（注意内存），产物 `.next`
+8. 启动 Next：systemd unit，`next start -p 3000`，`Restart=always`
+9. Nginx 反代：`/` → 3000；`/rest`、`/auth` → 8000；开启 gzip/HTTP2
+10. 申请 TLS 证书（certbot），配置 443 + HTTP→HTTPS 跳转
+11. 域名解析 A 记录 → 服务器 IP；等高德白名单与企微可信 IP/域名配置
+12. 跑烟雾测试（§8），通过后灰度放量
+
+## 8. 发布后烟雾测试（逐条打勾）
+
+- [ ] `GET /` 200，首页城市卡片正常
+- [ ] `/city` 200 且城市列表 92 条（`npm run check:cities` 可远程比对）
+- [ ] 游客三步走通到 `/try/result`，地图出图（高德 Key 生效）
+- [ ] 游客保存 → 跳登录 → 登录后转正成功
+- [ ] 管理员登录 → `/admin` 概览、`/admin/routes` 卡片/表格
+- [ ] 提交一笔测试订单 → 后台核销 → 用户端会员生效
+- [ ] `pg_cron` 任务存在且 `SELECT * FROM cron.job` 可见 `expire-members`
+- [ ] TLS 证书有效（`curl -I https://域名` 无警告）
+- [ ] 匿名调用 `/api/amap/landmarks` 返回 401；两个 RPC 匿名调用 401
+
+## 9. 回滚触发条件与步骤
+
+**触发**：任一烟雾测试失败且 30 分钟内无法修复；或错误率 > 5%。
+
+1. DNS 切回旧地址（Windows 实例保持可访问 **7 天**）
+2. 代码回退：`git revert <部署提交>` 后重新 build + 重启
+3. 数据回退：仅当发生写入错乱时，用当日 `pg_dump` 还原（**先停写**）
+4. 记录事故时间线到 `docs/known-issues.md`
+
+> **回滚演练**：正式上线前，必须在预发布（可用同一台服务器的第二实例或本地 production build）演练一次 DNS/代码回滚，记录耗时。
+
+## 10. 上线后监控
+
+| 项 | 当前能力 | 计划 |
+|---|---|---|
+| 可用性 | 无 | 云监控「站点拨测」每 5 分钟探 `/` |
+| 错误日志 | 无 | systemd journal + Nginx access/error log；`pm2 logs` 可选 |
+| 应用错误 | 无 | 先看 journal；后续可接 Sentry（需审批） |
+| 数据库 | 无 | 每日备份 + 每周人工核对行数 |
+| 成本 | 无 | 记录高德/DeepSeek 用量（已有 `amap_usage` 表） |
+
+## 11. 故障处理
+
+| 症状 | 排查顺序 |
+|---|---|
+| 502/504 | Nginx → Next 进程是否存活（`systemctl status`）→ 端口占用 |
+| 页面白屏/接口 500 | journal 日志 → 环境变量是否缺失 → Supabase 容器状态 |
+| 数据读不出 | Supabase 容器健康 → `pg_isready` → Kong 路由 |
+| 高德报错 10007/10003 | Key 白名单/私钥配置 → 额度（`amap_usage`） |
+
+## 12. 发布记录
+
+| 日期 | 版本/提交 | 操作人 | 结果 |
+|---|---|---|---|
+| 待定 | —— | —— | 尚未部署 |
+
+## 13. 待用户确认（决定成本与工期）
+
+1. **预算区间**：服务器年费能接受多少？（起步档约 ¥100–200 首年 / ¥600–1200 续费）
+2. **域名**：是否已有可备案域名？没有的话建议 `.com`
+3. **备案主体**：个人还是企业？（企业可开对公、后续接微信支付更方便）
+4. **是否要「个人微信推送」**：需要备案域名 + 固定 IP，会影响上线时间安排
+5. **是否接受「先单机、用户多了再拆数据库」**：起步省钱，但后期要迁移一次
