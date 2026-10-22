@@ -1,4 +1,24 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
+
+/**
+ * T-024：若存在 Project/.env.test.local（已被 .gitignore 忽略），把其中的
+ * TEST_EMAIL / TEST_PASSWORD 读进 process.env 供鉴权类用例使用；
+ * 文件不存在时不报错——用例侧按「凭据缺失」自行 skip。
+ * 密码只存在于该本地文件，绝不写进任何仓库文件，也不打印到日志。
+ */
+function loadTestEnvLocal() {
+  const file = resolve(__dirname, '.env.test.local');
+  if (!existsSync(file)) return;
+  for (const line of readFileSync(file, 'utf8').split(/\r?\n/)) {
+    const m = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
+    if (!m) continue;
+    const value = m[2].trim().replace(/^"(.*)"$/, '$1');
+    if (value && process.env[m[1]] === undefined) process.env[m[1]] = value;
+  }
+}
+loadTestEnvLocal();
 
 /**
  * T-019 E2E 配置（playwright）：
