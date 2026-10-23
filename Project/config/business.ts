@@ -123,14 +123,19 @@ export const BUSINESS = {
    */
 
   /**
-   * P01/P02 「生成路线」限额按身份分周期：免费按天（每天 1 条）、会员按月（每月 10 条）。
+   * P01/P02 「生成路线」限额按身份分周期：免费按天（每天 1 条）、会员按月（每月 5 条，T-028 由 10 下调）。
    * 周期口径见 lib/member-quota.ts 的 TierLimits.routeLimitPeriod，
    * 计数分别落在 user_daily_usage 的 generate_route（按天）与 generate_route_month（按月）两个桶。
    */
   /** P01 免费用户每天「生成路线」次数上限 */
   FREE_DAILY_ROUTE_LIMIT: 1,
-  /** P02 会员每月「生成路线」次数上限 */
-  MEMBER_MONTHLY_ROUTE_LIMIT: 10,
+  /** P02 会员每月「生成路线」次数上限（T-028 下调为 5） */
+  MEMBER_MONTHLY_ROUTE_LIMIT: 5,
+  /**
+   * T-028 会员状态实时同步：用户端 MemberStatusSync 组件的轮询间隔（秒）。
+   * 口径：≥20s（不得低于 10s，避免对服务端产生轮询压力）；页面切回可见 / 窗口聚焦时立即补拉一次。
+   */
+  MEMBER_STATUS_POLL_SECONDS: 20,
   /** P03 免费用户单日地点数上限（免费版只能单日行程） */
   FREE_MAX_PLACES_PER_DAY: 6,
   /** P04 会员单日地点数上限（与 B01 MAX_PLACES_PER_DAY 一致） */
@@ -150,7 +155,8 @@ export const BUSINESS = {
    * 收银台只上架月卡；E25 year（年卡）与 forever（永久）均已下架，
    * 保留在 config/enums.ts 仅用于历史订单的套餐名称展示。
    */
-  MEMBER_PLANS: [{ key: 'month', priceCents: 1500, days: 30 }],
+  /** T-028（2026-10-23 用户拍板）：月卡价格下调为 990 分（¥9.9/月） */
+  MEMBER_PLANS: [{ key: 'month', priceCents: 990, days: 30 }],
   /**
    * 收款码通道（图片放 public 目录，管理员自行替换对应文件）。
    * 数组第一项为收银台默认选中项；key 与 member_orders.pay_channel 的 check 约束逐字一致。

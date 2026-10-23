@@ -19,7 +19,7 @@ import type { LodgingType, PlaceType, Transport } from '@/types';
  *
  * 复用既有约定：
  * - 字段与 POST /api/routes 对齐（days=1，transport 取草稿）；
- * - 配额按当前档位强制：免费按天（每天 1 条）、会员按月（每月 10 条），成功后累加对应计数桶；
+ * - 配额按当前档位强制：免费按天（每天 1 条）、会员按月（每月 5 条），成功后累加对应计数桶；
  *   地点数再校验一次当前档位单日上限（免费 = FREE_MAX_PLACES_PER_DAY）；
  * - places 按 user_id + city_id + name 去重（同 POST /api/places 与分享导入的 find-or-create）；
  * - route_places 顺序照抄分享导入：day_index=0、order_index 从 0 递增，住宿点不占号位；

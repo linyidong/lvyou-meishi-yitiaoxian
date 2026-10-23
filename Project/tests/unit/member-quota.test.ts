@@ -82,3 +82,14 @@ describe('limitsOf 各档位配额（与 config/business.ts 常量对齐，防�
     expect(l.aiExtract).toBe(Number.POSITIVE_INFINITY);
   });
 });
+
+describe('T-028 会员价格与配额（config/business.ts 单一事实源）', () => {
+  it('月卡价格为 990 分（¥9.9），不得回退到旧价', () => {
+    expect(BUSINESS.MEMBER_PLANS[0].priceCents).toBe(990);
+  });
+
+  it('会员档每月路线配额为 5 条', () => {
+    expect(BUSINESS.MEMBER_MONTHLY_ROUTE_LIMIT).toBe(5);
+    expect(limitsOf('member').routeLimit).toBe(5);
+  });
+});

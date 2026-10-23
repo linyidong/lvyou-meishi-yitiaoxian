@@ -1,6 +1,7 @@
 import { Header } from '@/components/layout/Header';
 import { HeartbeatProvider } from '@/components/layout/HeartbeatProvider';
 import { MobileNav } from '@/components/layout/MobileNav';
+import { MemberStatusSync } from '@/components/member/MemberStatusSync';
 import { getQuotaProfile } from '@/lib/member-quota';
 import { createClient } from '@/lib/supabase/server';
 
@@ -35,6 +36,8 @@ export default async function UserLayout({ children }: { children: React.ReactNo
 
   return (
     <HeartbeatProvider>
+      {/* T-028 会员状态实时同步：仅登录用户挂载（未登录不产生轮询请求） */}
+      {user ? <MemberStatusSync /> : null}
       <div className="flex min-h-screen flex-col bg-stone-50 text-stone-800">
         <Header displayName={displayName} isAdmin={isAdmin} isMember={isMember} />
         <main className="mx-auto w-full max-w-[1536px] flex-1 px-4 py-6 pb-24 md:px-6 md:py-10 md:pb-10">

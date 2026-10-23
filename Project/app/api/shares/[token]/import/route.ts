@@ -29,7 +29,7 @@ export async function POST(_request: NextRequest, { params }: { params: { token:
     return NextResponse.json({ ok: false, message: MESSAGES.SHARE.needMember }, { status: 403 });
   }
 
-  // 导入同样占用「生成路线」额度（会员每月 10 条），避免从分享链接绕过路线条数上限；管理员不计数
+  // 导入同样占用「生成路线」额度（会员每月 5 条），避免从分享链接绕过路线条数上限；管理员不计数
   if (tier !== 'admin') {
     const routeQuota = await getRouteQuota(userId, tier);
     if (routeQuota.remaining <= 0) {

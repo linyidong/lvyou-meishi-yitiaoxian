@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (tier !== 'admin') {
-    // 免费按天（每天 1 条）、会员按月（每月 10 条），周期口径见 lib/member-quota.ts
+    // 免费按天（每天 1 条）、会员按月（每月 5 条），周期口径见 lib/member-quota.ts
     const routeQuota = await getRouteQuota(user.id, tier);
     if (routeQuota.remaining <= 0) {
       return NextResponse.json({ ok: false, ...routeQuotaErrorBody(routeQuota) }, { status: 429 });

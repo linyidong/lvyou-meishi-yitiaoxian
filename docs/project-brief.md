@@ -12,7 +12,7 @@
 
 - **解决的问题**（目标口径，来源 `File-PRD/` 历史文档与 project_memory）：旅行文案（小红书/朋友圈攻略）里的地点无法直接变成一条顺路可走的行程；手动排顺序费时且容易绕路。
 - **已实现的核心应对**：文案 → DeepSeek 提取地点（`Project/lib/deepseek.ts:57`）→ 高德坐标解析与距离矩阵（`Project/lib/amap.ts:650`）→ 排序（`Project/lib/route-order.ts:173`）→ 分段算路展示（`Project/lib/amap.ts:532`）。
-- **商业背景**（现状事实）：会员月卡 15 元，收款码扫码 + 管理员人工核销的半自动闭环已上线于代码（`docs/decisions.md` D-11）；全自动回调受限于个人收款码无回调 API，需营业执照后升级（未实现，`docs/feature-status.md` F-44）。
+- **商业背景**（现状事实）：会员月卡 9.9 元（T-028 调价，价格一律见 `Project/config/business.ts` `MEMBER_PLANS`），收款码扫码 + 管理员人工核销的半自动闭环已上线于代码（`docs/decisions.md` D-11）；全自动回调受限于个人收款码无回调 API，需营业执照后升级（未实现，`docs/feature-status.md` F-44）。
 
 ## 3. 目标用户与场景
 
@@ -20,7 +20,7 @@
 |---|---|---|
 | 游客（未登录） | 先体验再注册 | 完整走通三步试用（`Project/middleware.ts:29-32` 放行 `/try/*`），仅保存需登录；顶部/底部工具栏全置灰；五桶限流（`Project/config/business.ts:72/79/85`） |
 | 普通用户 | 免费额度使用 | 1 条路线/日、单日 6 地点、文案识别 10 次/日、1 次多日试用（`Project/lib/member-quota.ts:90` `limitsOf` 档位常量） |
-| 会员 | 深度使用 | 每月 10 条路线（月桶 `Project/supabase/migrations/025:19-27`）、单日 12 地点、识别 20 次/日；分享长图/二维码导出仅会员（`docs/feature-status.md` F-08） |
+| 会员 | 深度使用 | 每月 5 条路线（T-028 下调；月桶 `Project/supabase/migrations/025:19-27`）、单日 12 地点、识别 20 次/日；分享长图/二维码导出仅会员（`docs/feature-status.md` F-08） |
 | 管理员 | 运营 | 后台 7 页 + 6 API（订单核销、用户/地点/路线/导入管理、用量看板、seed-demo）；自身默认最高档会员且不可取消（触发器 `Project/supabase/migrations/015:24-48`） |
 
 ## 4. 核心价值

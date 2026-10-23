@@ -22,9 +22,9 @@ function fmtDate(iso: string | null) {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
-/** 分 → 元（整数不带小数，非整数保留两位） */
+/** 分 → 元（整数不带小数，非整数去掉多余的尾零，如 990 → 9.9、999 → 9.99） */
 function yuan(cents: number) {
-  return cents % 100 === 0 ? String(cents / 100) : (cents / 100).toFixed(2);
+  return cents % 100 === 0 ? String(cents / 100) : (cents / 100).toFixed(2).replace(/0+$/, '');
 }
 
 /** 待核销订单摘要（个人中心传入） */
@@ -36,7 +36,7 @@ export interface PendingOrderInfo {
 /**
  * U10 会员卡（按登录身份展示对应档位规则）：
  * - 管理员：标题与权益取自 PRODUCT.ADMIN_BENEFITS（管理员 = 最高级会员，配额不限）；
- * - 会员：标题与权益取自 PRODUCT.MEMBER_BENEFITS（会员每月 10 条路线 / 7 天 / 单日 12 个地点 / 文案识别 20 次每日）；
+ * - 会员：标题与权益取自 PRODUCT.MEMBER_BENEFITS（会员每月 5 条路线 / 7 天 / 单日 12 个地点 / 文案识别 20 次每日）；
  * - 普通用户：展示 PRODUCT.FREE_BENEFITS（免费版规则），右侧保留「升级为会员」入口。
  * 付费流程：BUSINESS.ENABLE_REAL_PAYMENT = true 时点击进入收款码收银台，提交订单后展示「已提交，等待管理员核销」；
  *         false 时保留旧的模拟支付弹层（POST /api/member）。

@@ -16,7 +16,7 @@ import { straightDist2 } from '@/lib/route-order';
 /** 会员分档：管理员 > 会员 > 免费 / 游客 */
 export type MemberTier = 'admin' | 'member' | 'free';
 
-/** 「生成路线」限额的周期口径：免费按天（每天 1 条）、会员按月（每月 10 条） */
+/** 「生成路线」限额的周期口径：免费按天（每天 1 条）、会员按月（每月 5 条） */
 export type RouteQuotaPeriod = 'day' | 'month';
 
 /** 各档位配额；Infinity = 不限 */
@@ -229,7 +229,7 @@ export interface RouteQuota {
 
 /**
  * 读当前档位「生成路线」本周期的剩余额度。
- * 免费按天（每天 1 条）、会员按月（每月 10 条），周期见 TierLimits.routeLimitPeriod；管理员不限。
+ * 免费按天（每天 1 条）、会员按月（每月 5 条），周期见 TierLimits.routeLimitPeriod；管理员不限。
  */
 export async function getRouteQuota(userId: string, tier: MemberTier): Promise<RouteQuota> {
   const limits = limitsOf(tier);
