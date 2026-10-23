@@ -705,6 +705,32 @@ export function RouteResultClient({
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const router = useRouter();
   const [mapApi, setMapApi] = useState<AMapInstance | null>(null);
+  /** T-027：地图全屏态；mapDownRef 记录按下位置以区分点击与拖图 */
+  const [mapFull, setMapFull] = useState(false);
+  const mapDownRef = useRef<{ x: number; y: number } | null>(null);
+  /**
+   * T-027：地图全屏切换。
+   * 容器类名变化高德不会自己感知（resizeEnable 只监听窗口 resize），切换后下一帧显式 resize()；
+   * 全屏态按 ESC 退出。
+   */
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => {
+      try {
+        mapApi?.resize();
+      } catch {
+        // 高德内部异常不得冒泡（同 AmapMap 兜底口径）
+      }
+    });
+    if (!mapFull) return () => cancelAnimationFrame(raf);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMapFull(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      cancelAnimationFrame(raf);
+    };
+  }, [mapFull, mapApi]);
   /** 出行方式，默认用路线保存时的市内交通方式（步行 / 骑行） */
   const [mode, setMode] = useState<NavMode>(transport);
   const [navBusy, setNavBusy] = useState(false);
@@ -1110,8 +1136,8 @@ export function RouteResultClient({
           delete nextStartIds[dayIndex];
           setCustomStartIds(nextStartIds);
         }
-        // 复位快照同步为「移除后的集合」：旧快照含被移除地点，不更新的话「一键复位」会把它复活
-        initialOrderRef.current = { days: nextDays, legs: nextLegs, startIds: nextStartIds, estimated };
+        // T-027：复位快照**不**随移除更新——保留首次系统推荐（含被移除地点），
+        // 「一键复位」会把被移除的地点带回来并落库（orderKeyOf 含地点 id，集合变化即置 dirty）。
         showNavTip(M.removeDone);
       } catch {
         setLocalDays(prevDays);
@@ -1121,27 +1147,57 @@ export function RouteResultClient({
         setRemoving(false);
       }
     },
-    [removing, navBusy, showNavTip, routeId, cityAdcode, customStartIds, estimated],
+    [removing, navBusy, showNavTip, routeId, cityAdcode, customStartIds],
   );
 
-  /** 当前顺序是否已偏离系统推荐快照（渲染期派生，不加 state；F-50） */
+  /** 当前顺序是否已偏离系统推荐快照（orderKeyOf 含地点 id 串，集合变化与顺序变化都会置真；F-50 · T-027） */
   const orderDirty =
     !!initialOrderRef.current && orderKeyOf(localDays) !== orderKeyOf(initialOrderRef.current.days);
 
   /**
-   * 一键复位（F-50 · 方案 B）：还原进页面时的系统顺序快照（顺序 / 路段 / 出发点 / 降级标记），
-   * 再经既有 saveOrder 防抖 PUT 落库一次。不新增 fetch、不调 syncRoute、不触发系统重排。
+   * 一键复位（F-50 · T-027 扩展）：还原进页面时的系统快照（顺序 / 路段 / 出发点 / 降级标记），
+   * **含被移除的地点**（快照不随移除更新）。不复用 saveOrder 防抖，而是立即 PUT places 落库一次：
+   * 复位后页面集合与快照一致，落库总数（dbTotalRef）同步恢复；失败回滚复位前的界面并提示，不静默。
    */
   function resetOrder() {
     const snap = initialOrderRef.current;
     if (!snap || navBusy || removing || orderState === 'saving' || !orderDirty) return;
     reqRef.current += 1; // 防御：作废可能仍在途的 syncRoute 响应，避免覆盖复位结果
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current); // 复位自带落库，作废在途的防抖回写
+    const prevDays = localDays;
+    const prevLegs = dayLegs;
+    const prevStartIds = customStartIds;
+    const prevEstimated = estimated;
+    const prevDbTotal = dbTotalRef.current;
+    setOrderState('saving'); // 复位落库进行中：按钮显示保存态，且挡住并发 saveOrder
     setLocalDays(snap.days);
     setDayLegs(snap.legs);
     setCustomStartIds(snap.startIds);
     setEstimated(snap.estimated);
-    saveOrder();
-    showNavTip(MESSAGES.TRY.RESULT.resetDone);
+    const items = snap.days.flatMap((day) =>
+      day.places.map((place, i) => ({ placeId: place.id, dayIndex: day.dayIndex, orderIndex: i })),
+    );
+    dbTotalRef.current = items.length; // 复位含被移除地点，落库总数同步恢复
+    void fetch(`/api/routes/${routeId}/places`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items }),
+    })
+      .then((res) => res.json())
+      .then((data: { ok?: boolean }) => {
+        if (!data.ok) throw new Error('reset put failed');
+        setOrderState('saved');
+        showNavTip(MESSAGES.TRY.RESULT.resetDone);
+      })
+      .catch(() => {
+        dbTotalRef.current = prevDbTotal;
+        setLocalDays(prevDays);
+        setDayLegs(prevLegs);
+        setCustomStartIds(prevStartIds);
+        setEstimated(prevEstimated);
+        setOrderState('failed');
+        showNavTip(M.resetFailed);
+      });
   }
 
   /**
@@ -2014,8 +2070,27 @@ export function RouteResultClient({
 
           {/* 真实高德地图 */}
           <div className="order-1 min-w-0 px-5 pb-5 md:px-6 lg:order-2 lg:col-span-3 lg:pb-6 lg:pl-0">
-            {/* 手机端限制高度，避免地图占满整屏（桌面端仍铺满右栏） */}
-            <div className="relative h-[45vh] min-h-[300px] max-h-[560px] overflow-hidden rounded-2xl bg-[#eef3ec] lg:h-full lg:max-h-none lg:min-h-[420px]">
+            {/* 手机端限制高度，避免地图占满整屏（桌面端仍铺满右栏）；T-027：点地图/按钮/ESC 全屏切换 */}
+            <div
+              className={cn(
+                'relative overflow-hidden rounded-2xl bg-[#eef3ec]',
+                mapFull
+                  ? 'fixed inset-0 z-50 max-h-none min-h-0 rounded-none'
+                  : 'h-[45vh] min-h-[300px] max-h-[560px] lg:h-full lg:max-h-none lg:min-h-[420px]',
+              )}
+              onPointerDown={(e) => {
+                mapDownRef.current = { x: e.clientX, y: e.clientY };
+              }}
+              onClick={(e) => {
+                const down = mapDownRef.current;
+                mapDownRef.current = null;
+                if (!down) return;
+                // 拖图（位移 >8px）与 marker/按钮上的点击不触发全屏切换
+                if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 8) return;
+                if ((e.target as HTMLElement).closest('button,.amap-marker')) return;
+                setMapFull((v) => !v);
+              }}
+            >
               <AmapMap
                 className="absolute inset-0"
                 points={mapPoints}
@@ -2028,6 +2103,14 @@ export function RouteResultClient({
                 {M.mapNote}
               </div>
               <div className="absolute right-3 top-3 flex flex-col gap-1">
+                <button
+                  type="button"
+                  aria-label={mapFull ? M.fsExitAria : M.fsEnterAria}
+                  onClick={() => setMapFull((v) => !v)}
+                  className="h-8 rounded-lg bg-white px-2 text-xs font-medium text-stone-600 shadow hover:bg-stone-50"
+                >
+                  {mapFull ? M.fsExit : M.fsEnter}
+                </button>
                 <button
                   type="button"
                   aria-label={M.zoomIn}

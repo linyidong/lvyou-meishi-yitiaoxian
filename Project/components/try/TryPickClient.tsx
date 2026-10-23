@@ -360,47 +360,7 @@ export function TryPickClient() {
         </Link>
       </div>
 
-      {/* 导入地点（普通用户是独立的 U06 导入页，游客合并到本页；不落库） */}
-      <div className="mt-5 rounded-2xl border border-stone-200 bg-white p-4 md:p-5">
-        <h2 className="flex items-center gap-1.5 text-sm font-semibold text-stone-900">
-          <Sparkles className="h-4 w-4 text-primary" />
-          {M.importTitle}
-        </h2>
-        <p className="mt-1 text-xs text-stone-500">{M.importDesc}</p>
-        <textarea
-          value={importText}
-          onChange={(e) => setImportText(e.target.value)}
-          rows={4}
-          maxLength={BUSINESS.MAX_IMPORT_TEXT_LENGTH}
-          placeholder={M.importPlaceholder}
-          className="mt-3 w-full resize-y rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-        />
-        <div className="mt-1.5 flex items-start gap-1 text-xs text-stone-500">
-          <Info className="mt-px h-3.5 w-3.5 shrink-0" />
-          <span>{M.importTip}</span>
-        </div>
-        {importError ? <p className="mt-2 text-xs text-red-600">{importError}</p> : null}
-        {importOk ? <p className="mt-2 text-xs text-emerald-600">{importOk}</p> : null}
-        <div className="mt-3 flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            disabled={importLoading || !importText.trim()}
-            onClick={doImport}
-            className="flex h-10 items-center gap-1.5 rounded-xl bg-gradient-to-r from-primary-from to-primary-to px-4 text-sm font-semibold text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {importLoading ? (
-              <Loader2 className="h-[18px] w-[18px] animate-spin md:h-4 md:w-4" />
-            ) : (
-              <Sparkles className="h-[18px] w-[18px] md:h-4 md:w-4" />
-            )}
-            {importLoading ? M.importLoading : M.importSubmit}
-          </button>
-          <span className="text-xs text-stone-400">
-            {importText.length} / {BUSINESS.MAX_IMPORT_TEXT_LENGTH}
-          </span>
-        </div>
-      </div>
-
+      {/* T-027：勾选列表区块上移、导入面板下移（手机端先看列表再导入） */}
       {/* 勾选地点 + 路线设置（与普通用户 U07 同构） */}
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
         <section className="min-w-0 rounded-2xl border border-stone-200 bg-white lg:col-span-2">
@@ -572,6 +532,47 @@ export function TryPickClient() {
             </button>
           </div>
         </aside>
+      </div>
+
+      {/* 导入地点（普通用户是独立的 U06 导入页，游客合并到本页；不落库）；T-027：移到勾选列表下方 */}
+      <div className="mt-6 rounded-2xl border border-stone-200 bg-white p-4 md:p-5">
+        <h2 className="flex items-center gap-1.5 text-sm font-semibold text-stone-900">
+          <Sparkles className="h-4 w-4 text-primary" />
+          {M.importTitle}
+        </h2>
+        <p className="mt-1 text-xs text-stone-500">{M.importDesc}</p>
+        <textarea
+          value={importText}
+          onChange={(e) => setImportText(e.target.value)}
+          rows={4}
+          maxLength={BUSINESS.MAX_IMPORT_TEXT_LENGTH}
+          placeholder={M.importPlaceholder}
+          className="mt-3 w-full resize-y rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+        />
+        <div className="mt-1.5 flex items-start gap-1 text-xs text-stone-500">
+          <Info className="mt-px h-3.5 w-3.5 shrink-0" />
+          <span>{M.importTip}</span>
+        </div>
+        {importError ? <p className="mt-2 text-xs text-red-600">{importError}</p> : null}
+        {importOk ? <p className="mt-2 text-xs text-emerald-600">{importOk}</p> : null}
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            disabled={importLoading || !importText.trim()}
+            onClick={doImport}
+            className="flex h-10 items-center gap-1.5 rounded-xl bg-gradient-to-r from-primary-from to-primary-to px-4 text-sm font-semibold text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {importLoading ? (
+              <Loader2 className="h-[18px] w-[18px] animate-spin md:h-4 md:w-4" />
+            ) : (
+              <Sparkles className="h-[18px] w-[18px] md:h-4 md:w-4" />
+            )}
+            {importLoading ? M.importLoading : M.importSubmit}
+          </button>
+          <span className="text-xs text-stone-400">
+            {importText.length} / {BUSINESS.MAX_IMPORT_TEXT_LENGTH}
+          </span>
+        </div>
       </div>
 
       {delTarget ? (

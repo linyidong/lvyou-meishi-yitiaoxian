@@ -1001,6 +1001,13 @@ export const MESSAGES = {
     removeLastOfDay: '每天至少保留 1 个地点，不能把这一天移空',
     removeDone: '已移除，里程与时间已按剩余地点重算',
     removeFailed: '移除失败，已恢复原来的列表，请稍后再试',
+    /** T-027：复位覆盖移除——快照保留首次系统推荐，复位失败时的提示（成功复用 TRY.RESULT.resetDone） */
+    resetFailed: '复位失败，已恢复当前列表，请稍后再试',
+    /** T-027：结果页地图全屏 */
+    fsEnter: '全屏',
+    fsExit: '退出全屏',
+    fsEnterAria: '地图全屏',
+    fsExitAria: '退出地图全屏',
     orderSaved: '顺序已保存',
     orderSaving: '保存顺序中…',
     orderFailed: '保存失败，已保留原顺序，请稍后重试',

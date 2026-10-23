@@ -24,6 +24,8 @@ export interface AMapInstance {
   setZooms(zooms: [number, number]): void;
   zoomIn(): void;
   zoomOut(): void;
+  /** 容器尺寸/布局变化后重新量取画布大小（T-027：地图全屏切换必须显式调用，resizeEnable 只监听窗口 resize） */
+  resize(): void;
   destroy(): void;
 }
 

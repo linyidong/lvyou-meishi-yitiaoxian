@@ -30,6 +30,7 @@ import { NAV_MODE, NAV_MODE_LABEL, NAV_MODE_VALUES, PLACE_TYPE } from '@/config/
 import { MESSAGES } from '@/config/messages';
 import { ROUTES } from '@/config/routes';
 import { AmapMap, type AmapPoint } from '@/components/map/AmapMap';
+import type { AMapInstance } from '@/lib/amap-loader';
 import { MemberUpsellCard } from '@/components/member/MemberUpsellCard';
 import { BUSINESS } from '@/config/business';
 import { clearTryDraft, readTryDraft, saveTryDraft, type TryDraft } from '@/lib/draft';
@@ -269,6 +270,10 @@ export function TryResultClient({ loggedIn }: { loggedIn: boolean }) {
   /** 正在按新顺序重算路段（此时禁用拖动与上下移动，避免并发改序） */
   const [reordering, setReordering] = useState(false);
   const [moveOpenId, setMoveOpenId] = useState<string | null>(null);
+  /** T-027：地图全屏态；mapApiRef 拿高德实例用于容器尺寸切换后显式 resize；mapDownRef 记录按下位置以区分点击与拖图 */
+  const [mapFull, setMapFull] = useState(false);
+  const mapApiRef = useRef<AMapInstance | null>(null);
+  const mapDownRef = useRef<{ x: number; y: number } | null>(null);
   /** 拖动/移动过程中的临时顺序：用于撤销（同步失败时回滚） */
   const orderReqRef = useRef(0);
   /** 最新草稿（手动调整顺序后会更新，用于「保存路线」落库当次看到的顺序） */
@@ -298,6 +303,30 @@ export function TryResultClient({ loggedIn }: { loggedIn: boolean }) {
     const timer = setTimeout(() => setToast(''), 2600);
     return () => clearTimeout(timer);
   }, [toast]);
+
+  /**
+   * T-027：地图全屏切换。
+   * 1) 容器类名变化高德不会自己感知（resizeEnable 只监听窗口 resize），切换后下一帧显式 resize()；
+   * 2) 全屏态按 ESC 退出。
+   */
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => {
+      try {
+        mapApiRef.current?.resize();
+      } catch {
+        // 高德内部异常不得冒泡（同 AmapMap 兜底口径）
+      }
+    });
+    if (!mapFull) return () => cancelAnimationFrame(raf);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMapFull(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      cancelAnimationFrame(raf);
+    };
+  }, [mapFull]);
 
   /** 交给 /api/try/order 的住宿参数（与首次请求同一份，服务端按落库缓存解析，不额外消耗额度） */
   const lodgingBody = useMemo(() => {
@@ -536,8 +565,8 @@ export function TryResultClient({ loggedIn }: { loggedIn: boolean }) {
         lodging: data.lodging ?? null,
       };
       setResult(nextResult);
-      // 复位快照同步为「移除后的集合」：旧快照含被移除地点，不更新的话「一键复位」会把它复活
-      initialOrderRef.current = nextResult;
+      // T-027：复位快照**不**随移除更新——保留首次系统推荐（含被移除地点），
+      // 这样「一键复位」能把被移除的地点带回来（orderDirty 按 sortIdOf 串比对，集合变化也会置真）。
       // 草稿同步：剔除被移除地点并按新顺序排列。只写 ref + sessionStorage，不 setDraft（否则会触发重排 effect 冲掉顺序，D-04/L5）。
       const rank = new Map(data.points.filter((p) => !p.isLodging).map((p, i) => [p.name, i]));
       const base = draftRef.current ?? draft;
@@ -560,16 +589,17 @@ export function TryResultClient({ loggedIn }: { loggedIn: boolean }) {
   }
 
   /**
-   * 一键复位（F-50）：还原到 initialOrderRef 的系统推荐快照（points+legs+总量成对还原）。
-   * 零请求——不调 /api/try/order、不消耗额度；只写 result state + draftRef + sessionStorage，
-   * 绝不 setDraft——否则会触发重排 effect 再发一次系统重排（D-04）。
+   * 一键复位（F-50 · T-027 扩展）：还原到 initialOrderRef 的系统推荐快照（points+legs+总量成对还原）。
+   * T-027：复位目标含**被移除的地点**——草稿集合以进页时的完整草稿（draft state，从未被移除改动）为准，
+   * 按快照顺序重排后写回 ref + sessionStorage，刷新后不丢地点。
+   * 零请求——不调 /api/try/order、不消耗额度；绝不 setDraft——否则会触发重排 effect 再发一次系统重排（D-04）。
    */
   function resetOrder() {
     const initial = initialOrderRef.current;
     if (!result || !initial || reordering || !orderDirty) return;
     orderReqRef.current += 1; // 防御：作废可能仍在途的 applyOrder 响应，避免覆盖复位结果
     setResult({ ...initial });
-    const base = draftRef.current ?? draft;
+    const base = draft ?? draftRef.current;
     if (base) {
       const rank = new Map(initial.points.filter((p) => !p.isLodging).map((p, i) => [p.name, i]));
       draftRef.current = {
@@ -761,12 +791,52 @@ export function TryResultClient({ loggedIn }: { loggedIn: boolean }) {
             {result.estimated ? <span className="text-xs text-amber-600">{M.estimatedTip}</span> : null}
           </div>
 
-          {/* 地图：可拖动、可缩放（与普通用户结果页一致） */}
-          <div className="mt-4 overflow-hidden rounded-2xl border border-stone-200 bg-white">
-            <div className="h-[45vh] min-h-[300px] max-h-[560px] w-full md:h-[380px]">
-              <AmapMap points={mapPoints} lines={mapLines} interactive />
+          {/* 地图：可拖动、可缩放（与普通用户结果页一致）；T-027：点地图/按钮/ESC 全屏切换 */}
+          <div
+            className={cn(
+              'mt-4 overflow-hidden rounded-2xl border border-stone-200 bg-white',
+              // mt-0：fixed inset-0 下 margin 会压缩盒子（实测顶部留 16px 缝），全屏时必须清零
+              mapFull && 'fixed inset-0 z-50 mt-0 rounded-none border-0',
+            )}
+          >
+            <div
+              className={cn(
+                'relative w-full',
+                mapFull ? 'h-full' : 'h-[45vh] min-h-[300px] max-h-[560px] md:h-[380px]',
+              )}
+              onPointerDown={(e) => {
+                mapDownRef.current = { x: e.clientX, y: e.clientY };
+              }}
+              onClick={(e) => {
+                const down = mapDownRef.current;
+                mapDownRef.current = null;
+                if (!down) return;
+                // 拖图（位移 >8px）与 marker/按钮上的点击不触发全屏切换
+                if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 8) return;
+                if ((e.target as HTMLElement).closest('button,.amap-marker')) return;
+                setMapFull((v) => !v);
+              }}
+            >
+              <AmapMap
+                points={mapPoints}
+                lines={mapLines}
+                interactive
+                onReady={(m) => {
+                  mapApiRef.current = m;
+                }}
+              />
+              <button
+                type="button"
+                aria-label={mapFull ? R.fsExitAria : R.fsEnterAria}
+                onClick={() => setMapFull((v) => !v)}
+                className="absolute right-3 top-3 z-10 rounded-lg bg-white px-2.5 py-1.5 text-xs font-medium text-stone-600 shadow hover:bg-stone-50"
+              >
+                {mapFull ? R.fsExit : R.fsEnter}
+              </button>
             </div>
-            <p className="border-t border-stone-100 px-4 py-2 text-xs text-stone-400">{M.mapNote}</p>
+            {!mapFull ? (
+              <p className="border-t border-stone-100 px-4 py-2 text-xs text-stone-400">{M.mapNote}</p>
+            ) : null}
           </div>
 
           {/* 顺序列表 + 分段 */}
