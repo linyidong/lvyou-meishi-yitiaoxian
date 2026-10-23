@@ -9,9 +9,10 @@ import { MESSAGES } from '@/config/messages';
  * 开关判断抽成纯函数 billingOrderBlocked，这里双向断言。
  */
 describe('T-025 内测模式付费开关', () => {
-  it('当前为内测模式：BILLING_ENABLED=false 且下单兜底判断为拦截', () => {
-    expect(BUSINESS.BILLING_ENABLED).toBe(false);
-    expect(billingOrderBlocked()).toBe(true);
+  it('兜底判断与开关保持一致：blocked 恒等于 !BILLING_ENABLED', () => {
+    // 2026-10-23 D-15 起开关已有意改为 true（小范围验证付费意愿），
+    // 这里不再硬编码当前配置值，只断言「拦截判断由开关驱动」这一不变量。
+    expect(billingOrderBlocked()).toBe(!BUSINESS.BILLING_ENABLED);
   });
 
   it('开关打开（企业主体 + 经营性备案就绪）后放行下单', () => {

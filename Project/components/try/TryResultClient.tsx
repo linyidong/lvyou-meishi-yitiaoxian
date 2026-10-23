@@ -33,6 +33,7 @@ import { AmapMap, type AmapPoint } from '@/components/map/AmapMap';
 import { MemberUpsellCard } from '@/components/member/MemberUpsellCard';
 import { BUSINESS } from '@/config/business';
 import { clearTryDraft, readTryDraft, saveTryDraft, type TryDraft } from '@/lib/draft';
+import { removePlaceAt, removePlaceByName } from '@/lib/place-removal';
 import { cn } from '@/lib/utils';
 import type { NavMode, PlaceType } from '@/types';
 
@@ -98,6 +99,7 @@ function SortablePlaceRow({
   onToggleMove,
   onStep,
   onMoveTo,
+  onRemove,
   legNode,
 }: {
   point: OrderPoint;
@@ -114,6 +116,8 @@ function SortablePlaceRow({
   onToggleMove: (open: boolean) => void;
   onStep: (delta: -1 | 1) => void;
   onMoveTo: (to: number) => void;
+  /** T-026 移除该地点（与上移/下移/移号同组） */
+  onRemove: () => void;
   legNode: React.ReactNode;
 }) {
   const R = MESSAGES.ROUTE_RESULT;
@@ -189,6 +193,15 @@ function SortablePlaceRow({
               )}
             >
               {R.orderMoveBtn}
+            </button>
+            <button
+              type="button"
+              aria-label={R.orderRemove}
+              disabled={reordering}
+              onClick={onRemove}
+              className="ml-1 grid h-7 place-items-center rounded-md border border-red-200 bg-white px-2 text-xs font-medium text-red-500 hover:bg-red-50 disabled:opacity-30"
+            >
+              {R.removeBtn}
             </button>
           </span>
         )}
@@ -462,6 +475,91 @@ export function TryResultClient({ loggedIn }: { loggedIn: boolean }) {
   }
 
   /**
+   * T-026 移除一个已选地点：过滤后按剩余子集调 /api/try/order（manual=true 走 reorder 限流桶）重算分段，
+   * 并把草稿同步（剔除同名地点 + 按新顺序排列），刷新后不复活。
+   * 剩余不足 GUEST_TRY_MIN_PLACES(2) 个禁止移除；失败回滚原列表并提示，绝不静默。
+   */
+  async function removePlace(index: number) {
+    if (!result || !draft || reordering) return;
+    const target = points[index];
+    if (!target || target.isLodging) return;
+
+    const movable = points.filter((p) => !p.isLodging);
+    const removal = removePlaceAt(movable, movable.findIndex((p) => p.name === target.name), BUSINESS.GUEST_TRY_MIN_PLACES);
+    if (!removal.ok) {
+      setToast(removal.reason === 'min' ? R.removeMin : R.removeFailed);
+      return;
+    }
+
+    const prev = result;
+    const reqId = orderReqRef.current + 1;
+    orderReqRef.current = reqId;
+    const next = points.filter((_, i) => i !== index);
+
+    setResult({ ...prev, points: next });
+    setMoveOpenId(null);
+    setReordering(true);
+
+    try {
+      const res = await fetch('/api/try/order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          // 住宿由服务端按 lodging 参数重新解析并固定在第 0 位，这里只送移除后剩下的非住宿地点
+          points: removal.next.map((p) => ({ lat: p.lat, lng: p.lng, name: p.name, type: p.type })),
+          mode,
+          cityAdcode: draft.cityAdcode,
+          manual: true,
+          lodging: lodgingBody,
+        }),
+      });
+      const data = (await res.json()) as { ok: boolean; message?: string } & Partial<OrderResult>;
+      if (orderReqRef.current !== reqId) return;
+      if (res.status === 429) {
+        setResult(prev);
+        setToast(M.reorderRateLimited);
+        return;
+      }
+      if (!data.ok || !data.points || !data.legs) {
+        setResult(prev);
+        setToast(R.removeFailed);
+        return;
+      }
+      const nextResult: OrderResult = {
+        ...prev,
+        points: data.points,
+        legs: data.legs,
+        distanceMeters: data.distanceMeters ?? 0,
+        durationSeconds: data.durationSeconds ?? 0,
+        estimated: Boolean(data.estimated),
+        lodgingResolved: Boolean(data.lodgingResolved),
+        lodging: data.lodging ?? null,
+      };
+      setResult(nextResult);
+      // 复位快照同步为「移除后的集合」：旧快照含被移除地点，不更新的话「一键复位」会把它复活
+      initialOrderRef.current = nextResult;
+      // 草稿同步：剔除被移除地点并按新顺序排列。只写 ref + sessionStorage，不 setDraft（否则会触发重排 effect 冲掉顺序，D-04/L5）。
+      const rank = new Map(data.points.filter((p) => !p.isLodging).map((p, i) => [p.name, i]));
+      const base = draftRef.current ?? draft;
+      const nextDraft: TryDraft = {
+        ...base,
+        places: removePlaceByName(base.places, target.name).sort(
+          (a, b) => (rank.get(a.name) ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.name) ?? Number.MAX_SAFE_INTEGER),
+        ),
+      };
+      draftRef.current = nextDraft;
+      saveTryDraft(nextDraft);
+      setToast(R.removeDone);
+    } catch {
+      if (orderReqRef.current !== reqId) return;
+      setResult(prev);
+      setToast(R.removeFailed);
+    } finally {
+      if (orderReqRef.current === reqId) setReordering(false);
+    }
+  }
+
+  /**
    * 一键复位（F-50）：还原到 initialOrderRef 的系统推荐快照（points+legs+总量成对还原）。
    * 零请求——不调 /api/try/order、不消耗额度；只写 result state + draftRef + sessionStorage，
    * 绝不 setDraft——否则会触发重排 effect 再发一次系统重排（D-04）。
@@ -722,6 +820,7 @@ export function TryResultClient({ loggedIn }: { loggedIn: boolean }) {
                       onToggleMove={(open) => setMoveOpenId(open ? sortIds[i] : null)}
                       onStep={(delta) => movePlace(i, i + delta)}
                       onMoveTo={(to) => movePlace(i, headCount + to)}
+                      onRemove={() => void removePlace(i)}
                       legNode={
                         i < points.length - 1 && result.legs[i] ? (
                           <div className="ml-[13px] flex items-center gap-2 border-l-2 border-dashed border-stone-200 py-1 pl-4 text-xs text-stone-500">

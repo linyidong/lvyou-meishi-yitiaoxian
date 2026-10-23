@@ -994,6 +994,13 @@ export const MESSAGES = {
     orderUp: '上移一位',
     orderDown: '下移一位',
     orderDrag: '拖动调整顺序',
+    /** T-026 移除已选地点：行内按钮（与上移/下移/移号同组）+ 结果提示，游客与会员结果页共用 */
+    orderRemove: '移除该地点',
+    removeBtn: '移除',
+    removeMin: '至少保留 2 个地点，不能再移除了',
+    removeLastOfDay: '每天至少保留 1 个地点，不能把这一天移空',
+    removeDone: '已移除，里程与时间已按剩余地点重算',
+    removeFailed: '移除失败，已恢复原来的列表，请稍后再试',
     orderSaved: '顺序已保存',
     orderSaving: '保存顺序中…',
     orderFailed: '保存失败，已保留原顺序，请稍后重试',

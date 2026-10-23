@@ -57,6 +57,7 @@ import { RouteShareButton } from '@/components/route/RouteShareButton';
 import type { AMapInstance } from '@/lib/amap-loader';
 import { cn } from '@/lib/utils';
 import type { AmapLeg, LodgingCoords } from '@/lib/amap';
+import { removePlaceAt } from '@/lib/place-removal';
 import { straightDist2 } from '@/lib/route-order';
 import {
   buildAmapAppUri,
@@ -456,6 +457,8 @@ function SortablePlaceRow({
   onToggleMove,
   onStep,
   onMoveTo,
+  onRemove,
+  removeDisabled,
   serial,
   isStart,
   isLodging,
@@ -479,6 +482,9 @@ function SortablePlaceRow({
   onToggleMove: (open: boolean) => void;
   onStep: (delta: -1 | 1) => void;
   onMoveTo: (to: number) => void;
+  /** T-026 移除该地点（与上移/下移/移号同组） */
+  onRemove: () => void;
+  removeDisabled: boolean;
   /** 左侧角标上显示的数字：出发点行是 0，其余是 1、2…（由父组件算好） */
   serial: number;
   /** 当天第 1 行 = 出发点行：名称右侧挂「修改出发点」 */
@@ -588,6 +594,15 @@ function SortablePlaceRow({
             )}
           >
             {M.orderMoveBtn}
+          </button>
+          <button
+            type="button"
+            aria-label={M.orderRemove}
+            disabled={removeDisabled}
+            onClick={onRemove}
+            className="ml-1 grid h-7 place-items-center rounded-md border border-red-200 bg-white px-2 text-xs font-medium text-red-500 hover:bg-red-50 disabled:opacity-30"
+          >
+            {M.removeBtn}
           </button>
         </div>
 
@@ -720,6 +735,10 @@ export function RouteResultClient({
   const [returnLegs, setReturnLegs] = useState<Record<number, AmapLeg>>({});
   const [returnBusy, setReturnBusy] = useState(false);
   const [returnFailed, setReturnFailed] = useState(false);
+  /** T-026 移除地点请求进行中：期间禁用全部行内操作，避免与防抖回写互相覆盖 */
+  const [removing, setRemoving] = useState(false);
+  /** route_places 当前落库的地点数：初始为进入页面时的总数，每次移除成功后随之减少 */
+  const dbTotalRef = useRef(totalPlaces);
 
   /** 副作用里读最新值：定时器等异步回调不能用闭包旧值 */
   const daysRef = useRef(localDays);
@@ -753,12 +772,13 @@ export function RouteResultClient({
         })),
       );
       // 保存接口是「先删后插」，一旦写进去的清单少了地点，那个地点就从路线里永久消失。
-      // 因此页面渲染出的地点数与 route_places 记录数不一致时（例如某条地点详情没取回来）拒绝回写。
-      if (items.length !== totalPlaces) {
+      // 因此页面渲染出的地点数与 route_places 落库数不一致时（例如某条地点详情没取回来）拒绝回写。
+      // T-026：落库数用 dbTotalRef（每次移除成功后同步递减），不再用进页时的固定总数。
+      if (items.length !== dbTotalRef.current) {
         console.warn(
           '[RouteResultClient] 跳过顺序回写：页面地点数与路线地点数不一致',
           items.length,
-          totalPlaces,
+          dbTotalRef.current,
         );
         setOrderState('failed');
         return;
@@ -772,7 +792,7 @@ export function RouteResultClient({
         .then((data: { ok?: boolean }) => setOrderState(data.ok ? 'saved' : 'failed'))
         .catch(() => setOrderState('failed'));
     }, 600);
-  }, [routeId, totalPlaces]);
+  }, [routeId]);
 
   /** 只重算某一天的路段（顺序已被用户改动，不再重排） */
   const recomputeDay = useCallback((dayIndex: number) => {
@@ -803,6 +823,7 @@ export function RouteResultClient({
   /** 用户改动顺序：先本地立即生效（地图随之重画），再防抖重算路段 + 回写顺序 */
   const movePlace = useCallback(
     (dayIndex: number, from: number, to: number) => {
+      if (removing) return; // T-026：移除请求在途时禁止改序，避免与移除的 PUT 互相覆盖
       if (from === to) return;
       setLocalDays((prev) =>
         prev.map((day) =>
@@ -812,7 +833,7 @@ export function RouteResultClient({
       recomputeDay(dayIndex);
       saveOrder();
     },
-    [recomputeDay, saveOrder],
+    [recomputeDay, saveOrder, removing],
   );
 
   /**
@@ -969,6 +990,8 @@ export function RouteResultClient({
 
   const visibleDays = activeDay === -1 ? localDays : localDays.filter((d) => d.dayIndex === activeDay);
   const stations = collectStations(visibleDays);
+  /** T-026：页面当前地点数（移除后随之减少）；meta 与底部汇总用它，而不是进页时的总数 */
+  const currentTotal = localDays.reduce((n, d) => n + d.places.length, 0);
 
   /**
    * 哪些地点就是住宿：名称互相包含，或坐标在 300 米内（同一个 POI 的两种写法）。
@@ -1022,6 +1045,85 @@ export function RouteResultClient({
     navTipTimer.current = window.setTimeout(() => setNavTip(''), 4000);
   }, []);
 
+  /**
+   * T-026 移除一个地点：先乐观更新列表，再 PUT /api/routes/[id]/places 把「剩余地点」原子落库（T-020 单事务）。
+   * 成功后按剩余顺序重算当天路段（reorder=false，尊重用户顺序；算不出时列表自动退回直线估算）；
+   * 失败（接口报错 / 非 2xx）回滚 UI 并提示，绝不静默。
+   * 下限：全路线剩余总数不足 2 个、或移空某一天时禁止移除。
+   */
+  const removePlace = useCallback(
+    async (dayIndex: number, index: number) => {
+      if (removing || navBusy) return;
+      const day = daysRef.current.find((d) => d.dayIndex === dayIndex);
+      const target = day?.places[index];
+      if (!day || !target) return;
+      const total = daysRef.current.reduce((n, d) => n + d.places.length, 0);
+      if (total - 1 < BUSINESS.GUEST_TRY_MIN_PLACES) {
+        showNavTip(M.removeMin);
+        return;
+      }
+      const removal = removePlaceAt(day.places, index, 1);
+      if (!removal.ok) {
+        showNavTip(removal.reason === 'min' ? M.removeLastOfDay : M.removeFailed);
+        return;
+      }
+
+      // 作废可能仍在防抖中的顺序回写，避免与本次移除的 PUT 互相覆盖
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      setRemoving(true);
+      const prevDays = daysRef.current;
+      const nextDays = prevDays.map((d) => (d.dayIndex === dayIndex ? { ...d, places: removal.next } : d));
+      setLocalDays(nextDays);
+      const items = nextDays.flatMap((d) =>
+        d.places.map((p, i) => ({ placeId: p.id, dayIndex: d.dayIndex, orderIndex: i })),
+      );
+
+      try {
+        const res = await fetch(`/api/routes/${routeId}/places`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items }),
+        });
+        const data = (await res.json()) as { ok?: boolean };
+        if (!res.ok || !data.ok) {
+          setLocalDays(prevDays);
+          setOrderState('failed');
+          showNavTip(M.removeFailed);
+          return;
+        }
+        dbTotalRef.current = items.length;
+        // 重算被改动那天的路段：剩余 ≥2 个点才需要，否则清掉旧路段（列表退回无分段）
+        const nextLegs = { ...dayLegsRef.current };
+        const points = coordsOf(removal.next);
+        if (points && points.length >= 2) {
+          const routeRes = await postRoute({ points, mode: modeRef.current, cityAdcode, reorder: false });
+          if (routeRes) nextLegs[dayIndex] = routeRes.legs;
+          else delete nextLegs[dayIndex];
+        } else {
+          delete nextLegs[dayIndex];
+        }
+        setDayLegs(nextLegs);
+        // 被移除的地点若是该天手动指定的出发点，清掉这条指定
+        let nextStartIds = customStartIds;
+        if (customStartIds[dayIndex] === target.id) {
+          nextStartIds = { ...customStartIds };
+          delete nextStartIds[dayIndex];
+          setCustomStartIds(nextStartIds);
+        }
+        // 复位快照同步为「移除后的集合」：旧快照含被移除地点，不更新的话「一键复位」会把它复活
+        initialOrderRef.current = { days: nextDays, legs: nextLegs, startIds: nextStartIds, estimated };
+        showNavTip(M.removeDone);
+      } catch {
+        setLocalDays(prevDays);
+        setOrderState('failed');
+        showNavTip(M.removeFailed);
+      } finally {
+        setRemoving(false);
+      }
+    },
+    [removing, navBusy, showNavTip, routeId, cityAdcode, customStartIds, estimated],
+  );
+
   /** 当前顺序是否已偏离系统推荐快照（渲染期派生，不加 state；F-50） */
   const orderDirty =
     !!initialOrderRef.current && orderKeyOf(localDays) !== orderKeyOf(initialOrderRef.current.days);
@@ -1032,7 +1134,7 @@ export function RouteResultClient({
    */
   function resetOrder() {
     const snap = initialOrderRef.current;
-    if (!snap || navBusy || orderState === 'saving' || !orderDirty) return;
+    if (!snap || navBusy || removing || orderState === 'saving' || !orderDirty) return;
     reqRef.current += 1; // 防御：作废可能仍在途的 syncRoute 响应，避免覆盖复位结果
     setLocalDays(snap.days);
     setDayLegs(snap.legs);
@@ -1392,7 +1494,7 @@ export function RouteResultClient({
 
   const many = days > 1;
   const meta = `${cityName ?? M.noCity} · ${many ? M.metaDays(days) : M.metaSingle} · ${M.metaCount(
-    totalPlaces,
+    currentTotal,
   )} · ${NAV_MODE_LABEL[mode]}`;
   const OrderIcon = MODE_ICON[mode];
   const orderStateText =
@@ -1606,7 +1708,7 @@ export function RouteResultClient({
                 <button
                   type="button"
                   onClick={resetOrder}
-                  disabled={!orderDirty || navBusy || orderState === 'saving' || !initialOrderRef.current}
+                  disabled={!orderDirty || navBusy || removing || orderState === 'saving' || !initialOrderRef.current}
                   className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {MESSAGES.TRY.RESULT.resetBtn}
@@ -1825,6 +1927,8 @@ export function RouteResultClient({
                                 setMoveOpenId(null);
                                 movePlace(day.dayIndex, i, to);
                               }}
+                              onRemove={() => void removePlace(day.dayIndex, i)}
+                              removeDisabled={removing || navBusy}
                               onPickStart={(to) => pickStart(day.dayIndex, to, day.places[to].id)}
                               legNode={
                                 info ? (
@@ -1947,7 +2051,7 @@ export function RouteResultClient({
 
         <div className="flex items-center justify-between border-t border-stone-100 bg-stone-50 px-5 py-3 text-xs text-stone-500 md:px-6">
           <span>
-            {totalKm > 0 ? M.total(totalKm.toFixed(1), M.duration(totalMin)) : M.totalPlaces(totalPlaces)}
+            {totalKm > 0 ? M.total(totalKm.toFixed(1), M.duration(totalMin)) : M.totalPlaces(currentTotal)}
           </span>
           <span>
             {M.generatedAt} {fmtDateTime(createdAt).slice(0, 10)}
