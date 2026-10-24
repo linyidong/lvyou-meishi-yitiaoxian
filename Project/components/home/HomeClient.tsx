@@ -15,6 +15,7 @@ import {
   Map,
   MapPinPlus,
   Route,
+  Share2,
   Sparkles,
 } from 'lucide-react';
 import { MESSAGES } from '@/config/messages';
@@ -22,6 +23,7 @@ import { ROUTES } from '@/config/routes';
 import { readDraft } from '@/lib/draft';
 import { PlaceGlyph } from '@/components/icons/PlaceGlyph';
 import { ImportCollectClient } from '@/components/home/ImportCollectClient';
+import { ShareImportDialog } from '@/components/share/ShareImportDialog';
 
 export interface HomeRouteItem {
   id: string;
@@ -42,6 +44,8 @@ export interface HomeClientProps {
   recentRoutes: HomeRouteItem[];
   draft: HomeDraft | null;
   collectedCount: number;
+  /** T-041 是否会员（member 或 role=admin）：决定「导入分享路线」按钮可否点击 */
+  isMember: boolean;
 }
 
 const STEP_STYLES = [
@@ -60,8 +64,9 @@ const SAMPLE_POINTS = [
 ] as const;
 
 /** U02 首页（Slogan 首屏 + 草稿提示 + 导入收藏 + 四步说明 + 最近路线 + 差异说明） */
-export function HomeClient({ isLoggedIn, recentRoutes, draft, collectedCount }: HomeClientProps) {
+export function HomeClient({ isLoggedIn, recentRoutes, draft, collectedCount, isMember }: HomeClientProps) {
   const [localDraft, setLocalDraft] = useState<{ city: string; count: number } | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   useEffect(() => {
     if (isLoggedIn) return;
@@ -121,7 +126,25 @@ export function HomeClient({ isLoggedIn, recentRoutes, draft, collectedCount }: 
                 {MESSAGES.NAV_LOGIN_REGISTER}
               </Link>
             )}
+            {/* T-041 导入分享路线：会员可点，正常用户/游客灰色禁用 + 会员提示 */}
+            <button
+              type="button"
+              onClick={() => setImportOpen(true)}
+              disabled={!isMember}
+              title={isMember ? undefined : MESSAGES.SHARE.importMemberOnly}
+              className={
+                isMember
+                  ? 'flex h-12 items-center justify-center gap-2 rounded-xl border border-stone-300 px-6 font-medium text-stone-700 hover:bg-stone-50'
+                  : 'flex h-12 items-center justify-center gap-2 rounded-xl border border-stone-200 bg-stone-100 px-6 font-medium text-stone-400'
+              }
+            >
+              <Share2 className="h-4 w-4" />
+              {MESSAGES.SHARE.importHomeBtn}
+            </button>
           </div>
+          {!isMember ? (
+            <p className="mt-2 text-xs text-stone-400">{MESSAGES.SHARE.importMemberOnly}</p>
+          ) : null}
           <p className="mt-3 text-xs text-stone-500">{MESSAGES.GUEST_TRY_HINT}</p>
         </div>
 
@@ -307,6 +330,9 @@ export function HomeClient({ isLoggedIn, recentRoutes, draft, collectedCount }: 
           </ul>
         </div>
       </section>
+
+      {/* T-041 导入分享路线弹层 */}
+      <ShareImportDialog open={importOpen} onClose={() => setImportOpen(false)} />
     </>
   );
 }

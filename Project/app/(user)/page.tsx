@@ -5,6 +5,7 @@ import {
   type HomeDraft,
   type HomeRouteItem,
 } from '@/components/home/HomeClient';
+import { getQuotaProfile } from '@/lib/member-quota';
 import { createClient } from '@/lib/supabase/server';
 import type { Transport } from '@/types';
 
@@ -18,8 +19,12 @@ export default async function HomePage() {
   let recentRoutes: HomeRouteItem[] = [];
   let draft: HomeDraft | null = null;
   let collectedCount = 0;
+  // T-041 「导入分享路线」按钮的会员判定：member 或 role=admin（游客恒为 false）
+  let isMember = false;
 
   if (user) {
+    const { tier } = await getQuotaProfile(user.id);
+    isMember = tier !== 'free';
     const [routesRes, citiesRes, placesRes] = await Promise.all([
       supabase
         .from('routes')
@@ -69,6 +74,7 @@ export default async function HomePage() {
       recentRoutes={recentRoutes}
       draft={draft}
       collectedCount={collectedCount}
+      isMember={isMember}
     />
   );
 }

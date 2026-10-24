@@ -28,7 +28,7 @@ export default async function MyRoutesPage() {
     supabase
       .from('routes')
       .select(
-        'id,title,days,transport,city_id,origin_city,intercity_mode,lodging_type,lodging_area,lodging_name,lodging_nights,created_at',
+        'id,title,days,transport,city_id,origin_city,intercity_mode,lodging_type,lodging_area,lodging_name,lodging_nights,created_at,imported_from',
       )
       .eq('user_id', user.id)
       .order('created_at', { ascending: false }),
@@ -91,6 +91,7 @@ export default async function MyRoutesPage() {
     lodgingLabel: r.lodging_type ? LODGING_TYPE_LABEL[r.lodging_type as LodgingType] : null,
     lodgingNights: r.lodging_nights,
     points: pointsByRoute.get(r.id) ?? [],
+    importedFrom: (r as { imported_from?: string | null }).imported_from ?? null,
   }));
 
   return <MyRoutesClient routes={items} />;

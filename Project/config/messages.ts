@@ -493,6 +493,9 @@ export const MESSAGES = {
     deniedTitle: '登录后才能查看我的路线',
     deniedDesc: '路线需要保存到账号，未登录时只保留一份本地草稿',
     login: '登录 / 注册',
+    /** T-041 拆分两个模块：自建路线 / 由分享导入的路线（无数据时后者不显示） */
+    sectionMine: '我的路线',
+    sectionShared: '会员分享路线',
   },
   /** M141 U04 选择城市：标题、三段说明、搜索占位、热门区标题与底部选择条（按原型原文，不复用 M51-M69） */
   CITY_HERO: {
@@ -1603,6 +1606,24 @@ export const MESSAGES = {
     posterAlt: '路线海报图片',
     posterGuestTip: '完整路线与导入为会员功能，注册登录后升级会员即可使用。',
     posterGuestCta: '注册 / 登录',
+    /** T-041 首页「导入分享路线」入口 + 导入弹层 */
+    importHomeBtn: '导入分享路线',
+    importMemberOnly: '会员可用该功能',
+    dialogTitle: '导入分享路线',
+    dialogDesc: '粘贴会员分享的路线链接（或直接粘贴 token），选择导入方式',
+    inputLabel: '分享链接 / token',
+    inputPlaceholder: '例如 https://…/share/xxxxxxxx，或直接粘贴 token',
+    modeRouteTitle: '建成我的路线',
+    modeRouteDesc: '复制快照全部地点并在自己账号下新建一条路线（占用路线额度）',
+    modePlacesTitle: '只收藏地点',
+    modePlacesDesc: '只把地点写入收藏夹，不新建路线、不占路线额度',
+    submit: '开始导入',
+    submitting: '导入中…',
+    invalidInput: '链接格式不正确，请粘贴完整的分享链接或 token',
+    doneRoute: '已生成路线，可在「我的路线」的「会员分享路线」中查看',
+    donePlaces: (n: number) => `已收藏 ${n} 个地点`,
+    goMyRoutes: '去我的路线',
+    goCollected: '去我的收藏夹',
   },
   /** M343 游客试用（免登录）：设置路线 / 挑选地点 / 查看结果三步（草稿存 sessionStorage，关闭页面即清空） */
   TRY: {

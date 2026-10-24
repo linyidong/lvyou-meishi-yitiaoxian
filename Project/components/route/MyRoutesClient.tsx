@@ -54,6 +54,8 @@ export interface MyRouteItem {
   lodgingNights: number | null;
   /** 迷你路线图坐标点，无坐标地点不参与 */
   points: MyRoutePoint[];
+  /** T-041 分享导入来源 token；非空 = 由会员分享路线导入，归入「会员分享路线」模块 */
+  importedFrom?: string | null;
 }
 
 /** 按天配色（与原型一致的 5 色循环；第 1 天用主色起点色） */
@@ -118,6 +120,74 @@ export function MyRoutesClient({
     () => (city === M.all ? routes : routes.filter((r) => r.cityName === city)),
     [routes, city, M.all],
   );
+
+  // T-041 拆两个模块：自建路线（importedFrom 为空）与由分享导入的路线（非空）
+  const mine = useMemo(() => filtered.filter((r) => !r.importedFrom), [filtered]);
+  const shared = useMemo(() => filtered.filter((r) => r.importedFrom), [filtered]);
+
+  const renderCard = (r: MyRouteItem) => {
+    const TransportIcon = TRANSPORT_ICON[r.transport];
+    return (
+      <article
+        key={r.id}
+        className="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white"
+      >
+        <div
+          className="relative h-36 bg-teal-50"
+          style={{
+            backgroundImage:
+              'linear-gradient(#ccfbf1 1px,transparent 1px),linear-gradient(90deg,#ccfbf1 1px,transparent 1px)',
+            backgroundSize: '16px 16px',
+          }}
+        >
+          <AmapMap
+            className="absolute inset-0"
+            points={r.points.map((p) => ({ lat: p.lat, lng: p.lng, food: p.food }))}
+            lines={toLines(r.points)}
+          />
+          <span className="absolute left-3 top-3 rounded-lg bg-white/90 px-2 py-1 text-xs font-medium">
+            {r.cityName ?? MESSAGES.UNSPECIFIED_CITY}
+          </span>
+          <span className="absolute right-3 top-3 flex items-center gap-1 rounded-lg bg-stone-900 px-2 py-1 text-xs text-white">
+            <TransportIcon className="h-4 w-4" />
+            {TRANSPORT_LABEL[r.transport]}
+          </span>
+        </div>
+        <div className="flex flex-1 flex-col p-4">
+          <h3 className="font-semibold text-stone-900">{r.title}</h3>
+          <p className="mt-1 text-xs text-stone-500">
+            {M.meta(r.days, r.placeCount, r.foodCount, fmtTime(r.createdAt))}
+          </p>
+          <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-stone-500">
+            <span className="inline-flex items-center gap-1">
+              <MapPin className="h-4 w-4 text-primary" />
+              {r.originCity ? M.originFrom(r.originCity) : M.originPending}
+            </span>
+            {r.lodgingLabel ? (
+              <span className="inline-flex items-center gap-1">
+                <BedDouble className="h-4 w-4 text-violet-500" />
+                {M.lodging(r.lodgingLabel, r.lodgingNights)}
+              </span>
+            ) : null}
+          </p>
+          <div className="mt-auto grid grid-cols-2 gap-2 pt-4">
+            <Link
+              href={ROUTES.ROUTE_DETAIL(r.id)}
+              className="flex h-9 items-center justify-center rounded-lg bg-gradient-to-r from-primary-from to-primary-to text-sm font-medium text-white hover:brightness-110"
+            >
+              {M.view}
+            </Link>
+            <Link
+              href={ROUTES.ROUTE_EDIT(r.id)}
+              className="flex h-9 items-center justify-center rounded-lg border border-stone-300 text-sm hover:bg-stone-50"
+            >
+              {M.edit}
+            </Link>
+          </div>
+        </div>
+      </article>
+    );
+  };
 
   return (
     <>
@@ -186,71 +256,21 @@ export function MyRoutesClient({
             ))}
           </div>
 
-          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((r) => {
-              const TransportIcon = TRANSPORT_ICON[r.transport];
-              return (
-                <article
-                  key={r.id}
-                  className="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white"
-                >
-                  <div
-                    className="relative h-36 bg-teal-50"
-                    style={{
-                      backgroundImage:
-                        'linear-gradient(#ccfbf1 1px,transparent 1px),linear-gradient(90deg,#ccfbf1 1px,transparent 1px)',
-                      backgroundSize: '16px 16px',
-                    }}
-                  >
-                    <AmapMap
-                      className="absolute inset-0"
-                      points={r.points.map((p) => ({ lat: p.lat, lng: p.lng, food: p.food }))}
-                      lines={toLines(r.points)}
-                    />
-                    <span className="absolute left-3 top-3 rounded-lg bg-white/90 px-2 py-1 text-xs font-medium">
-                      {r.cityName ?? MESSAGES.UNSPECIFIED_CITY}
-                    </span>
-                    <span className="absolute right-3 top-3 flex items-center gap-1 rounded-lg bg-stone-900 px-2 py-1 text-xs text-white">
-                      <TransportIcon className="h-4 w-4" />
-                      {TRANSPORT_LABEL[r.transport]}
-                    </span>
-                  </div>
-                  <div className="flex flex-1 flex-col p-4">
-                    <h3 className="font-semibold text-stone-900">{r.title}</h3>
-                    <p className="mt-1 text-xs text-stone-500">
-                      {M.meta(r.days, r.placeCount, r.foodCount, fmtTime(r.createdAt))}
-                    </p>
-                    <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-stone-500">
-                      <span className="inline-flex items-center gap-1">
-                        <MapPin className="h-4 w-4 text-primary" />
-                        {r.originCity ? M.originFrom(r.originCity) : M.originPending}
-                      </span>
-                      {r.lodgingLabel ? (
-                        <span className="inline-flex items-center gap-1">
-                          <BedDouble className="h-4 w-4 text-violet-500" />
-                          {M.lodging(r.lodgingLabel, r.lodgingNights)}
-                        </span>
-                      ) : null}
-                    </p>
-                    <div className="mt-auto grid grid-cols-2 gap-2 pt-4">
-                      <Link
-                        href={ROUTES.ROUTE_DETAIL(r.id)}
-                        className="flex h-9 items-center justify-center rounded-lg bg-gradient-to-r from-primary-from to-primary-to text-sm font-medium text-white hover:brightness-110"
-                      >
-                        {M.view}
-                      </Link>
-                      <Link
-                        href={ROUTES.ROUTE_EDIT(r.id)}
-                        className="flex h-9 items-center justify-center rounded-lg border border-stone-300 text-sm hover:bg-stone-50"
-                      >
-                        {M.edit}
-                      </Link>
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
+          {/* T-041 「我的路线」模块：自建路线 */}
+          {mine.length > 0 ? (
+            <section className="mt-4">
+              <h2 className="text-lg font-bold text-stone-900">{M.sectionMine}</h2>
+              <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{mine.map(renderCard)}</div>
+            </section>
+          ) : null}
+
+          {/* T-041 「会员分享路线」模块：由分享导入的路线，无数据时不显示 */}
+          {shared.length > 0 ? (
+            <section className="mt-8">
+              <h2 className="text-lg font-bold text-stone-900">{M.sectionShared}</h2>
+              <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{shared.map(renderCard)}</div>
+            </section>
+          ) : null}
 
           <p className="mt-6 text-center text-xs text-stone-400">{M.footnote}</p>
 
