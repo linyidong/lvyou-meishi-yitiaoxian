@@ -5,6 +5,7 @@
  */
 import { BUSINESS } from './business';
 import { PLACE_TYPE } from './enums';
+import type { PlaceIconKey } from '@/lib/place-icon';
 
 export const MESSAGES = {
   /** M01 只粘贴了链接 */
@@ -229,6 +230,8 @@ export const MESSAGES = {
       PLACE_TYPE.FOOD,
       PLACE_TYPE.ATTRACTION,
     ],
+    /** T-036 示意路线各站点图标语义（与 stations 顺序一一对应，见 lib/place-icon.ts） */
+    stationIconKeys: ['street', 'bowl', 'park', 'dumpling', 'shopping'] as PlaceIconKey[],
     /** U01 左侧面板示意路线脚注 */
     footNote: '步行约 3.2 公里 · 示意路线',
     /** U02 右侧示意图脚注 */

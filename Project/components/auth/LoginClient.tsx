@@ -4,12 +4,13 @@ import { Fragment, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Eye, EyeOff, Footprints, Info, LoaderCircle, Lock, Mail, Mountain, Rocket, Save, Soup, User } from 'lucide-react';
+import { Eye, EyeOff, Footprints, Info, LoaderCircle, Lock, Mail, Rocket, Save, User } from 'lucide-react';
 import { BUSINESS } from '@/config/business';
 import { PLACE_TYPE } from '@/config/enums';
 import { MESSAGES } from '@/config/messages';
 import { PRODUCT } from '@/config/product';
 import { ROUTES } from '@/config/routes';
+import { PlaceGlyph } from '@/components/icons/PlaceGlyph';
 
 type Tab = 'login' | 'register';
 
@@ -240,11 +241,11 @@ export function LoginClient({
                             isFood ? 'bg-amber-500' : 'bg-teal-500'
                           }`}
                         >
-                          {isFood ? (
-                            <Soup className="h-4 w-4 text-white" />
-                          ) : (
-                            <Mountain className="h-4 w-4 text-white" />
-                          )}
+                          {/* T-036/037：按站点语义取图标（街巷/碗/树/饺子/购物），18px 更可辨 */}
+                          <PlaceGlyph
+                            iconKey={MESSAGES.SAMPLE_ROUTE.stationIconKeys[i]}
+                            className="h-[18px] w-[18px] text-white"
+                          />
                           <span className="absolute -bottom-1 -right-1 grid h-4 w-4 place-items-center rounded-full bg-white text-[10px] font-bold leading-none text-stone-700 shadow">
                             {i + 1}
                           </span>

@@ -20,6 +20,7 @@ import {
 import { MESSAGES } from '@/config/messages';
 import { ROUTES } from '@/config/routes';
 import { readDraft } from '@/lib/draft';
+import { PlaceGlyph } from '@/components/icons/PlaceGlyph';
 import { ImportCollectClient } from '@/components/home/ImportCollectClient';
 
 export interface HomeRouteItem {
@@ -146,11 +147,21 @@ export function HomeClient({ isLoggedIn, recentRoutes, draft, collectedCount }: 
               strokeLinecap="round"
               strokeWidth="4"
             />
-            <g fontSize="12" fontWeight="700" textAnchor="middle">
-              {SAMPLE_POINTS.map((p) => (
+            <g fontWeight="700" textAnchor="middle">
+              {SAMPLE_POINTS.map((p, i) => (
                 <g key={p.n}>
-                  <circle cx={p.x} cy={p.y} r={13} fill={p.fill} />
-                  <text fill="#fff" x={p.x} y={p.y + 4}>
+                  {/* T-037：圆 r 13→15、图标 18px；T-038：改为显式 size/x/y 渲染（去掉嵌套 viewport，
+                      lucide 与自绘分支统一 18×18，实测宽度不再受图标自身宽高比影响） */}
+                  <circle cx={p.x} cy={p.y} r={15} fill={p.fill} />
+                  <PlaceGlyph
+                    iconKey={MESSAGES.SAMPLE_ROUTE.stationIconKeys[i]}
+                    size={18}
+                    x={p.x - 9}
+                    y={p.y - 9}
+                    style={{ color: '#fff' }}
+                  />
+                  <circle cx={p.x + 11} cy={p.y + 11} r={6.5} fill="#fff" />
+                  <text fontSize="8.5" fill={p.fill} x={p.x + 11} y={p.y + 14}>
                     {p.n}
                   </text>
                 </g>
