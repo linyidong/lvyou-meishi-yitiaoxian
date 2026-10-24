@@ -19,6 +19,7 @@ import { AdminEmptyState, AdminErrorState } from '@/components/admin/AdminState'
 import { AdminShell } from '@/components/layout/AdminShell';
 import { getAmapUsage } from '@/lib/amap-usage';
 import { webKeyLabel } from '@/lib/amap-key-pool';
+import { getOcrMonthlyUsage } from '@/lib/ocr-usage';
 import { createClient } from '@/lib/supabase/server';
 
 const M = MESSAGES.ADMIN_OVERVIEW;
@@ -132,6 +133,12 @@ export default async function AdminHomePage() {
 
   // 本月高德用量（service_role 查询，进程内缓存 60 秒；查询失败静默降级为空用量）
   const usage = await getAmapUsage();
+
+  // T-048 本月图片 OCR 识别用量（user_daily_usage kind='ocr' 求和；查询失败降级为 0）
+  const ocrMonthUsed = await getOcrMonthlyUsage();
+  const ocrQuota = BUSINESS.OCR_MONTHLY_QUOTA;
+  const ocrPercent = ocrQuota > 0 ? Math.min(100, Math.round((ocrMonthUsed / ocrQuota) * 100)) : 0;
+  const ocrRemain = Math.max(0, ocrQuota - ocrMonthUsed);
 
   const totalUsers = usersRes.count ?? 0;
   const memberUsers = membersRes.count ?? 0;
@@ -273,7 +280,9 @@ export default async function AdminHomePage() {
             </Link>
           </div>
 
-          <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
+          {/* T-048：高德与 OCR 用量并排（OCR 占右侧一栏） */}
+          <div className="mt-6 grid gap-4 lg:grid-cols-3">
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 lg:col-span-2">
             <div className="flex items-center justify-between">
               <h2 className="font-semibold text-slate-900">{M.usageTitle}</h2>
               <span className="text-xs text-slate-400">{M.usagePercent(usage.percent)}</span>
@@ -335,6 +344,25 @@ export default async function AdminHomePage() {
               </>
             )}
           </section>
+
+          {/* T-048 本月图片 OCR 识别用量（视觉与上方高德用量卡片一致；数据源 user_daily_usage kind='ocr'） */}
+          <section className="rounded-2xl border border-slate-200 bg-white p-5">
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold text-slate-900">{M.ocrUsageTitle}</h2>
+              <span className="text-xs text-slate-400">{M.usagePercent(ocrPercent)}</span>
+            </div>
+            <div className="mt-3 flex flex-wrap items-end gap-x-6 gap-y-1">
+              <p className="text-2xl font-bold text-slate-900">
+                {M.ocrUsageMonth(ocrMonthUsed, ocrQuota)}
+              </p>
+              <p className="text-sm text-slate-500">{M.ocrUsageRemain(ocrRemain)}</p>
+            </div>
+            {ocrMonthUsed === 0 ? (
+              <p className="mt-3 text-sm text-slate-500">{M.ocrUsageEmpty}</p>
+            ) : null}
+          </section>
+
+</div>
 
           <div className="mt-6 grid gap-4 lg:grid-cols-3">
             <section className="rounded-2xl border border-slate-200 bg-white p-5 lg:col-span-2">

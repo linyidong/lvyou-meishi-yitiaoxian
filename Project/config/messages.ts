@@ -1283,6 +1283,11 @@ export const MESSAGES = {
       `用量已达 ${percent}%，已进入配额保护模式（部分高德调用被降级）`,
     usageEmpty: '本月暂无高德调用记录',
     usageUnavailable: '用量数据暂时无法获取',
+    /** T-048 本月图片 OCR 识别用量卡片（额度 BUSINESS.OCR_MONTHLY_QUOTA，数据源 user_daily_usage kind='ocr'） */
+    ocrUsageTitle: '本月图片 OCR 识别用量',
+    ocrUsageMonth: (used: number, quota: number) => `本月已用 ${used} / ${quota}`,
+    ocrUsageRemain: (remain: number) => `剩余 ${remain} 次`,
+    ocrUsageEmpty: '本月暂无图片 OCR 识别记录',
     emptyTitle: '暂无数据',
     emptyDesc: '产品上线后，用户、地点、路线和导入数据会显示在这里',
     errorTitle: '概览数据加载失败',

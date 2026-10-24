@@ -135,9 +135,63 @@ describe('stripDataUriPrefix', () => {
 });
 
 /**
- * 内存日限额：模块内部是 Map 计数，用 vi.resetModules + 动态 import 保证每个用例拿到全新模块
- * （与 tests/unit/guest-rate-limit.test.ts 同款做法）。
+ * T-048 OCR 用量持久化（lib/ocr-usage.ts）：mock service_role 客户端，
+ * 用内存 Map 模拟 user_daily_usage（kind='ocr'）与迁移 020 的两个 RPC，
+ * 覆盖累加返回值 / 用户隔离 / 跨天清零 / 计数失败降级放行 / 本月求和。
  */
+const usageStore = vi.hoisted(() => ({
+  /** key = `${userId}|${day}`，value = count（模拟 user_daily_usage 单行） */
+  rows: new Map<string, number>(),
+  /** true = 所有 rpc / 查询失败（模拟 Supabase 不可用，验证降级放行） */
+  fail: false,
+}));
+
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: () => ({
+    rpc: async (fn: string, args: Record<string, string | number>) => {
+      if (usageStore.fail) throw new Error('mock supabase down');
+      const key = `${args.p_user_id}|${args.p_day}`;
+      if (fn === 'get_user_daily_usage') {
+        return { data: usageStore.rows.get(key) ?? 0, error: null };
+      }
+      if (fn === 'bump_user_daily_usage') {
+        usageStore.rows.set(key, (usageStore.rows.get(key) ?? 0) + Number(args.p_count));
+        return { data: null, error: null };
+      }
+      throw new Error(`unexpected rpc: ${fn}`);
+    },
+    from: () => {
+      const filters: Array<[string, string]> = [];
+      const builder = {
+        select: () => builder,
+        eq: (col: string, val: string) => {
+          filters.push([col, val]);
+          return builder;
+        },
+        gte: (col: string, val: string) => {
+          filters.push([col, val]);
+          return builder;
+        },
+        then: (resolve: (v: { data: unknown; error: Error | null }) => void) => {
+          if (usageStore.fail) {
+            resolve({ data: null, error: new Error('mock supabase down') });
+            return;
+          }
+          const minDay = filters.find(([c]) => c === 'day')?.[1] ?? '0000-01-01';
+          const data: Array<{ count: number }> = [];
+          for (const [k, v] of usageStore.rows) {
+            const day = k.split('|')[1];
+            if (day >= minDay) data.push({ count: v });
+          }
+          resolve({ data, error: null });
+        },
+      };
+      return builder;
+    },
+  }),
+}));
+
+/** 模块内部无状态（计数在 mock 的 store 里），仍沿用 resetModules + 动态 import 拿新模块 */
 type UsageModule = typeof import('@/lib/ocr-usage');
 
 async function freshUsageModule(): Promise<UsageModule> {
@@ -146,6 +200,8 @@ async function freshUsageModule(): Promise<UsageModule> {
 }
 
 beforeEach(() => {
+  usageStore.rows.clear();
+  usageStore.fail = false;
   vi.useFakeTimers();
   vi.setSystemTime(new Date('2026-01-15T10:00:00'));
 });
@@ -154,33 +210,50 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('ocr-usage 每人每日限额', () => {
-  it('上限取 BUSINESS.OCR_DAILY_LIMIT（20）', async () => {
+describe('ocr-usage 每人每日限额（DB 持久化，T-048）', () => {
+  it('每日上限取 BUSINESS.OCR_DAILY_LIMIT（20）', async () => {
     const { ocrDailyLimit } = await freshUsageModule();
     expect(ocrDailyLimit()).toBe(BUSINESS.OCR_DAILY_LIMIT);
     expect(BUSINESS.OCR_DAILY_LIMIT).toBe(20);
   });
 
-  it('同一用户累加到上限后拒绝继续（第 20 次后 used>=limit）', async () => {
+  it('同一用户累加到上限（第 20 次 bump 返回 20，getOcrUsage=20）', async () => {
     const { bumpOcrUsage, getOcrUsage } = await freshUsageModule();
     for (let i = 1; i <= 20; i++) {
-      expect(bumpOcrUsage('user-a')).toBe(i);
+      expect(await bumpOcrUsage('user-a')).toBe(i);
     }
-    expect(getOcrUsage('user-a')).toBe(20);
+    expect(await getOcrUsage('user-a')).toBe(20);
   });
 
   it('不同用户互不影响', async () => {
     const { bumpOcrUsage, getOcrUsage } = await freshUsageModule();
-    bumpOcrUsage('user-a');
-    bumpOcrUsage('user-a');
-    expect(getOcrUsage('user-b')).toBe(0);
+    await bumpOcrUsage('user-a');
+    await bumpOcrUsage('user-a');
+    expect(await getOcrUsage('user-b')).toBe(0);
   });
 
-  it('跨天自动清零（按服务器本地日期口径）', async () => {
+  it('跨天自动清零（按服务器本地日期口径，day 桶键变化）', async () => {
     const { bumpOcrUsage, getOcrUsage } = await freshUsageModule();
-    bumpOcrUsage('user-a');
-    expect(getOcrUsage('user-a')).toBe(1);
+    await bumpOcrUsage('user-a');
+    expect(await getOcrUsage('user-a')).toBe(1);
     vi.setSystemTime(new Date('2026-01-16T00:00:01'));
-    expect(getOcrUsage('user-a')).toBe(0);
+    expect(await getOcrUsage('user-a')).toBe(0);
+  });
+
+  it('计数失败降级放行：读返回 0、累加不抛错', async () => {
+    const { bumpOcrUsage, getOcrUsage } = await freshUsageModule();
+    usageStore.fail = true;
+    expect(await getOcrUsage('user-a')).toBe(0);
+    expect(await bumpOcrUsage('user-a')).toBe(0);
+  });
+
+  it('本月求和：只计 day >= 本月 1 日的行（上月旧行不计入）', async () => {
+    const { bumpOcrUsage, getOcrMonthlyUsage } = await freshUsageModule();
+    await bumpOcrUsage('user-a'); // 2026-01-15
+    await bumpOcrUsage('user-b');
+    vi.setSystemTime(new Date('2026-01-20T10:00:00'));
+    await bumpOcrUsage('user-a'); // 本月第 3 次
+    usageStore.rows.set('user-c|2025-12-31', 5); // 上月行，不应计入
+    expect(await getOcrMonthlyUsage()).toBe(3);
   });
 });

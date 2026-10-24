@@ -14,8 +14,8 @@ import { OcrError, ocrImageBase64, readOcrEnv, sniffImageMime } from '@/lib/tenc
  * 校验：真实格式为 jpeg/png/webp（按魔数嗅探）、大小 ≤ 7MB、每人每日 OCR_DAILY_LIMIT 次。
  * 返回 { ok: true, text, lineCount }；识别文本回填前端文本框后复用 /api/ai/extract 流程。
  * 图片只在内存 Buffer 中处理一次：绝不写文件、不进 Storage、不入库（任务卡铁律）。
- * 限额计数走 lib/ocr-usage.ts 内存计数（user_daily_usage 的 kind 约束不含 'ocr'，
- * 加值需 DB 迁移、超出本任务批准范围；任务卡允许「若不便则用内存计数并说明」）。
+ * 限额计数走 lib/ocr-usage.ts 持久化计数（T-048：user_daily_usage kind='ocr'，
+ * 迁移 031 已放宽约束；重启不清零、多实例共享，修复 known-issues A9）。
  */
 export async function POST(request: NextRequest) {
   const supabase = createClient();
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
   }
 
   // 每日限额（识别成功才计数；超限 429）
-  const used = getOcrUsage(user.id);
+  const used = await getOcrUsage(user.id);
   const limit = ocrDailyLimit();
   if (used >= limit) {
     return NextResponse.json(
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const { text, lineCount } = await ocrImageBase64(buf.toString('base64'));
-    bumpOcrUsage(user.id);
+    await bumpOcrUsage(user.id);
     return NextResponse.json({ ok: true, text, lineCount });
   } catch (err) {
     const code = err instanceof OcrError ? err.code : 'OCR_FAILED';

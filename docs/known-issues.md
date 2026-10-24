@@ -109,9 +109,9 @@
 - 处理：`npm run dev` 重启后全部 200，确认非代码缺陷。
 - 规避：批量改动后重启 dev server 再验收；`npm run audit:mobile` / `test:e2e` 前先确认首页 200。
 
-## A9 OCR 每日限流为内存计数（2026-10-24 T-044）
+## ~~A9~~ OCR 每日限流为内存计数（2026-10-24 T-044）→ **已修复（T-048，2026-10-24 23:09）**
 
-- 现状：`lib/ocr-usage.ts` 用进程内 Map 记每日 OCR 次数（20 次/日）。
-- 原因：`user_daily_usage.kind` CHECK 约束未包含 `ocr`，加值需 DB 迁移，本次未授权写库。
-- 影响：进程重启后计数清零；多实例部署不共享。
-- 处理建议：正式运营前补迁移放宽约束并改 DB 计数（接口签名不变）。
+- 原现状：`lib/ocr-usage.ts` 用进程内 Map 记每日 OCR 次数（20 次/日）。
+- 原原因：`user_daily_usage.kind` CHECK 约束未包含 `ocr`，加值需 DB 迁移，T-044 时未授权写库。
+- 原影响：进程重启后计数清零；多实例部署不共享。
+- **修复（T-048）**：迁移 031 已放宽 kind 约束含 `ocr`（Harness 执行）；`lib/ocr-usage.ts` 改读写 `user_daily_usage`（kind='ocr'，`createAdminClient` + rpc `get_user_daily_usage`/`bump_user_daily_usage`，计数失败降级放行并 `console.warn`）；新增 `getOcrMonthlyUsage()` + 后台「本月图片 OCR 识别用量」卡片（额度 `BUSINESS.OCR_MONTHLY_QUOTA=1000`）。实测：调 OCR 后库内 count=1，**重启 dev 不归零**，后台卡片与库一致；接口签名、鉴权、大小校验零改动。单测 6 条（含降级放行与本月求和）。

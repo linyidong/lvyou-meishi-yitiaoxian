@@ -144,6 +144,8 @@ export const USAGE_KIND = {
   GENERATE_ROUTE_MONTH: 'generate_route_month',
   /** AI 提取地点次数（POST /api/ai/extract 成功时累加） */
   AI_EXTRACT: 'ai_extract',
+  /** 图片识别 OCR 次数（POST /api/ai/extract-image 成功时累加，T-048；迁移 031 放宽约束） */
+  OCR: 'ocr',
 } as const;
 
 export type UsageKind = (typeof USAGE_KIND)[keyof typeof USAGE_KIND];

@@ -150,6 +150,11 @@ export const BUSINESS = {
   MEMBER_AI_EXTRACT_DAILY_LIMIT: 20,
   /** P09（T-044）登录用户每天图片识别（OCR）次数上限 */
   OCR_DAILY_LIMIT: 20,
+  /**
+   * T-048 全站每月图片识别（OCR）总额度：腾讯云通用印刷体识别免费额度量级（1000 次/月）。
+   * 后台概览「本月图片 OCR 识别用量」卡片按此展示；后续设置页（T-049）可接管调整。
+   */
+  OCR_MONTHLY_QUOTA: 1000,
   /** T-044 单张图片识别上传大小上限（7MB，与腾讯云 OCR 单图限制口径一致） */
   MAX_OCR_IMAGE_BYTES: 7 * 1024 * 1024,
 
