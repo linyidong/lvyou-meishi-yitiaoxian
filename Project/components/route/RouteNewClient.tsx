@@ -77,13 +77,13 @@ export function RouteNewClient({
   initialDestParam: string | null;
   /** 当前用户会员档位（admin / member / free），用于动态展示配额说明 */
   tier: MemberTier;
-  /** 免费用户「永久 1 次多日试用额度」是否已用 */
+  /** 正常用户「永久 1 次多日试用额度」是否已用 */
   trialMultiDayUsed: boolean;
 }) {
   const M = MESSAGES;
   const router = useRouter();
 
-  /** 本档位允许的最大天数：免费用户试用额度已用则仅单日；其余沿用现有上限 */
+  /** 本档位允许的最大天数：正常用户试用额度已用则仅单日；其余沿用现有上限 */
   const maxDaysAllowed =
     tier === 'free' ? (trialMultiDayUsed ? 1 : BUSINESS.MEMBER_MAX_DAYS) : BUSINESS.MAX_DAYS;
   /** 档位配额说明文案（全部取自 config/messages.ts） */
@@ -233,7 +233,7 @@ export function RouteNewClient({
       <p className="mt-2 text-sm text-stone-500">{M.TRIP_HERO.desc}</p>
 
 
-      {/* 阶段 2 会员分层：按角色动态展示当前配额（免费用户另给升级入口） */}
+      {/* 阶段 2 会员分层：按角色动态展示当前配额（正常用户另给升级入口） */}
       <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-2xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-800">
         <Info className="h-4 w-4 shrink-0 text-teal-600" />
         <span className="font-medium">{tierHint}</span>

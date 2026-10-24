@@ -125,9 +125,9 @@ test('E2E-05 已登录用户 → /profile 会员卡渲染并显示档位', async
   await loginAsUser(page);
   await expect(page).toHaveURL(/\/profile/, { timeout: 30_000 });
 
-  // 会员卡三态之一（管理员 / 会员 / 免费版），证明档位已按身份渲染
+  // 会员卡三态之一（管理员 / 会员 / 正常版），证明档位已按身份渲染
   await expect(
-    page.getByText(/你当前是管理员（最高级会员）|你已成为会员用户|你当前是免费版/).first(),
+    page.getByText(/你当前是管理员（最高级会员）|你已成为会员用户|你当前是正常版/).first(),
   ).toBeVisible({ timeout: 15_000 });
 });
 

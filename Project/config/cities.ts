@@ -67,7 +67,6 @@ export const CITY_CARDS: readonly CityCard[] = [
     name: '成都',
     icon: PawPrint,
     color: 'bg-primary/5 text-primary',
-    badge: '示例数据最全',
     keywords: ['火锅', '熊猫', '慢生活'],
     districts: ['宽窄巷子', '锦里', '人民公园', '玉林路', '青城山', '都江堰'],
     nearby: ['乐山', '峨眉山', '眉山', '德阳', '资阳'],

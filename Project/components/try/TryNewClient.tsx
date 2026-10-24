@@ -103,7 +103,7 @@ export function TryNewClient({
     // 草稿里存的是「城市名 · 标题」的完整标题（与正常用户一致），回填时去掉城市前缀
     const prefix = `${target.name} · `;
     setTitle(draft.title.startsWith(prefix) ? draft.title.slice(prefix.length) : draft.title);
-    // 游客试用固定单日行程（与免费版分层一致）；历史草稿里若存过多日天数，这里统一归一为 1
+    // 游客试用固定单日行程（与正常版分层一致）；历史草稿里若存过多日天数，这里统一归一为 1
     setDays(1);
     // T-016：游客试用固定步行；历史草稿里若存了其它方式，进页统一归一为 walk
     setTransport(TRANSPORT.WALK);

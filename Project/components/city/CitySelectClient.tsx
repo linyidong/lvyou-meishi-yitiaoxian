@@ -119,11 +119,14 @@ function DestPanel({
   selectedDest,
   onPick,
   onCollapse,
+  guest = false,
 }: {
   card: CityCard;
   selectedDest: string | null;
   onPick: (dest: string, scope: DestScope) => void;
   onCollapse: () => void;
+  /** T-040：「模拟数据」角标仅游客显示，登录用户不显示 */
+  guest?: boolean;
 }) {
   const D = MESSAGES.CITY_DEST;
   const CityIcon = card.icon;
@@ -133,9 +136,11 @@ function DestPanel({
         <p className="flex items-center gap-1.5 font-semibold text-stone-900">
           <CityIcon className={cn('h-4 w-4', card.color.split(' ')[1])} />
           {D.panelTitle(card.name)}
-          <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-normal text-amber-700">
-            {D.panelBadge}
-          </span>
+          {guest ? (
+            <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-normal text-amber-700">
+              {D.panelBadge}
+            </span>
+          ) : null}
         </p>
         <button
           type="button"
@@ -390,6 +395,7 @@ export function CitySelectClient({
                         card={card}
                         selectedDest={selectedDest?.name ?? null}
                         onPick={pickDest}
+                        guest={guest}
                         onCollapse={() => {
                           setSelected(null);
                           setSelectedDest(null);

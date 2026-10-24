@@ -83,7 +83,7 @@ export function RoutePlacesClient({
   initialCheckedIds: string[];
   /** 终点城市的住宿（已解析坐标），用于「起点默认离住宿最近」与地图标记 */
   lodging: LodgingCoords | null;
-  /** 当前档位单日地点上限（免费 6 / 会员 12 / 管理员按单条上限兜底），用于勾选前本地校验与提示 */
+  /** 当前档位单日地点上限（正常版 12 / 会员 12 / 管理员按单条上限兜底），用于勾选前本地校验与提示 */
   placesPerDay: number;
 }) {
   const router = useRouter();

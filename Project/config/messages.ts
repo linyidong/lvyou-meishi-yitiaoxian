@@ -102,15 +102,15 @@ export const MESSAGES = {
    * 阶段 2 会员分层：服务端限额校验提示（错误码见 config/enums.ts QUOTA_ERROR）。
    * 服务端返回 message 时直接取这些函数渲染好的文案。
    */
-  /** 当天「生成路线」次数用完（免费用户按天，limit 为每天上限） */
+  /** 当天「生成路线」次数用完（正常用户按天，limit 为每天上限） */
   ROUTE_DAILY_LIMIT_REACHED: (limit: number) =>
-    `今天的路线生成次数已用完（免费版每天最多 ${limit} 次），升级会员可提高上限`,
+    `今天的路线生成次数已用完（正常版每天最多 ${limit} 次），升级会员可提高上限`,
   /** 当月「生成路线」次数用完（会员按月，limit 为每月上限） */
   ROUTE_MONTHLY_LIMIT_REACHED: (limit: number) =>
     `本月的路线生成次数已用完（会员每月最多 ${limit} 条），下个月 1 号自动恢复`,
-  /** 多日行程仅会员可用（免费用户永久 1 次试用额度已用） */
+  /** 多日行程仅会员可用（正常用户永久 1 次试用额度已用） */
   ROUTE_MULTI_DAY_MEMBER_ONLY:
-    '多日行程为会员功能：免费版仅支持单日，你的 1 次多日试用额度已用完，升级会员后可创建多日行程',
+    '多日行程为会员功能：正常版仅支持单日，你的 1 次多日试用额度已用完，升级会员后可创建多日行程',
   /** 单日地点数超当前角色上限（limit 为当前角色单日上限） */
   ROUTE_DAY_PLACES_LIMIT: (limit: number) => `单日最多 ${limit} 个地点，升级会员可提升上限`,
   /** 当天 AI 提取地点次数用完（limit 为当前角色每天上限） */
@@ -120,10 +120,10 @@ export const MESSAGES = {
   AI_EXTRACT_GUEST_LIMIT_REACHED: `未登录试用的 AI 提取次数已用完（每天最多 ${BUSINESS.GUEST_TRY_RATE_LIMIT_PER_DAY} 次），注册后可每天提取 ${BUSINESS.FREE_AI_EXTRACT_DAILY_LIMIT} 次`,
   /** U05 新建路线页按角色展示的配额说明 */
   TRIP_TIER: {
-    /** 免费用户：单日 · 单日地点上限 */
-    free: (placesPerDay: number) => `免费版：单日行程 · 单日最多 ${placesPerDay} 个地点`,
-    /** 免费用户的 1 次永久多日试用额度说明 */
-    freeTrial: '免费用户可试用 1 次多日行程（永久额度，用完后需升级会员）',
+    /** 正常用户：单日 · 单日地点上限 */
+    free: (placesPerDay: number) => `正常版：单日行程 · 单日最多 ${placesPerDay} 个地点`,
+    /** 正常用户的 1 次永久多日试用额度说明 */
+    freeTrial: '正常用户可用 1 次多日行程（永久一次，用完后需升级会员）',
     /** 会员：多日天数上限 · 单日地点上限 */
     member: (maxDays: number, placesPerDay: number) =>
       `会员版：多日最多 ${maxDays} 天 · 单日最多 ${placesPerDay} 个地点`,
@@ -970,7 +970,7 @@ export const MESSAGES = {
     amapNavNoOpen:
       '没能唤起高德地图 App：请确认手机已装高德地图，并用系统浏览器（Safari / Chrome）打开本页；微信、QQ 内置浏览器会拦截跳转',
     amapNavFailed: '这一天的地点缺少坐标，暂时无法交给高德导航',
-    /** 「手机高德导航」为会员功能（游客 / 免费用户按钮显示锁定态） */
+    /** 「手机高德导航」为会员功能（游客 / 正常用户按钮显示锁定态） */
     amapNavLocked: '会员可用',
     amapNavLockedTitle: '「手机高德导航」为会员功能，升级会员后可用',
     /** 点击锁定态按钮弹出的升级引导 */
@@ -1073,9 +1073,9 @@ export const MESSAGES = {
     memberForever: '永久有效',
     memberUntil: (date: string) => `有效期至 ${date}`,
     sourceUnknown: '来源未知',
-    /** 免费用户卡（普通用户身份）：按自己档位展示规则，右侧仍保留升级入口 */
-    upgradeTag: '免费版权益',
-    upgradeTitle: '你当前是免费版，升级会员解锁更强的路线规划',
+    /** 正常用户卡（普通用户身份）：按自己档位展示规则，右侧仍保留升级入口 */
+    upgradeTag: '正常版权益',
+    upgradeTitle: '你当前是正常版，升级会员解锁更强的路线规划',
     upgradeBtn: '升级为会员',
     upgradeNoteReal: '点击后进入支付流程',
     upgradeNoteMock: '模拟流程：点击后仅模拟支付成功，第一版不真实收费、未接入真实支付',
@@ -1625,7 +1625,7 @@ export const MESSAGES = {
       daysManySub: `${BUSINESS.MIN_DAYS} 天以上`,
       daysManyLocked: '登录后可用',
       daysGuestHint:
-        '游客试用为单日行程（与免费版一致）；多日行程登录后可创建，注册用户还享 1 次多日试用额度。',
+        '游客试用为单日行程（与正常版一致）；多日行程登录后可创建，注册用户还享 1 次多日试用额度。',
       daysUnitPre: '共',
       daysUnitPost: '天',
       transportLabel: '市内交通',

@@ -137,7 +137,7 @@ export const BUSINESS = {
    */
   MEMBER_STATUS_POLL_SECONDS: 20,
   /** P03 免费用户单日地点数上限（免费版只能单日行程） */
-  FREE_MAX_PLACES_PER_DAY: 6,
+  FREE_MAX_PLACES_PER_DAY: 12,
   /** P04 会员单日地点数上限（与 B01 MAX_PLACES_PER_DAY 一致） */
   MEMBER_MAX_PLACES_PER_DAY: 12,
   /** P05 免费用户行程天数上限（单日；多日需消耗永久 1 次试用额度） */
