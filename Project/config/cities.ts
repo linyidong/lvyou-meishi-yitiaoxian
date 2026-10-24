@@ -2,6 +2,8 @@
  * 城市常量（CT01-CT03）
  * 与数据库种子 supabase/migrations/011_seed_cities.sql 一一对应（SY07）：
  * 新增城市必须同时改本文件与 011_seed_cities.sql。
+ * T-042 起另有小众城市种子 029_seed_niche_cities.sql，同样与本文件一一对应
+ * （泉州、北海原本就在 011 中，029 用 ON CONFLICT DO NOTHING 兼容）。
  */
 import type { LucideIcon } from 'lucide-react';
 import {
@@ -258,6 +260,24 @@ export const CITY_PINYIN: Readonly<Record<string, string>> = {
   鄂尔多斯: 'e er duo si',
   呼伦贝尔: 'hu lun bei er',
   乌鲁木齐: 'wu lu mu qi',
+  // T-042 小众城市种子（泉州、北海原已在上方）
+  东山: 'dong shan',
+  霞浦: 'xia pu',
+  婺源: 'wu yuan',
+  桐庐: 'tong lu',
+  平潭: 'ping tan',
+  阳朔: 'yang shuo',
+  兴义: 'xing yi',
+  荔波: 'li bo',
+  丹巴: 'dan ba',
+  稻城: 'dao cheng',
+  林芝: 'lin zhi',
+  喀什: 'ka shi',
+  伊宁: 'yi ning',
+  潮州: 'chao zhou',
+  顺德: 'shun de',
+  肇庆: 'zhao qing',
+  台山: 'tai shan',
 };
 
 /** 按城市名取全拼（无声调，去空格）与首字母；未配置拼音时返回空串 */
@@ -276,7 +296,7 @@ export function cityCard(name: string): CityCard | undefined {
   return CITY_CARDS.find((c) => c.name === name);
 }
 
-/** CT01/CT03 内置城市数据（共 92 个） */
+/** CT01/CT03 内置城市数据（共 109 个：92 基础 + T-042 小众 17 新增，泉州/北海原已含） */
 export const CITIES: readonly City[] = [
   // 直辖市
   { name: '北京', adcode: '110000' },
@@ -392,4 +412,22 @@ export const CITIES: readonly City[] = [
   { name: '鄂尔多斯', adcode: '150600' },
   { name: '呼伦贝尔', adcode: '150700' },
   { name: '乌鲁木齐', adcode: '650100' },
+  // 小众城市种子（T-042，adcode 高德实测；泉州 350500 / 北海 450500 原已在上方）
+  { name: '东山', adcode: '350626' },
+  { name: '霞浦', adcode: '350921' },
+  { name: '婺源', adcode: '361130' },
+  { name: '桐庐', adcode: '330122' },
+  { name: '平潭', adcode: '350128' },
+  { name: '阳朔', adcode: '450321' },
+  { name: '兴义', adcode: '522301' },
+  { name: '荔波', adcode: '522722' },
+  { name: '丹巴', adcode: '513323' },
+  { name: '稻城', adcode: '513337' },
+  { name: '林芝', adcode: '540400' },
+  { name: '喀什', adcode: '653101' },
+  { name: '伊宁', adcode: '654002' },
+  { name: '潮州', adcode: '445100' },
+  { name: '顺德', adcode: '440606' },
+  { name: '肇庆', adcode: '441200' },
+  { name: '台山', adcode: '440781' },
 ];

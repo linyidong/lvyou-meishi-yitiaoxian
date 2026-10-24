@@ -812,3 +812,36 @@ export async function searchPlaces(keywords: string, city: string): Promise<Amap
   void writeGeocodeCache(city, keywords, results);
   return results;
 }
+
+/**
+ * 解析新城市的 adcode（T-042 AI 城市自动入库）。
+ * 调高德 v3/config/district，依次尝试 `name`、`name+县`、`name+市`、`name+区`；
+ * 只有返回区划名与查询词**完全一致**才采用——防止「东山」被错配成黑龙江「东山区」
+ * （查询词「东山」不会命中名为「东山区」的区划，「县」先于「区」尝试保证东山县 350626 先命中）。
+ * 全部尝试都解析不到时返回空串（cities.adcode NOT NULL 但允许空串）。
+ */
+export async function resolveCityAdcode(name: string): Promise<string> {
+  const trimmed = name.trim();
+  if (!trimmed) return '';
+
+  for (const keyword of [trimmed, `${trimmed}县`, `${trimmed}市`, `${trimmed}区`]) {
+    try {
+      const data = await amapGet('/v3/config/district', {
+        keywords: keyword,
+        subdistrict: '0',
+      });
+      if (data.status !== '1') continue;
+      const districts = (data.districts as Array<Record<string, unknown>> | undefined) ?? [];
+      const hit = districts.find(
+        (d) =>
+          String(d.name ?? '').trim() === keyword &&
+          String(d.level ?? '') !== 'country',
+      );
+      if (hit) return String(hit.adcode ?? '').trim();
+    } catch (err) {
+      // 网络 / 额度异常：换下一个写法继续试，最终解析不到由调用方写空串
+      console.warn('[amap] district 解析失败，继续尝试其它写法：', err);
+    }
+  }
+  return '';
+}

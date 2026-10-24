@@ -63,7 +63,9 @@ export function ImportCollectClient({
   const [text, setText] = useState('');
   /** AI 从文案里识别出的城市（用于提示，未必在内置城市列表中） */
   const [aiCity, setAiCity] = useState('');
-  /** 实际用于收藏的城市：AI 识别结果命中内置城市列表时自动带上，也可手动改选 */
+  /** T-042：AI 识别的城市是否已在城市库（库里没有 → 提示将作为新城市加入，收藏时自动入库） */
+  const [aiCityInDb, setAiCityInDb] = useState(true);
+  /** 实际用于收藏的城市：AI 识别结果直接带上（不在内置列表时作为新城市自动入库），也可手动改选 */
   const [city, setCity] = useState('');
   const [extracting, setExtracting] = useState(false);
   /** 本次提取是否走「链接读取」路径，仅用于按钮文案区分（读取链接 / AI 识别） */
@@ -84,9 +86,10 @@ export function ImportCollectClient({
 
   const tooLong = text.length > BUSINESS.MAX_IMPORT_TEXT_LENGTH;
   const selected = candidates.filter((c) => c.checked && c.name.trim().length > 0);
-  /** 城市识别状态提示：AI 命中内置城市列表 / AI 给的城市不在列表 / AI 完全没识别到 */
+  /** 城市识别状态提示：城市已在库 → 直接确认；不在库（T-042）→ 提示将作为新城市加入；AI 没识别到 → 手动选 */
+  const aiCityIsKnown = aiCity !== '' && CITIES.some((c) => c.name === aiCity);
   const cityStatusHint = aiCity
-    ? CITIES.some((c) => c.name === aiCity)
+    ? aiCityInDb
       ? MESSAGES.HOME_IMPORT.cityAuto(aiCity)
       : MESSAGES.HOME_IMPORT.cityMissing(aiCity)
     : MESSAGES.HOME_IMPORT.cityUnknown;
@@ -150,6 +153,8 @@ export function ImportCollectClient({
         city?: string;
         places?: { name: string; type: PlaceType; note?: string }[];
         linkReadFailed?: boolean;
+        /** T-042：识别出的城市是否已在城市库 */
+        cityInDb?: boolean;
         error?: string;
       };
       if (!data.ok) {
@@ -161,10 +166,11 @@ export function ImportCollectClient({
         return;
       }
       setLinkFailed(data.linkReadFailed === true);
-      // 先落城市：AI 识别的城市命中内置城市列表时自动选中，否则交给用户手动选
+      // 先落城市：AI 识别的城市直接带上；不在城市库时作为新城市，收藏时自动加入城市库（T-042）
       const recognizedCity = (data.city ?? '').trim();
       setAiCity(recognizedCity);
-      setCity(CITIES.some((c) => c.name === recognizedCity) ? recognizedCity : '');
+      setAiCityInDb(data.cityInDb !== false);
+      setCity(recognizedCity);
       const places = data.places ?? [];
       setCandidates(
         places.map((p, i) => ({
@@ -203,6 +209,7 @@ export function ImportCollectClient({
     setResultOpen(false);
     setCandidates([]);
     setAiCity('');
+    setAiCityInDb(true);
     setCity('');
     setError('');
     setNeedText(false);
@@ -240,7 +247,7 @@ export function ImportCollectClient({
       }
       const inserted = data.inserted ?? 0;
       if (city && data.cityMatched === false) {
-        // 城市没落到库里：地点已收藏，但城市为空
+        // 城市没能落到库里（自动入库失败）：地点已收藏，但城市为空
         showToast(MESSAGES.HOME_IMPORT.cityMissingSaved(city), 'err');
       } else if (city) {
         showToast(MESSAGES.HOME_IMPORT.savedWithCity(inserted, city), 'ok');
@@ -251,6 +258,7 @@ export function ImportCollectClient({
       setResultOpen(false);
       setText('');
       setAiCity('');
+      setAiCityInDb(true);
       setCity('');
       setNeedText(false);
       router.refresh();
@@ -459,6 +467,10 @@ export function ImportCollectClient({
                     className="h-10 rounded-lg border border-stone-300 bg-white px-2 text-sm outline-none focus:border-primary"
                   >
                     <option value="">{MESSAGES.HOME_IMPORT.cityPick}</option>
+                    {/* T-042：AI 识别的新城市不在内置列表里，作为可选项直接带上（收藏时自动入库） */}
+                    {aiCity && !aiCityIsKnown ? (
+                      <option value={aiCity}>{`${aiCity}（新城市，将加入城市库）`}</option>
+                    ) : null}
                     {CITIES.map((c) => (
                       <option key={c.name} value={c.name}>
                         {c.name}

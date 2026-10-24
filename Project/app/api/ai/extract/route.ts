@@ -120,11 +120,22 @@ export async function POST(request: NextRequest) {
   try {
     // 先识别文案里的城市，再返回该城市下的地点（收藏时按 city 归集）
     const { city, places } = await extractPlacesAndCity(text);
+    // T-042：城市是否已在城市库（库里没有 → 前端提示「将作为新城市加入城市库」，收藏时自动入库）；
+    // 查询失败按「在库」处理（保存链路仍有服务端自动入库兜底，不阻断提取）
+    let cityInDb = true;
+    if (city) {
+      const { data: cityRow } = await supabase
+        .from('cities')
+        .select('id')
+        .eq('name', city)
+        .maybeSingle();
+      cityInDb = Boolean(cityRow);
+    }
     // 成功后才计数（仅登录用户；管理员不计数）；失败不计入
     if (user && tier !== 'admin') {
       await bumpDailyUsage(user.id, USAGE_KIND.AI_EXTRACT);
     }
-    return respond({ ok: true, city, places, linkReadFailed });
+    return respond({ ok: true, city, places, linkReadFailed, cityInDb });
   } catch {
     return respond({ ok: false, error: MESSAGES.AI_FAILED }, 502);
   }
