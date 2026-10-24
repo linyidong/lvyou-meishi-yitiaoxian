@@ -126,25 +126,26 @@ export function HomeClient({ isLoggedIn, recentRoutes, draft, collectedCount, is
                 {MESSAGES.NAV_LOGIN_REGISTER}
               </Link>
             )}
-            {/* T-041 导入分享路线：会员可点，正常用户/游客灰色禁用 + 会员提示 */}
-            <button
-              type="button"
-              onClick={() => setImportOpen(true)}
-              disabled={!isMember}
-              title={isMember ? undefined : MESSAGES.SHARE.importMemberOnly}
-              className={
-                isMember
-                  ? 'flex h-12 items-center justify-center gap-2 rounded-xl border border-stone-300 px-6 font-medium text-stone-700 hover:bg-stone-50'
-                  : 'flex h-12 items-center justify-center gap-2 rounded-xl border border-stone-200 bg-stone-100 px-6 font-medium text-stone-400'
-              }
-            >
-              <Share2 className="h-4 w-4" />
-              {MESSAGES.SHARE.importHomeBtn}
-            </button>
+            {/* T-041 导入分享路线：会员可点；非会员禁用，提示常驻在按钮下方（不再用 title 悬浮提示） */}
+            <div className="flex flex-col items-start gap-1">
+              <button
+                type="button"
+                onClick={() => setImportOpen(true)}
+                disabled={!isMember}
+                className={
+                  isMember
+                    ? 'flex h-12 items-center justify-center gap-2 rounded-xl border border-stone-300 px-6 font-medium text-stone-700 hover:bg-stone-50'
+                    : 'flex h-12 items-center justify-center gap-2 rounded-xl border border-stone-200 bg-stone-100 px-6 font-medium text-stone-400'
+                }
+              >
+                <Share2 className="h-4 w-4" />
+                {MESSAGES.SHARE.importHomeBtn}
+              </button>
+              {!isMember ? (
+                <span className="text-xs text-stone-400">{MESSAGES.SHARE.importMemberOnly}</span>
+              ) : null}
+            </div>
           </div>
-          {!isMember ? (
-            <p className="mt-2 text-xs text-stone-400">{MESSAGES.SHARE.importMemberOnly}</p>
-          ) : null}
           <p className="mt-3 text-xs text-stone-500">{MESSAGES.GUEST_TRY_HINT}</p>
         </div>
 
