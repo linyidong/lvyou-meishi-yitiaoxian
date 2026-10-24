@@ -1327,6 +1327,10 @@ export const MESSAGES = {
     fieldFreeAiExtract: 'AI 提取 · 正常用户（次/日）',
     fieldMemberAiExtract: 'AI 提取 · 会员（次/日）',
     fieldOcrDailyLimit: 'OCR 每日次数（次/人/日）',
+    // T-052：配额数字按身份分三组（小标题含说明）
+    quotaGroupFree: '正常用户（注册即可用）',
+    quotaGroupMember: '会员用户（付费 / 管理员开通）',
+    quotaGroupCommon: '通用（图片识别 OCR，全站与个人限额）',
     // T-050：AI 模型分组顶部的只读摘要（随输入同步，未保存标「待保存」）
     summaryTitle: '当前生效配置',
     summaryExtractLabel: 'AI 提取地点',
@@ -1334,9 +1338,14 @@ export const MESSAGES = {
     summaryOcrLabel: '图片识别',
     summaryOcrProvider: '腾讯云 OCR',
     pendingSave: '待保存',
-    save: '保存设置',
+    // T-052：分模块保存——三个模块各自一个保存按钮（均在卡片标题行右侧），互不影响
+    saveAi: '保存 AI 配置',
+    saveFlags: '保存开关',
+    saveQuotas: '保存配额',
     saving: '正在保存…',
-    savedToast: '设置已保存并立即生效',
+    savedAiToast: 'AI 配置已保存并立即生效',
+    savedFlagsToast: '业务开关已保存并立即生效',
+    savedQuotasToast: '配额已保存并立即生效',
     errLoad: '设置读取失败，请稍后重试',
     errSave: '设置保存失败，请重试',
   },

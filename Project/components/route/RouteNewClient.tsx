@@ -69,6 +69,7 @@ export function RouteNewClient({
   initialDestParam,
   tier,
   trialMultiDayUsed,
+  quotaHints,
 }: {
   cities: { id: string; name: string }[];
   /** 来自 /city 的跳转参数，允许是城市 id 或城市名 */
@@ -79,20 +80,22 @@ export function RouteNewClient({
   tier: MemberTier;
   /** 正常用户「永久 1 次多日试用额度」是否已用 */
   trialMultiDayUsed: boolean;
+  /** T-052：档位配额说明数字（服务端从全局设置读取传入，不再写死 BUSINESS.*） */
+  quotaHints: { freePlacesPerDay: number; memberPlacesPerDay: number; memberMaxDays: number };
 }) {
   const M = MESSAGES;
   const router = useRouter();
 
   /** 本档位允许的最大天数：正常用户试用额度已用则仅单日；其余沿用现有上限 */
   const maxDaysAllowed =
-    tier === 'free' ? (trialMultiDayUsed ? 1 : BUSINESS.MEMBER_MAX_DAYS) : BUSINESS.MAX_DAYS;
-  /** 档位配额说明文案（全部取自 config/messages.ts） */
+    tier === 'free' ? (trialMultiDayUsed ? 1 : quotaHints.memberMaxDays) : BUSINESS.MAX_DAYS;
+  /** 档位配额说明文案（全部取自 config/messages.ts，数字来自全局设置） */
   const tierHint =
     tier === 'admin'
       ? M.TRIP_TIER.admin
       : tier === 'member'
-        ? M.TRIP_TIER.member(BUSINESS.MEMBER_MAX_DAYS, BUSINESS.MEMBER_MAX_PLACES_PER_DAY)
-        : [M.TRIP_TIER.free(BUSINESS.FREE_MAX_PLACES_PER_DAY), trialMultiDayUsed ? null : M.TRIP_TIER.freeTrial]
+        ? M.TRIP_TIER.member(quotaHints.memberMaxDays, quotaHints.memberPlacesPerDay)
+        : [M.TRIP_TIER.free(quotaHints.freePlacesPerDay), trialMultiDayUsed ? null : M.TRIP_TIER.freeTrial]
             .filter(Boolean)
             .join('；');
 

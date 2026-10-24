@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { getQuotaProfile } from '@/lib/member-quota';
+import { getAppSettings } from '@/lib/app-settings';
+import { BUSINESS } from '@/config/business';
 import { FlowSteps } from '@/components/route/FlowSteps';
 import { RouteNewClient } from '@/components/route/RouteNewClient';
 
@@ -18,6 +20,10 @@ export default async function RouteNewPage({
   } = await supabase.auth.getUser();
   const quota = user ? await getQuotaProfile(user.id) : { tier: 'free' as const, trialMultiDayUsed: false };
 
+  // T-052：档位配额说明数字改从全局设置读取（管理端保存后本页文案同步）；
+  // 会员天数上限暂无设置项，仍取 BUSINESS 常量传入。
+  const { quotas } = await getAppSettings();
+
   return (
     <>
       <FlowSteps current={2} />
@@ -28,6 +34,11 @@ export default async function RouteNewPage({
           initialDestParam={searchParams.dest ?? null}
           tier={quota.tier}
           trialMultiDayUsed={quota.trialMultiDayUsed}
+          quotaHints={{
+            freePlacesPerDay: quotas.freePlacesPerDay,
+            memberPlacesPerDay: quotas.memberPlacesPerDay,
+            memberMaxDays: BUSINESS.MEMBER_MAX_DAYS,
+          }}
         />
       </div>
     </>

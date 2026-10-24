@@ -7,8 +7,10 @@ import { MESSAGES } from '@/config/messages';
 import type { AppSettings } from '@/lib/app-settings';
 
 /**
- * T-049 设置页表单（客户端）：三组字段（AI 模型 / 业务开关 / 配额数字），
- * 保存走 PATCH /api/admin/settings（服务端二次校验范围），成功后 toast 并保留当前值；
+ * T-049 设置页表单（客户端）：三组字段（AI 模型 / 业务开关 / 配额数字）。
+ * T-052 分模块保存：每个卡片标题行右侧各一个保存按钮，PATCH 只提交自己那段
+ * （服务端 mergeAppSettings 深合并，未提交的段保持 DB 原值），互不影响；
+ * 各自显示保存中（按钮文案）/ 已保存 / 失败（toast），成功后 router.refresh() 回读 DB。
  * 初始值由服务端页面从 app_settings 读出传入，刷新后仍是 DB 持久化值。
  */
 
@@ -160,10 +162,14 @@ function SummaryRow({
   );
 }
 
+/** T-052：可独立保存的模块（与各卡片一一对应） */
+type Module = 'ai' | 'flags' | 'quotas';
+
 export function SettingsForm({ initial }: { initial: AppSettings }) {
   const router = useRouter();
   const [form, setForm] = useState<FormState>(() => toForm(initial));
-  const [saving, setSaving] = useState(false);
+  /** 当前正在保存的模块（null=空闲）；同一时刻只允许一个模块提交 */
+  const [savingModule, setSavingModule] = useState<Module | null>(null);
   const [toast, setToast] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
 
   function showToast(kind: 'ok' | 'err', text: string) {
@@ -175,52 +181,78 @@ export function SettingsForm({ initial }: { initial: AppSettings }) {
     setForm((f) => ({ ...f, [key]: value }));
   }
 
-  async function save() {
-    // 提交前范围校验（服务端 validateSettingsPatch 仍会二次校验）
-    const nums: [keyof typeof NUM_RANGE, string][] = [
-      ['freePlacesPerDay', form.freePlacesPerDay],
-      ['memberPlacesPerDay', form.memberPlacesPerDay],
-      ['memberMonthlyRoutes', form.memberMonthlyRoutes],
-      ['freeAiExtractPerDay', form.freeAiExtractPerDay],
-      ['memberAiExtractPerDay', form.memberAiExtractPerDay],
-      ['ocrDailyLimit', form.ocrDailyLimit],
-      ['ocrMonthlyQuota', form.ocrMonthlyQuota],
-    ];
-    for (const [key, raw] of nums) {
+  /** 数字字段提交前范围校验（服务端 validateSettingsPatch 仍会二次校验） */
+  function validateNums(fields: [keyof typeof NUM_RANGE, string][]): string {
+    for (const [key, raw] of fields) {
       const n = Number(raw);
       const rule = NUM_RANGE[key];
       if (!Number.isInteger(n) || n < rule.min || n > rule.max) {
-        showToast('err', `字段需为 ${rule.min}–${rule.max} 之间的整数`);
-        return;
+        return `字段需为 ${rule.min}–${rule.max} 之间的整数`;
       }
     }
-    if (!form.deepseekModel.trim() || !form.ocrRegion.trim()) {
-      showToast('err', M.errSave);
-      return;
+    return '';
+  }
+
+  /**
+   * 分模块保存（T-052）：每块只 PATCH 自己的段，服务端深合并后其余段保持 DB 原值。
+   * 保存中显示在对应按钮上；成功 / 失败用 toast 反馈，成功后 refresh 回读持久化值。
+   */
+  async function saveModule(module: Module) {
+    if (savingModule) return;
+    let body: Record<string, unknown>;
+    let okText: string;
+
+    if (module === 'ai') {
+      if (!form.deepseekModel.trim() || !form.ocrRegion.trim()) {
+        showToast('err', M.errSave);
+        return;
+      }
+      body = { ai: { deepseekModel: form.deepseekModel.trim(), ocrRegion: form.ocrRegion.trim() } };
+      okText = M.savedAiToast;
+    } else if (module === 'flags') {
+      body = {
+        flags: {
+          billingEnabled: form.billingEnabled,
+          ocrEnabled: form.ocrEnabled,
+          importEnabled: form.importEnabled,
+        },
+      };
+      okText = M.savedFlagsToast;
+    } else {
+      const err = validateNums([
+        ['freePlacesPerDay', form.freePlacesPerDay],
+        ['memberPlacesPerDay', form.memberPlacesPerDay],
+        ['memberMonthlyRoutes', form.memberMonthlyRoutes],
+        ['freeAiExtractPerDay', form.freeAiExtractPerDay],
+        ['memberAiExtractPerDay', form.memberAiExtractPerDay],
+        ['ocrDailyLimit', form.ocrDailyLimit],
+        ['ocrMonthlyQuota', form.ocrMonthlyQuota],
+      ]);
+      if (err) {
+        showToast('err', err);
+        return;
+      }
+      body = {
+        quotas: {
+          freePlacesPerDay: Number(form.freePlacesPerDay),
+          memberPlacesPerDay: Number(form.memberPlacesPerDay),
+          memberMonthlyRoutes: Number(form.memberMonthlyRoutes),
+          freeAiExtractPerDay: Number(form.freeAiExtractPerDay),
+          memberAiExtractPerDay: Number(form.memberAiExtractPerDay),
+          ocrDailyLimit: Number(form.ocrDailyLimit),
+        },
+        // OCR 月额度是配额语义（T-052 归入「通用」分组），随配额段一起提交
+        ocrMonthlyQuota: Number(form.ocrMonthlyQuota),
+      };
+      okText = M.savedQuotasToast;
     }
 
-    setSaving(true);
+    setSavingModule(module);
     try {
       const res = await fetch('/api/admin/settings', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ai: { deepseekModel: form.deepseekModel.trim(), ocrRegion: form.ocrRegion.trim() },
-          flags: {
-            billingEnabled: form.billingEnabled,
-            ocrEnabled: form.ocrEnabled,
-            importEnabled: form.importEnabled,
-          },
-          quotas: {
-            freePlacesPerDay: Number(form.freePlacesPerDay),
-            memberPlacesPerDay: Number(form.memberPlacesPerDay),
-            memberMonthlyRoutes: Number(form.memberMonthlyRoutes),
-            freeAiExtractPerDay: Number(form.freeAiExtractPerDay),
-            memberAiExtractPerDay: Number(form.memberAiExtractPerDay),
-            ocrDailyLimit: Number(form.ocrDailyLimit),
-          },
-          ocrMonthlyQuota: Number(form.ocrMonthlyQuota),
-        }),
+        body: JSON.stringify(body),
       });
       const data = (await res.json()) as { ok?: boolean; message?: string };
       if (!res.ok || !data.ok) {
@@ -228,20 +260,39 @@ export function SettingsForm({ initial }: { initial: AppSettings }) {
         return;
       }
       // 保存成功：表单保留当前值（DB 已持久化，刷新后仍在），并让服务端组件重新取数
-      showToast('ok', M.savedToast);
+      showToast('ok', okText);
       router.refresh();
     } catch {
       showToast('err', M.errSave);
     } finally {
-      setSaving(false);
+      setSavingModule(null);
     }
+  }
+
+  /** 卡片标题行右侧的模块保存按钮：本模块显示「正在保存…」，提交期间三个按钮统一禁用 */
+  function saveBtn(module: Module, label: string) {
+    const busy = savingModule === module;
+    return (
+      <button
+        type="button"
+        onClick={() => saveModule(module)}
+        disabled={savingModule !== null}
+        className="flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
+      >
+        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+        {busy ? M.saving : label}
+      </button>
+    );
   }
 
   return (
     <div className="space-y-6">
       {/* AI 模型 */}
       <section className="rounded-2xl border border-slate-200 bg-white p-5">
-        <h2 className="mb-4 text-sm font-semibold text-slate-900">{M.groupAi}</h2>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold text-slate-900">{M.groupAi}</h2>
+          {saveBtn('ai', M.saveAi)}
+        </div>
         {/* T-050 只读摘要：一眼看清当前生效的 AI 通道，输入改动实时同步，未保存标「待保存」 */}
         <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
           <p className="mb-2 text-xs font-medium text-slate-500">{M.summaryTitle}</p>
@@ -262,7 +313,8 @@ export function SettingsForm({ initial }: { initial: AppSettings }) {
             />
           </div>
         </div>
-        <div className="grid gap-4 sm:grid-cols-3">
+        {/* T-052：OCR 月额度属配额语义，移入下方「配额数字 · 通用」分组，本卡只留 AI 两项 */}
+        <div className="grid gap-4 sm:grid-cols-2">
           <label className="block">
             <span className="mb-1 block text-xs text-slate-500">{M.fieldDeepseekModel}</span>
             <input
@@ -281,17 +333,15 @@ export function SettingsForm({ initial }: { initial: AppSettings }) {
               className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm focus:border-slate-900 focus:outline-none"
             />
           </label>
-          <NumField
-            label={M.fieldOcrMonthlyQuota}
-            value={form.ocrMonthlyQuota}
-            onChange={(v) => patch('ocrMonthlyQuota', v)}
-          />
         </div>
       </section>
 
       {/* 业务开关 */}
       <section className="rounded-2xl border border-slate-200 bg-white p-5">
-        <h2 className="mb-4 text-sm font-semibold text-slate-900">{M.groupFlags}</h2>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold text-slate-900">{M.groupFlags}</h2>
+          {saveBtn('flags', M.saveFlags)}
+        </div>
         <div className="space-y-3">
           <SwitchField
             label={M.fieldBilling}
@@ -314,54 +364,65 @@ export function SettingsForm({ initial }: { initial: AppSettings }) {
         </div>
       </section>
 
-      {/* 配额数字 */}
+      {/* 配额数字（T-052：按身份分三组，保存按钮在卡片标题行右侧） */}
       <section className="rounded-2xl border border-slate-200 bg-white p-5">
-        <h2 className="mb-4 text-sm font-semibold text-slate-900">{M.groupQuotas}</h2>
-        <div className="grid gap-4 sm:grid-cols-3">
-          <NumField
-            label={M.fieldFreePlacesPerDay}
-            value={form.freePlacesPerDay}
-            onChange={(v) => patch('freePlacesPerDay', v)}
-          />
-          <NumField
-            label={M.fieldMemberPlacesPerDay}
-            value={form.memberPlacesPerDay}
-            onChange={(v) => patch('memberPlacesPerDay', v)}
-          />
-          <NumField
-            label={M.fieldMemberMonthlyRoutes}
-            value={form.memberMonthlyRoutes}
-            onChange={(v) => patch('memberMonthlyRoutes', v)}
-          />
-          <NumField
-            label={M.fieldFreeAiExtract}
-            value={form.freeAiExtractPerDay}
-            onChange={(v) => patch('freeAiExtractPerDay', v)}
-          />
-          <NumField
-            label={M.fieldMemberAiExtract}
-            value={form.memberAiExtractPerDay}
-            onChange={(v) => patch('memberAiExtractPerDay', v)}
-          />
-          <NumField
-            label={M.fieldOcrDailyLimit}
-            value={form.ocrDailyLimit}
-            onChange={(v) => patch('ocrDailyLimit', v)}
-          />
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold text-slate-900">{M.groupQuotas}</h2>
+          {saveBtn('quotas', M.saveQuotas)}
+        </div>
+        <div className="space-y-5">
+          <div>
+            <p className="mb-3 text-xs font-semibold text-slate-500">{M.quotaGroupFree}</p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <NumField
+                label={M.fieldFreePlacesPerDay}
+                value={form.freePlacesPerDay}
+                onChange={(v) => patch('freePlacesPerDay', v)}
+              />
+              <NumField
+                label={M.fieldFreeAiExtract}
+                value={form.freeAiExtractPerDay}
+                onChange={(v) => patch('freeAiExtractPerDay', v)}
+              />
+            </div>
+          </div>
+          <div>
+            <p className="mb-3 text-xs font-semibold text-slate-500">{M.quotaGroupMember}</p>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <NumField
+                label={M.fieldMemberPlacesPerDay}
+                value={form.memberPlacesPerDay}
+                onChange={(v) => patch('memberPlacesPerDay', v)}
+              />
+              <NumField
+                label={M.fieldMemberMonthlyRoutes}
+                value={form.memberMonthlyRoutes}
+                onChange={(v) => patch('memberMonthlyRoutes', v)}
+              />
+              <NumField
+                label={M.fieldMemberAiExtract}
+                value={form.memberAiExtractPerDay}
+                onChange={(v) => patch('memberAiExtractPerDay', v)}
+              />
+            </div>
+          </div>
+          <div>
+            <p className="mb-3 text-xs font-semibold text-slate-500">{M.quotaGroupCommon}</p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <NumField
+                label={M.fieldOcrDailyLimit}
+                value={form.ocrDailyLimit}
+                onChange={(v) => patch('ocrDailyLimit', v)}
+              />
+              <NumField
+                label={M.fieldOcrMonthlyQuota}
+                value={form.ocrMonthlyQuota}
+                onChange={(v) => patch('ocrMonthlyQuota', v)}
+              />
+            </div>
+          </div>
         </div>
       </section>
-
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={save}
-          disabled={saving}
-          className="flex h-10 items-center gap-2 rounded-lg bg-slate-900 px-5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
-        >
-          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-          {saving ? M.saving : M.save}
-        </button>
-      </div>
 
       {/* 轻量 toast：保存成功 / 失败反馈 */}
       {toast ? (
