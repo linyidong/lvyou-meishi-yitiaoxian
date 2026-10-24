@@ -4,8 +4,9 @@ import { Fragment, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Eye, EyeOff, Footprints, Info, LoaderCircle, Lock, Mail, Rocket, Save, User } from 'lucide-react';
+import { Eye, EyeOff, Footprints, Info, LoaderCircle, Lock, Mail, Mountain, Rocket, Save, Soup, User } from 'lucide-react';
 import { BUSINESS } from '@/config/business';
+import { PLACE_TYPE } from '@/config/enums';
 import { MESSAGES } from '@/config/messages';
 import { PRODUCT } from '@/config/product';
 import { ROUTES } from '@/config/routes';
@@ -225,23 +226,34 @@ export function LoginClient({
 
             <div className="mt-8 rounded-2xl bg-white/10 p-5">
               <div className="flex items-center justify-between text-sm">
-                {MESSAGES.SAMPLE_ROUTE.stations.slice(0, 4).map((name, i) => (
-                  <Fragment key={name}>
-                    {i > 0 ? (
-                      <div className="mx-2 h-0.5 flex-1 border-t-2 border-dashed border-white/50" />
-                    ) : null}
-                    <div className="flex flex-col items-center gap-1">
-                      <span
-                        className={`grid h-8 w-8 place-items-center rounded-full font-bold ${
-                          i % 2 === 0 ? 'bg-teal-500' : 'bg-amber-500'
-                        }`}
-                      >
-                        {i + 1}
-                      </span>
-                      <span className="text-xs text-white/80">{name}</span>
-                    </div>
-                  </Fragment>
-                ))}
+                {MESSAGES.SAMPLE_ROUTE.stations.slice(0, 4).map((name, i) => {
+                  // T-035：圆内显示站点类型图标（景点=山峰 / 美食=碗+热气），序号做右下角小徽标
+                  const isFood = MESSAGES.SAMPLE_ROUTE.stationTypes[i] === PLACE_TYPE.FOOD;
+                  return (
+                    <Fragment key={name}>
+                      {i > 0 ? (
+                        <div className="mx-2 h-0.5 flex-1 border-t-2 border-dashed border-white/50" />
+                      ) : null}
+                      <div className="flex flex-col items-center gap-1">
+                        <span
+                          className={`relative grid h-8 w-8 place-items-center rounded-full ${
+                            isFood ? 'bg-amber-500' : 'bg-teal-500'
+                          }`}
+                        >
+                          {isFood ? (
+                            <Soup className="h-4 w-4 text-white" />
+                          ) : (
+                            <Mountain className="h-4 w-4 text-white" />
+                          )}
+                          <span className="absolute -bottom-1 -right-1 grid h-4 w-4 place-items-center rounded-full bg-white text-[10px] font-bold leading-none text-stone-700 shadow">
+                            {i + 1}
+                          </span>
+                        </span>
+                        <span className="text-xs text-white/80">{name}</span>
+                      </div>
+                    </Fragment>
+                  );
+                })}
               </div>
               <p className="mt-4 flex items-center gap-1 text-xs text-white/80">
                 <Footprints className="h-4 w-4" />

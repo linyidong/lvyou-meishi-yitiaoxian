@@ -4,6 +4,7 @@
  * M23 需要引用 B21（密码位数），M34/M36/M37 需要引用 B23/B01/B13，故此处 import BUSINESS，避免把数字写两遍。
  */
 import { BUSINESS } from './business';
+import { PLACE_TYPE } from './enums';
 
 export const MESSAGES = {
   /** M01 只粘贴了链接 */
@@ -220,6 +221,14 @@ export const MESSAGES = {
     cityLine: '成都 · 第 1 天 · 步行',
     tag: '示例',
     stations: ['宽窄巷子', '陈麻婆豆腐', '人民公园', '钟水饺', '春熙路'],
+    /** T-035 示意路线各站点类型（与 stations 顺序一一对应：景点/美食） */
+    stationTypes: [
+      PLACE_TYPE.ATTRACTION,
+      PLACE_TYPE.FOOD,
+      PLACE_TYPE.ATTRACTION,
+      PLACE_TYPE.FOOD,
+      PLACE_TYPE.ATTRACTION,
+    ],
     /** U01 左侧面板示意路线脚注 */
     footNote: '步行约 3.2 公里 · 示意路线',
     /** U02 右侧示意图脚注 */

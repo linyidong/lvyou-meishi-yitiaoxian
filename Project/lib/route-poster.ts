@@ -1,4 +1,4 @@
-import { PLACE_TYPE_LABEL } from '@/config/enums';
+import { PLACE_TYPE, PLACE_TYPE_LABEL } from '@/config/enums';
 import { MESSAGES } from '@/config/messages';
 import { PRODUCT } from '@/config/product';
 import type { RouteShareSnapshot } from '@/types';
@@ -87,6 +87,79 @@ function truncate(ctx: CanvasRenderingContext2D, text: string, maxWidth: number)
   return `${out}…`;
 }
 
+/** T-035 站点类型主色：景点青绿 / 美食橙（与图例一致） */
+const TYPE_COLOR: Record<string, string> = {
+  [PLACE_TYPE.ATTRACTION]: '#14B8A6',
+  [PLACE_TYPE.FOOD]: '#F59E0B',
+};
+
+/**
+ * T-035 自绘站点类型图标（白色矢量路径，禁止 emoji / 外链图片）。
+ * 景点 = 双峰山峰（折线闭合填充）；美食 = 碗（下半圆 + 碗沿横条）+ 两缕热气（二次贝塞尔短线）。
+ * 以 (cx, cy) 为中心，整体控制在约 ±9px 内。
+ */
+function drawPlaceIcon(ctx: CanvasRenderingContext2D, cx: number, cy: number, type: string) {
+  ctx.save();
+  ctx.fillStyle = '#FFFFFF';
+  ctx.strokeStyle = '#FFFFFF';
+  if (type === PLACE_TYPE.FOOD) {
+    // 碗沿横条 + 下半圆碗身
+    ctx.fillRect(cx - 7, cy + 0.5, 14, 2.4);
+    ctx.beginPath();
+    ctx.arc(cx, cy + 1.5, 6.5, 0, Math.PI);
+    ctx.closePath();
+    ctx.fill();
+    // 两缕热气：S 形短曲线
+    ctx.lineWidth = 1.5;
+    ctx.lineCap = 'round';
+    for (const dx of [-3, 3]) {
+      ctx.beginPath();
+      ctx.moveTo(cx + dx, cy - 3);
+      ctx.quadraticCurveTo(cx + dx + 2.2, cy - 5.5, cx + dx, cy - 8);
+      ctx.stroke();
+    }
+  } else {
+    // 双峰山：左小峰 + 右大峰，底边闭合
+    ctx.beginPath();
+    ctx.moveTo(cx - 8, cy + 5.5);
+    ctx.lineTo(cx - 3, cy - 3);
+    ctx.lineTo(cx - 0.5, cy + 0.5);
+    ctx.lineTo(cx + 3.5, cy - 6.5);
+    ctx.lineTo(cx + 8, cy + 5.5);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+/**
+ * T-035 站点序号徽标（30×30）：类型色圆底 + 白色自绘图标 + 右下角白底类型色小序号。
+ * (cx, cy) 为大圆圆心。
+ */
+function drawStationBadge(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  type: string,
+  num: number,
+) {
+  const color = TYPE_COLOR[type] ?? '#57534E';
+  ctx.fillStyle = color;
+  roundRect(ctx, cx - 15, cy - 15, 30, 30, 15);
+  ctx.fill();
+  drawPlaceIcon(ctx, cx, cy, type);
+  // 右下角序号小徽标（白底圆 + 类型色数字）
+  ctx.beginPath();
+  ctx.arc(cx + 11, cy + 11, 8, 0, Math.PI * 2);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fill();
+  ctx.font = font(10, '700');
+  ctx.fillStyle = color;
+  ctx.textAlign = 'center';
+  ctx.fillText(String(num), cx + 11, cy + 11.5);
+  ctx.textAlign = 'left';
+}
+
 /** 从分享链接解析站点域名（无协议前缀时原样返回） */
 function hostOf(url: string): string {
   try {
@@ -172,15 +245,8 @@ export async function renderRoutePoster(input: {
 
     let rowY = blockTop + 70;
     day.places.forEach((place, i) => {
-      // 序号
-      ctx.fillStyle = '#E7E5E4';
-      roundRect(ctx, 40, rowY - 13, 26, 26, 13);
-      ctx.fill();
-      ctx.font = font(15, '600');
-      ctx.fillStyle = '#57534E';
-      ctx.textAlign = 'center';
-      ctx.fillText(String(i + 1), 53, rowY);
-      ctx.textAlign = 'left';
+      // T-035 序号徽标：类型色圆 + 自绘图标 + 右下角小序号
+      drawStationBadge(ctx, 55, rowY, place.type, i + 1);
 
       // 类型标签
       ctx.font = font(16, '400');
