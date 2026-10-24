@@ -280,12 +280,6 @@ export function ImportCollectClient({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <p className="font-semibold text-stone-900">{MESSAGES.HOME_COLLECT.title}</p>
-            <span className="rounded-full bg-primary/5 px-2 py-0.5 text-xs text-primary">
-              {MESSAGES.HOME_COLLECT.badgeNew}
-            </span>
-            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-700">
-              {MESSAGES.HOME_COLLECT.badgePrd}
-            </span>
           </div>
           <p className="mt-1 text-sm text-stone-600">{MESSAGES.HOME_COLLECT.desc}</p>
           <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-stone-500">

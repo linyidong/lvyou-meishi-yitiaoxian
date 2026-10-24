@@ -37,7 +37,6 @@ export function ProfileMenu() {
         <Link href={ROUTES.COLLECTED} className="flex items-center gap-3 px-5 py-4 hover:bg-stone-50">
           <Heart className="h-5 w-5 text-stone-500" />
           <span className="flex-1">{M.menuCollected}</span>
-          <span className="mr-1 text-xs text-stone-400">{M.collectedNewTag}</span>
           <ChevronRight className="h-4 w-4 text-stone-400" />
         </Link>
         <Link href={ROUTES.ROUTE_NEW} className="flex items-center gap-3 px-5 py-4 hover:bg-stone-50">

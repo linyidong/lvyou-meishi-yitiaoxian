@@ -154,7 +154,7 @@ export function HomeClient({ isLoggedIn, recentRoutes, draft, collectedCount }: 
                       lucide 与自绘分支统一 18×18，实测宽度不再受图标自身宽高比影响） */}
                   <circle cx={p.x} cy={p.y} r={15} fill={p.fill} />
                   <PlaceGlyph
-                    iconKey={MESSAGES.SAMPLE_ROUTE.stationIconKeys[i]}
+                    iconKey={MESSAGES.SAMPLE_ROUTE.homeStationIconKeys[i]}
                     size={18}
                     x={p.x - 9}
                     y={p.y - 9}

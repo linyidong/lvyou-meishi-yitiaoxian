@@ -90,7 +90,6 @@ const HEAD_ICON_CLS = 'grid h-11 w-11 shrink-0 place-items-center rounded-xl';
 const LABEL_CLS = 'flex flex-wrap items-center gap-1.5 text-sm font-semibold text-stone-900';
 const BADGE_REQ = 'rounded-full bg-primary/5 px-2 py-0.5 text-xs font-normal text-primary';
 const BADGE_OPT = 'rounded-full bg-stone-100 px-2 py-0.5 text-xs font-normal text-stone-600';
-const BADGE_NEW = 'rounded-full bg-amber-50 px-2 py-0.5 text-xs font-normal text-amber-700';
 const INPUT_CLS =
   'h-11 w-full rounded-xl border border-stone-300 bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
 
@@ -236,7 +235,6 @@ export function TripSettingsFields({
               <MapPin className="h-4 w-4 text-primary" />
               {M.originTitle}
               <span className={BADGE_REQ}>{M.badgeRequired}</span>
-              <span className={BADGE_NEW}>{M.badgeNew}</span>
             </p>
             <p className="mt-1 text-xs text-stone-500">
               {M.originDesc1}
@@ -352,7 +350,6 @@ export function TripSettingsFields({
               <ArrowRight className="h-4 w-4 text-primary" />
               {M.intercityTitle}
               <span className={BADGE_OPT}>{M.badgeOptional}</span>
-              <span className={BADGE_NEW}>{M.badgeNew}</span>
             </p>
             <p className="mt-1 text-xs text-stone-500">
               {M.intercityDesc1}
@@ -394,7 +391,6 @@ export function TripSettingsFields({
               <House className="h-4 w-4 text-primary" />
               {M.lodgingTitle}
               <span className={BADGE_OPT}>{M.badgeOptional}</span>
-              <span className={BADGE_NEW}>{M.badgeNew}</span>
             </p>
             <p className="mt-1 text-xs text-stone-500">
               {M.lodgingDesc1}{' '}

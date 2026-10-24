@@ -13,6 +13,7 @@ export type PlaceIconKey =
   | 'palace' // 宫殿
   | 'museum' // 博物馆/展馆
   | 'park' // 公园/绿地
+  | 'tree' // 树（T-039 新增，仅首页示意图使用）
   | 'street' // 街巷/市集/广场
   | 'bowl' // 面/饭/汤
   | 'dumpling' // 饺子/包子
@@ -53,6 +54,7 @@ const KEY_TYPE: Record<PlaceIconKey, 'attraction' | 'food'> = {
   palace: 'attraction',
   museum: 'attraction',
   park: 'attraction',
+  tree: 'attraction',
   street: 'attraction',
   bowl: 'food',
   dumpling: 'food',
@@ -106,6 +108,9 @@ export const PLACE_GLYPH_PATHS: Record<PlaceIconKey, string> = {
   // 公园：大圆树冠（r=9，x∈[3,21]）+ 树干；T-038 归宽
   park: 'M12 2a9 9 0 1 0 .01 0z M10.7 18.5h2.6v4.5h-2.6z',
   // 街巷：遮阳篷 + 店面 + 门洞（evenodd 挖门）；篷 x∈[3,21]（墨迹宽 18）
+  // 树：双层松树冠 + 树干（T-039 新增，仅首页示意图使用；墨迹宽 ~17）
+  tree:
+    'M12 2 5.5 10h3L3.5 16.5h7V21h3v-4.5h7L15.5 10h3z',
   street:
     'M3 7.8h18l-1.5 3.6H4.5z M5.2 12h13.6v9.4H5.2z M10 15.4h4v6h-4z',
   // 碗饭：下半圆碗身（rx=9，x∈[3,21]）+ 碗中饭 mound 两粒

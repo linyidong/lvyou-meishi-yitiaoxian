@@ -12,7 +12,6 @@ import {
   Car,
   CheckCircle2,
   CircleAlert,
-  ClipboardList,
   Footprints,
   Info,
   Lock,
@@ -233,18 +232,6 @@ export function RouteNewClient({
       <h1 className="text-2xl font-bold text-stone-900 md:text-3xl">{M.TRIP_HERO.title}</h1>
       <p className="mt-2 text-sm text-stone-500">{M.TRIP_HERO.desc}</p>
 
-      {/* 本期新增范围说明（超出 PRD P0） */}
-      <div className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-        <ClipboardList className="mt-0.5 h-[22px] w-[22px] shrink-0 text-amber-600" />
-        <div className="text-sm text-amber-900">
-          <p className="font-semibold">{M.TRIP_HERO.newInfoTitle}</p>
-          <p className="mt-1 text-amber-800">
-            {M.TRIP_HERO.newInfoDesc1}
-            <strong>{M.TRIP_HERO.newInfoDescStrong}</strong>
-            {M.TRIP_HERO.newInfoDesc2}
-          </p>
-        </div>
-      </div>
 
       {/* 阶段 2 会员分层：按角色动态展示当前配额（免费用户另给升级入口） */}
       <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-2xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-800">

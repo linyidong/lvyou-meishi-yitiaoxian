@@ -232,6 +232,8 @@ export const MESSAGES = {
     ],
     /** T-036 示意路线各站点图标语义（与 stations 顺序一一对应，见 lib/place-icon.ts） */
     stationIconKeys: ['street', 'bowl', 'park', 'dumpling', 'shopping'] as PlaceIconKey[],
+    /** T-039 首页示意图专用（与登录页分开，保证 5 个图标形状两两不同；tree 仅此处使用） */
+    homeStationIconKeys: ['street', 'hotpot', 'tree', 'dumpling', 'shopping'] as PlaceIconKey[],
     /** U01 左侧面板示意路线脚注 */
     footNote: '步行约 3.2 公里 · 示意路线',
     /** U02 右侧示意图脚注 */
