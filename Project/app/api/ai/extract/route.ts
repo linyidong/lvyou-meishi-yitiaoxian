@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { BUSINESS } from '@/config/business';
 import { QUOTA_ERROR, USAGE_KIND } from '@/config/enums';
 import { MESSAGES } from '@/config/messages';
+import { ensureCityInDb } from '@/lib/city-ensure';
 import { extractPlacesAndCity } from '@/lib/deepseek';
 import {
   GUEST_COOKIE,
@@ -120,22 +121,35 @@ export async function POST(request: NextRequest) {
   try {
     // 先识别文案里的城市，再返回该城市下的地点（收藏时按 city 归集）
     const { city, places } = await extractPlacesAndCity(text);
-    // T-042：城市是否已在城市库（库里没有 → 前端提示「将作为新城市加入城市库」，收藏时自动入库）；
-    // 查询失败按「在库」处理（保存链路仍有服务端自动入库兜底，不阻断提取）
+    // T-043：登录用户在「识别阶段」就把城市入库（lib/city-ensure 幂等，收藏时 api/places 仍兜底）；
+    // 游客只读不写库（任务卡：guest 场景不写），保持 T-042 行为——提示「将作为新城市加入城市库」
     let cityInDb = true;
+    let cityId: string | null = null;
+    let cityIsNew = false;
     if (city) {
-      const { data: cityRow } = await supabase
-        .from('cities')
-        .select('id')
-        .eq('name', city)
-        .maybeSingle();
-      cityInDb = Boolean(cityRow);
+      if (user) {
+        const ensured = await ensureCityInDb(city);
+        if (ensured) {
+          cityId = ensured.id;
+          cityIsNew = ensured.isNew;
+        } else {
+          // 写库失败：不阻断提取，收藏链路（api/places）仍会重试入库
+          cityInDb = false;
+        }
+      } else {
+        const { data: cityRow } = await supabase
+          .from('cities')
+          .select('id')
+          .eq('name', city)
+          .maybeSingle();
+        cityInDb = Boolean(cityRow);
+      }
     }
     // 成功后才计数（仅登录用户；管理员不计数）；失败不计入
     if (user && tier !== 'admin') {
       await bumpDailyUsage(user.id, USAGE_KIND.AI_EXTRACT);
     }
-    return respond({ ok: true, city, places, linkReadFailed, cityInDb });
+    return respond({ ok: true, city, places, linkReadFailed, cityInDb, cityId, cityIsNew });
   } catch {
     return respond({ ok: false, error: MESSAGES.AI_FAILED }, 502);
   }

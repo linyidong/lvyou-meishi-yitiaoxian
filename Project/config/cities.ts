@@ -12,6 +12,7 @@ import {
   Castle,
   Coffee,
   CupSoda,
+  Fish,
   Landmark,
   Mountain,
   MountainSnow,
@@ -63,7 +64,7 @@ export interface CityCard {
   nearby: readonly string[];
 }
 
-/** CT04 U04 热门城市卡片（12 座，顺序、配色与二级目的地与原型一致） */
+/** CT04 U04 热门城市卡片（原型 12 座 + T-043 增「东山」，顺序、配色与二级目的地与原型一致） */
 export const CITY_CARDS: readonly CityCard[] = [
   {
     name: '成都',
@@ -160,6 +161,15 @@ export const CITY_CARDS: readonly CityCard[] = [
     keywords: ['洱海', '古城', '骑行'],
     districts: ['大理古城', '喜洲古镇', '双廊', '才村码头', '苍山', '龙龛码头'],
     nearby: ['丽江', '洱源', '剑川', '宾川', '巍山'],
+  },
+  // T-043 新增：东山（东山岛）小众城市卡，二级目的地为常见景点（模拟数据，与其余卡片口径一致）
+  {
+    name: '东山',
+    icon: Fish,
+    color: 'bg-blue-50 text-blue-600',
+    keywords: ['海岛', '海鲜', '渔村'],
+    districts: ['风动石', '南门湾', '马銮湾', '金銮湾', '苏峰山', '鱼骨沙洲'],
+    nearby: ['漳州', '厦门', '云霄', '诏安', '平潭'],
   },
 ];
 
@@ -294,6 +304,20 @@ export function cityPinyin(name: string): { full: string; initials: string } {
 /** 按城市名取热门卡片数据；非热门城市返回 undefined */
 export function cityCard(name: string): CityCard | undefined {
   return CITY_CARDS.find((c) => c.name === name);
+}
+
+/**
+ * T-043 城市显示别名：仅影响界面展示与搜索命中，**不改 cities.name 数据**
+ * （高德查询、拼音、落库仍用原名「东山」）。
+ * 例：东山 → 东山（东山岛）
+ */
+export const CITY_DISPLAY_ALIAS: Readonly<Record<string, string>> = {
+  东山: '东山（东山岛）',
+};
+
+/** 城市展示名：有别名返回别名，否则原样返回 */
+export function cityLabel(name: string): string {
+  return CITY_DISPLAY_ALIAS[name] ?? name;
 }
 
 /** CT01/CT03 内置城市数据（共 109 个：92 基础 + T-042 小众 17 新增，泉州/北海原已含） */

@@ -19,7 +19,7 @@ import {
   Search,
   TriangleAlert,
 } from 'lucide-react';
-import { CITY_CARDS, cityPinyin, type CityCard } from '@/config/cities';
+import { CITY_CARDS, cityLabel, cityPinyin, type CityCard } from '@/config/cities';
 import { MESSAGES } from '@/config/messages';
 import { ROUTES } from '@/config/routes';
 import { cn } from '@/lib/utils';
@@ -41,12 +41,13 @@ export interface CityDraft {
 type DestScope = 'city' | 'near';
 
 /**
- * 搜索命中判断：城市名、拼音全拼 / 首字母（hz → 杭州），
+ * 搜索命中判断：城市名（含 T-043 显示别名，如「东山岛」命中「东山（东山岛）」）、
+ * 拼音全拼 / 首字母（hz → 杭州），
  * 以及二级目的地（城市内地名 / 周边城市，如 西湖 → 杭州）。
  */
 function matchCity(card: CityCard, keyword: string): boolean {
   const kw = keyword.toLowerCase();
-  if (card.name.includes(keyword)) return true;
+  if (cityLabel(card.name).includes(keyword)) return true;
 
   const { full, initials } = cityPinyin(card.name);
   if (full && (full.includes(kw) || initials.includes(kw))) return true;
@@ -135,7 +136,7 @@ function DestPanel({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <p className="flex items-center gap-1.5 font-semibold text-stone-900">
           <CityIcon className={cn('h-4 w-4', card.color.split(' ')[1])} />
-          {D.panelTitle(card.name)}
+          {D.panelTitle(cityLabel(card.name))}
           {guest ? (
             <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-normal text-amber-700">
               {D.panelBadge}
@@ -177,7 +178,7 @@ function DestPanel({
   );
 }
 
-/** U04 选择城市：12 张热门城市卡（二级目的地展开）+ 搜索 + 底部选择条 */
+/** U04 选择城市：热门城市卡（原型 12 张 + T-043 东山，二级目的地展开）+ 搜索 + 底部选择条 */
 export function CitySelectClient({
   cities,
   draft,
@@ -372,7 +373,7 @@ export function CitySelectClient({
                         ) : null}
                       </div>
                       <p className={cn('mt-3 font-semibold', locked ? 'text-stone-400' : 'text-stone-900')}>
-                        {card.name}
+                        {cityLabel(card.name)}
                       </p>
                       <p className={cn('mt-0.5 text-xs', locked ? 'text-stone-300' : 'text-stone-500')}>
                         {card.keywords.join(' · ')}
@@ -432,13 +433,13 @@ export function CitySelectClient({
               <div className="min-w-0 flex-1">
                 <p className="text-xs text-stone-500">{M.CITY_HERO.selectedLabel}</p>
                 <p className="truncate font-semibold text-stone-900">
-                  {selected ?? M.CITY_HERO.notSelected}
+                  {selected ? cityLabel(selected) : M.CITY_HERO.notSelected}
                 </p>
                 {selectedDest ? (
                   <p className="mt-0.5 truncate text-xs text-primary">
                     {selectedDest.scope === 'near'
-                      ? M.CITY_HERO.selectedDestNear(selectedDest.name, selected ?? '')
-                      : M.CITY_HERO.selectedDestCity(selectedDest.name, selected ?? '')}
+                      ? M.CITY_HERO.selectedDestNear(selectedDest.name, selected ? cityLabel(selected) : '')
+                      : M.CITY_HERO.selectedDestCity(selectedDest.name, selected ? cityLabel(selected) : '')}
                   </p>
                 ) : null}
               </div>

@@ -17,6 +17,7 @@ import {
   Plus,
   type LucideIcon,
 } from 'lucide-react';
+import { cityLabel } from '@/config/cities';
 import { TRANSPORT, TRANSPORT_LABEL } from '@/config/enums';
 import { MESSAGES } from '@/config/messages';
 import { PRODUCT } from '@/config/product';
@@ -146,7 +147,7 @@ export function MyRoutesClient({
             lines={toLines(r.points)}
           />
           <span className="absolute left-3 top-3 rounded-lg bg-white/90 px-2 py-1 text-xs font-medium">
-            {r.cityName ?? MESSAGES.UNSPECIFIED_CITY}
+            {r.cityName ? cityLabel(r.cityName) : MESSAGES.UNSPECIFIED_CITY}
           </span>
           <span className="absolute right-3 top-3 flex items-center gap-1 rounded-lg bg-stone-900 px-2 py-1 text-xs text-white">
             <TransportIcon className="h-4 w-4" />
@@ -251,7 +252,7 @@ export function MyRoutesClient({
                     : 'border border-stone-200 bg-white text-stone-600',
                 )}
               >
-                {tab}
+                {tab === M.all ? tab : cityLabel(tab)}
               </button>
             ))}
           </div>

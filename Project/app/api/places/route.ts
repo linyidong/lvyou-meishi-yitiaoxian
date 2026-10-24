@@ -1,10 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { BUSINESS } from '@/config/business';
-import { CITIES } from '@/config/cities';
 import { GEO_STATUS, IMPORT_SOURCE, IMPORT_STATUS, PLACE_TYPE } from '@/config/enums';
 import { MESSAGES } from '@/config/messages';
-import { searchPlaces, resolveCityAdcode } from '@/lib/amap';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { searchPlaces } from '@/lib/amap';
+import { ensureCityInDb } from '@/lib/city-ensure';
 import { createClient } from '@/lib/supabase/server';
 import type { ImportSource, PlaceType } from '@/types';
 
@@ -87,36 +86,6 @@ async function geocodeAll(list: { name: string }[], city: string): Promise<Geoco
   return out;
 }
 
-/**
- * T-042：AI 识别出的新城市自动加入 public.cities。
- * cities 表 RLS 只有 SELECT 策略，写入走 service_role 客户端；
- * adcode 优先取 config/cities.ts 已核实的编码（保证与种子迁移一致，如喀什=653101），
- * 不在 config 里再用高德 config/district 解析（返回名与查询词完全一致才采用），
- * 解析不到写空串（字段 NOT NULL 但允许空串；注意 adcode 有唯一索引，
- * 两个都解析失败的空串行会冲突，此时按插入失败降级）。
- * 并发插入撞 name 唯一索引时按名称回查兜底。
- * 返回新（或已存在的）城市 id；确实写不进返回 null，由调用方降级为「地点已收藏但无城市」。
- */
-async function ensureCityInDb(name: string): Promise<string | null> {
-  const admin = createAdminClient();
-  const adcode = CITIES.find((c) => c.name === name)?.adcode ?? (await resolveCityAdcode(name));
-
-  const { data: inserted, error } = await admin
-    .from('cities')
-    .insert({ name, adcode })
-    .select('id')
-    .maybeSingle();
-  if (!error && inserted) return inserted.id as string;
-
-  // 唯一索引冲突多半是并发同名插入：按名称回查
-  const { data: existing } = await admin
-    .from('cities')
-    .select('id')
-    .eq('name', name)
-    .maybeSingle();
-  return (existing?.id as string) ?? null;
-}
-
 export async function POST(request: NextRequest) {
   const supabase = createClient();
   const {
@@ -174,10 +143,10 @@ export async function POST(request: NextRequest) {
     if (cityRow) {
       cityId = cityRow.id;
     } else {
-      // T-042：城市不在城市库里 → 自动解析 adcode 并插入 cities，再按新城市归属地点
-      const newCityId = await ensureCityInDb(cityName);
-      if (newCityId) {
-        cityId = newCityId;
+      // T-043：兜底入库（extract 阶段通常已入库，这里幂等命中直接复用；lib/city-ensure.ts）
+      const ensured = await ensureCityInDb(cityName);
+      if (ensured) {
+        cityId = ensured.id;
       } else {
         // 自动入库失败：地点照常收藏，但城市为空，前端据此提示用户
         cityMatched = false;

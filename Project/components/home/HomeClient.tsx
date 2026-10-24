@@ -146,7 +146,6 @@ export function HomeClient({ isLoggedIn, recentRoutes, draft, collectedCount, is
               ) : null}
             </div>
           </div>
-          <p className="mt-3 text-xs text-stone-500">{MESSAGES.GUEST_TRY_HINT}</p>
         </div>
 
         <div className="relative min-w-0 min-h-[320px] overflow-hidden rounded-3xl bg-teal-900 p-6 text-white lg:col-span-2">

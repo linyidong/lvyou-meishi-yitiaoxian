@@ -19,6 +19,7 @@ import {
   Utensils,
   X,
 } from 'lucide-react';
+import { cityLabel } from '@/config/cities';
 import { EVENT_NAME, IMPORT_SOURCE_LABEL, PLACE_TYPE, PLACE_TYPE_LABEL } from '@/config/enums';
 import { MESSAGES } from '@/config/messages';
 import { ROUTES } from '@/config/routes';
@@ -83,7 +84,8 @@ export function CollectedClient({
     return items.filter((it) => {
       if (filter !== 'all' && it.type !== filter) return false;
       if (!kw) return true;
-      return [it.name, it.cityName, it.address, it.note].some((v) =>
+      // T-043：城市名同时按显示别名匹配（如「东山岛」命中「东山（东山岛）」）
+      return [it.name, it.cityName ? cityLabel(it.cityName) : '', it.address, it.note].some((v) =>
         String(v ?? '')
           .toLowerCase()
           .includes(kw),
@@ -98,7 +100,8 @@ export function CollectedClient({
   const groups = useMemo(() => {
     const map = new Map<string, CollectedItem[]>();
     for (const it of filtered) {
-      const key = it.cityName ?? M.noCity;
+      // T-043：分组标题用显示别名（东山 → 东山（东山岛））
+      const key = it.cityName ? cityLabel(it.cityName) : M.noCity;
       map.set(key, [...(map.get(key) ?? []), it]);
     }
     return [...map.entries()]
@@ -347,7 +350,7 @@ export function CollectedClient({
                     >
                       <span className="font-medium">{r.title}</span>
                       <span className="text-xs text-stone-500">
-                        {r.cityName ?? M.noCity} · {r.days} 天
+                        {r.cityName ? cityLabel(r.cityName) : M.noCity} · {r.days} 天
                       </span>
                     </button>
                   </li>
@@ -440,7 +443,7 @@ function CollectedCard({
           <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-stone-500">
             <span className="flex items-center gap-1">
               <Building2 className="h-3.5 w-3.5" />
-              {item.cityName ?? M.noCity}
+              {item.cityName ? cityLabel(item.cityName) : M.noCity}
             </span>
             <span className="flex items-center gap-1">
               <MapPin className="h-3.5 w-3.5" />

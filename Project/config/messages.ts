@@ -380,8 +380,10 @@ export const MESSAGES = {
     cityHint: 'AI 会先识别文案里的城市，下面的地点和美食都收藏到这个城市下',
     cityPick: '请选择城市',
     cityAuto: (name: string) => `AI 识别到城市：${name}`,
-    /** T-042：AI 识别的城市不在内置列表时不再要求手动选择，收藏时自动加入城市库 */
+    /** T-042：AI 识别的城市不在内置列表时不再要求手动选择，收藏时自动加入城市库（游客链路：识别阶段不写库） */
     cityMissing: (name: string) => `“${name}”将作为新城市加入城市库`,
+    /** T-043：登录用户在识别阶段即入库，新城市即时生效 */
+    cityAdded: (name: string) => `“${name}”为新城市，已加入城市库`,
     /** 自动入库失败（如城市表写入出错）时的兜底提示：地点仍已收藏，但城市为空 */
     cityMissingSaved: (name: string) =>
       `“${name}”未能加入城市库，地点已收藏但未指定城市`,
