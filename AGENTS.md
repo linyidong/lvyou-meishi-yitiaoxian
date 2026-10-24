@@ -16,7 +16,7 @@
 - **类型检查**：`cd Project && npm run typecheck`
 - **构建命令**：`cd Project && npm run build`
 - **Lint**：`cd Project && npm run lint`
-- **测试命令**：**暂无自动化测试框架**（无 jest / vitest / playwright）。改动至少跑 `typecheck`；运行时行为必须人工走一遍，并在汇报里写「未覆盖」而不是「通过」
+- **测试命令**：`cd Project && npm run test:run`（vitest 单测，41 条）；`npm run test:e2e`（Playwright 8 条，需 dev server 3000 在跑 + `Project/.env.test.local` 凭据，缺失时鉴权用例自动 skip）；`npm run audit:mobile`（真机尺寸移动端审计）；`npm run check:env`（环境 / Supabase / dev 探活）；`npm run check:cities`（城市数据三处一致性）；`npm run typecheck`（tsc --noEmit）。改动至少跑 `typecheck` + 相关测试；运行时行为仍需人工走一遍，并在汇报里写「未覆盖」而不是「通过」
 - **数据库 / 外部服务**：自建 Supabase（地址见 `Project/.env.local`）、高德 Web 服务 Key 池（两个 Key）、高德 JS API、DeepSeek API、企业微信 Webhook
 - **禁止触碰**：`Project/.env.local`（密钥）、生产 Supabase 数据、`File-PRD/`（历史文档）、`node_modules/`、`.next/`、`Project/public/pay-qr.*`（含经营信息的收款码原图）
 - **当前进度与主文档**：**`docs/progress.md` 是唯一进度事实源**（阶段 / 门禁 / 任务 / 下一步 / 阻塞都看它）；审计报告 `docs/existing-project-audit.md`
@@ -73,6 +73,7 @@
 ## 4. 验证要求
 
 - 修改后检查 `git diff`，运行相关测试和必要的构建检查。
+- 优先跑 `npm run test:run` 与 `npm run test:e2e`（命令见 §0）；自动化测试通过后，仍须区分「已通过 / 失败 / 未执行 / 未覆盖」四态汇报。
 - 必须区分四种状态：**已通过 / 失败 / 未执行 / 未覆盖**。
 - 没有证据不得声称任务已经完整验证；不得用「应该没问题」代替运行结果。
 - 禁止通过删除测试、跳过测试、吞掉异常或移除必要校验来让结果变绿。
