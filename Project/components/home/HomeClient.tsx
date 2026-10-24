@@ -46,6 +46,9 @@ export interface HomeClientProps {
   collectedCount: number;
   /** T-041 是否会员（member 或 role=admin）：决定「导入分享路线」按钮可否点击 */
   isMember: boolean;
+  /** T-051 业务开关：导入地点 / 图片识别（关闭时导入面板提示并禁用入口） */
+  importEnabled: boolean;
+  ocrEnabled: boolean;
 }
 
 const STEP_STYLES = [
@@ -77,7 +80,15 @@ const LABEL_POS = [
 ] as const;
 
 /** U02 首页（Slogan 首屏 + 草稿提示 + 导入收藏 + 四步说明 + 最近路线 + 差异说明） */
-export function HomeClient({ isLoggedIn, recentRoutes, draft, collectedCount, isMember }: HomeClientProps) {
+export function HomeClient({
+  isLoggedIn,
+  recentRoutes,
+  draft,
+  collectedCount,
+  isMember,
+  importEnabled,
+  ocrEnabled,
+}: HomeClientProps) {
   const [localDraft, setLocalDraft] = useState<{ city: string; count: number } | null>(null);
   const [importOpen, setImportOpen] = useState(false);
 
@@ -256,7 +267,12 @@ export function HomeClient({ isLoggedIn, recentRoutes, draft, collectedCount, is
       ) : null}
 
       {/* 导入地点美食先收藏（本期新增） */}
-      <ImportCollectClient isLoggedIn={isLoggedIn} collectedCount={collectedCount} />
+      <ImportCollectClient
+        isLoggedIn={isLoggedIn}
+        collectedCount={collectedCount}
+        importEnabled={importEnabled}
+        ocrEnabled={ocrEnabled}
+      />
 
       {/* 四步排好一条线 */}
       <section className="mt-10">

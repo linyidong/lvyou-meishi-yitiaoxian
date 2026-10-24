@@ -426,6 +426,9 @@ export const MESSAGES = {
     /** 识别成功：文本已回填文本框，提示下一步动作 */
     imageDone: (n: number) => `已识别 ${n} 行文字，可点下方「AI 提取地点」`,
     imageQuota: (n: number) => `今日图片识别次数已用完（${n} 次/日），明天再来吧`,
+    /** T-051 业务开关关闭态提示（管理后台「导入地点 / 图片识别」开关） */
+    importPaused: '导入地点功能已暂停，请稍后再试',
+    ocrPaused: '图片识别功能已暂停，请稍后再试',
   },
   /** M107 U02「四步排好一条线」 */
   HOME_STEPS: {
@@ -1312,11 +1315,12 @@ export const MESSAGES = {
     fieldOcrRegion: 'OCR 地域',
     fieldOcrMonthlyQuota: 'OCR 月额度（全站每月总次数）',
     fieldBilling: '开放付费',
-    fieldBillingHint: '关闭后下单接口返回 403，收银台提示暂停购买',
+    // T-051：三个开关说明统一「接口 403 + 前端提示」口径
+    fieldBillingHint: '关闭后下单接口返回 403，收银台提示「暂停购买」',
     fieldOcr: '图片识别',
-    fieldOcrHint: '关闭后图片识别接口返回 403',
+    fieldOcrHint: '关闭后图片识别接口返回 403，首页/导入面板的图片识别入口提示「已暂停」',
     fieldImport: '导入地点',
-    fieldImportHint: '关闭后 AI 提取与批量添加地点接口返回 403',
+    fieldImportHint: '关闭后导入接口返回 403，首页导入面板提示「已暂停」并禁用入口',
     fieldFreePlacesPerDay: '正常用户单日地点数',
     fieldMemberPlacesPerDay: '会员单日地点数',
     fieldMemberMonthlyRoutes: '会员每月路线数',
@@ -1633,6 +1637,8 @@ export const MESSAGES = {
     errLoadFailed: '订单加载失败，请稍后重试',
     /** T-025 内测模式（BILLING_ENABLED=false）：付费入口关闭时的统一提示（前端购买区 + 服务端 403 兜底共用） */
     paused: '内测阶段暂未开放购买，感谢关注',
+    /** T-051：管理后台「开放付费」开关关闭时的收银台提示（区别于 T-025 内测文案） */
+    pausedByFlag: '暂停购买，请稍后再试',
     payNoteTooLong: (max: number) => `付款备注最多 ${max} 个字`,
   },
   /**

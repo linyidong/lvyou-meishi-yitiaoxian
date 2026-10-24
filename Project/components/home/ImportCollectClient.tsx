@@ -11,6 +11,7 @@ import {
   CircleCheckBig,
   ClipboardPaste,
   LoaderCircle,
+  PauseCircle,
   Plus,
   ScanText,
   Sparkles,
@@ -65,11 +66,18 @@ function sourceOf(text: string): ImportSource {
 export function ImportCollectClient({
   isLoggedIn,
   collectedCount,
+  importEnabled,
+  ocrEnabled,
 }: {
   isLoggedIn: boolean;
   collectedCount: number;
+  /** T-051 业务开关：关闭时面板显示「已暂停」提示并禁用对应入口（与接口 403 双保险） */
+  importEnabled: boolean;
+  ocrEnabled: boolean;
 }) {
   const router = useRouter();
+  const importOff = !importEnabled;
+  const ocrOff = !ocrEnabled;
   const [tab, setTab] = useState<'text' | 'link' | 'image'>('text');
   const [text, setText] = useState('');
   /** AI 从文案里识别出的城市（用于提示，未必在内置城市列表中） */
@@ -269,7 +277,7 @@ export function ImportCollectClient({
    * 剪贴板里的图片没有文件名，补一个 pasted.png 便于展示。
    */
   useEffect(() => {
-    if (tab !== 'image') return;
+    if (tab !== 'image' || importOff || ocrOff) return;
     function onPaste(e: ClipboardEvent) {
       const items = e.clipboardData?.items;
       if (!items) return;
@@ -287,7 +295,7 @@ export function ImportCollectClient({
     }
     document.addEventListener('paste', onPaste);
     return () => document.removeEventListener('paste', onPaste);
-  }, [tab]);
+  }, [tab, importOff, ocrOff]);
 
   /**
    * T-044 识别图片：POST /api/ai/extract-image（multipart，图片只在内存处理、不保存）。
@@ -477,6 +485,16 @@ export function ImportCollectClient({
         </summary>
 
         <div className="px-4 pb-4">
+          {/* T-051：「导入地点」开关关闭 → 面板顶部提示条 + 输入/识别/提取/收藏入口禁用 */}
+          {importOff ? (
+            <div
+              role="status"
+              className="mb-3 flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900"
+            >
+              <PauseCircle className="h-4 w-4 shrink-0" />
+              {MESSAGES.HOME_IMPORT.importPaused}
+            </div>
+          ) : null}
           <div className="flex w-full rounded-xl border border-stone-200 bg-white p-1 sm:w-fit">
             <button type="button" onClick={() => switchTab('text')} className={tabCls(tab === 'text')}>
               {MESSAGES.HOME_IMPORT.tabText}
@@ -501,6 +519,16 @@ export function ImportCollectClient({
               {MESSAGES.HOME_IMPORT.imageTip}
             </div>
           ) : null}
+          {/* T-051：「图片识别」开关关闭 → 标签页提示条 + 选择/粘贴/识别按钮禁用 */}
+          {tab === 'image' && ocrOff ? (
+            <div
+              role="status"
+              className="mt-3 flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900"
+            >
+              <PauseCircle className="h-4 w-4 shrink-0" />
+              {MESSAGES.HOME_IMPORT.ocrPaused}
+            </div>
+          ) : null}
           {tab === 'image' ? (
             <div className="mt-3 rounded-xl border border-stone-200 bg-white p-3">
               <div className="flex flex-wrap items-center gap-2">
@@ -509,20 +537,23 @@ export function ImportCollectClient({
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
                   className="hidden"
+                  disabled={importOff || ocrOff}
                   onChange={(e) => pickImage(e.target.files?.[0] ?? null)}
                 />
                 <button
                   type="button"
+                  disabled={importOff || ocrOff}
                   onClick={() => imageInputRef.current?.click()}
-                  className="flex h-10 items-center gap-1.5 rounded-lg border border-stone-300 bg-white px-4 text-sm font-medium text-stone-700 hover:bg-stone-50"
+                  className="flex h-10 items-center gap-1.5 rounded-lg border border-stone-300 bg-white px-4 text-sm font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-50 disabled:hover:bg-white"
                 >
                   <ScanText className="h-4 w-4 text-violet-600" />
                   {MESSAGES.HOME_IMPORT.imageChoose}
                 </button>
                 <button
                   type="button"
+                  disabled={importOff || ocrOff}
                   onClick={() => imagePasteRef.current?.focus()}
-                  className="hidden h-10 items-center gap-1.5 rounded-lg border border-stone-300 bg-white px-4 text-sm font-medium text-stone-700 hover:bg-stone-50 sm:flex"
+                  className="hidden h-10 items-center gap-1.5 rounded-lg border border-stone-300 bg-white px-4 text-sm font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-50 disabled:hover:bg-white sm:flex"
                 >
                   <ClipboardPaste className="h-4 w-4 text-violet-600" />
                   {MESSAGES.HOME_IMPORT.imagePaste}
@@ -530,6 +561,7 @@ export function ImportCollectClient({
                 <textarea
                   ref={imagePasteRef}
                   aria-label={MESSAGES.HOME_IMPORT.imagePaste}
+                  disabled={importOff || ocrOff}
                   className="sr-only"
                   onPaste={(e) => {
                     const items = e.clipboardData?.items;
@@ -561,7 +593,7 @@ export function ImportCollectClient({
                 ) : null}
                 <button
                   type="button"
-                  disabled={imageBusy || !imageFile}
+                  disabled={imageBusy || !imageFile || importOff || ocrOff}
                   onClick={recognizeImage}
                   className="ml-auto flex h-10 items-center gap-2 rounded-lg bg-gradient-to-r from-primary-from to-primary-to px-5 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-60"
                 >
@@ -578,11 +610,12 @@ export function ImportCollectClient({
           <textarea
             value={text}
             onChange={(e) => onInput(e.target.value)}
+            disabled={importOff}
             rows={5}
             placeholder={
               tab === 'link' ? MESSAGES.HOME_IMPORT.placeholderLink : MESSAGES.HOME_IMPORT.placeholderText
             }
-            className="mt-3 w-full resize-y rounded-xl border border-stone-300 bg-white p-3 text-sm leading-relaxed outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+            className="mt-3 w-full resize-y rounded-xl border border-stone-300 bg-white p-3 text-sm leading-relaxed outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:bg-stone-100 disabled:text-stone-400"
           />
           <div className="mt-1 flex items-center justify-between text-xs">
             <p className="text-red-600">{error}</p>
@@ -622,7 +655,7 @@ export function ImportCollectClient({
           <div className="mt-4 flex flex-col gap-3 sm:flex-row">
             <button
               type="button"
-              disabled={extracting}
+              disabled={extracting || importOff}
               onClick={extract}
               className="flex h-11 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary-from to-primary-to px-6 font-semibold text-white hover:brightness-110 disabled:opacity-60"
             >
@@ -631,8 +664,9 @@ export function ImportCollectClient({
             </button>
             <button
               type="button"
+              disabled={importOff}
               onClick={() => setResultOpen(true)}
-              className="flex h-11 items-center justify-center gap-2 rounded-xl border border-stone-300 bg-white px-6 text-sm font-medium text-stone-700 hover:bg-stone-50"
+              className="flex h-11 items-center justify-center gap-2 rounded-xl border border-stone-300 bg-white px-6 text-sm font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-50 disabled:hover:bg-white"
             >
               <SquarePen className="h-4 w-4" />
               {MESSAGES.HOME_IMPORT.manual}
@@ -826,7 +860,7 @@ export function ImportCollectClient({
               <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
                 <button
                   type="button"
-                  disabled={saving || selected.length === 0}
+                  disabled={saving || selected.length === 0 || importOff}
                   onClick={save}
                   className="flex h-11 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary-from to-primary-to px-6 font-semibold text-white hover:brightness-110 disabled:bg-none disabled:bg-stone-300"
                 >

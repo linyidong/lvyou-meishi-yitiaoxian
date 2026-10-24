@@ -5,6 +5,7 @@ import {
   type HomeDraft,
   type HomeRouteItem,
 } from '@/components/home/HomeClient';
+import { getAppSettings } from '@/lib/app-settings';
 import { getQuotaProfile } from '@/lib/member-quota';
 import { createClient } from '@/lib/supabase/server';
 import type { Transport } from '@/types';
@@ -15,6 +16,8 @@ export default async function HomePage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  // T-051：业务开关（导入 / 图片识别）传给导入面板，关闭时前端直接提示并禁用入口
+  const { flags } = await getAppSettings();
 
   let recentRoutes: HomeRouteItem[] = [];
   let draft: HomeDraft | null = null;
@@ -75,6 +78,8 @@ export default async function HomePage() {
       draft={draft}
       collectedCount={collectedCount}
       isMember={isMember}
+      importEnabled={flags.importEnabled}
+      ocrEnabled={flags.ocrEnabled}
     />
   );
 }

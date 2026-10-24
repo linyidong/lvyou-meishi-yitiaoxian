@@ -5,6 +5,7 @@ import { ProfileMenu } from '@/components/profile/ProfileMenu';
 import { ORDER_STATUS, USER_ROLE } from '@/config/enums';
 import { MESSAGES } from '@/config/messages';
 import { ROUTES } from '@/config/routes';
+import { getAppSettings } from '@/lib/app-settings';
 import { isMemberActive } from '@/lib/member-quota';
 import { createClient } from '@/lib/supabase/server';
 import type { MemberPlan, MemberSource } from '@/types';
@@ -41,6 +42,8 @@ export default async function ProfilePage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  // T-051：「开放付费」开关传给会员卡，关闭时购买区显示暂停提示
+  const { flags } = await getAppSettings();
 
   // middleware.ts 已拦截未登录，这里只做兜底
   if (!user) {
@@ -193,6 +196,7 @@ export default async function ProfilePage() {
         memberSource={(profile?.member_source as MemberSource | null) ?? null}
         memberUntil={profile?.member_until ?? null}
         pendingOrder={pendingOrder}
+        billingEnabled={flags.billingEnabled}
       />
 
       {/* 菜单 */}

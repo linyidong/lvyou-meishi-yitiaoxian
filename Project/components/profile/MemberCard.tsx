@@ -48,6 +48,7 @@ export function MemberCard({
   memberSource,
   memberUntil,
   pendingOrder,
+  billingEnabled,
 }: {
   member: boolean;
   /** 管理员身份（管理员在库侧同样是会员，但展示的是不限配额的管理员规则） */
@@ -57,6 +58,8 @@ export function MemberCard({
   /** 会员到期时间；null = 永久会员 */
   memberUntil: string | null;
   pendingOrder: PendingOrderInfo | null;
+  /** T-051 管理后台「开放付费」开关：false 时购买区显示「暂停购买」（与下单接口 403 双保险） */
+  billingEnabled: boolean;
 }) {
   const router = useRouter();
   const [modalOpen, setModalOpen] = useState(false);
@@ -247,6 +250,11 @@ export function MemberCard({
               // T-025 内测模式（BILLING_ENABLED=false）：不渲染购买按钮，只展示内测提示
               <p className="flex min-h-12 w-full items-center justify-center rounded-xl bg-white/15 px-3 text-center text-sm font-semibold text-white/90">
                 {MO.paused}
+              </p>
+            ) : !billingEnabled ? (
+              // T-051 管理后台「开放付费」开关关闭：购买区显示暂停提示
+              <p className="flex min-h-12 w-full items-center justify-center rounded-xl bg-white/15 px-3 text-center text-sm font-semibold text-white/90">
+                {MO.pausedByFlag}
               </p>
             ) : (
               <>
