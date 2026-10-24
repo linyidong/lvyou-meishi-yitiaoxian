@@ -6,7 +6,7 @@ import { BUSINESS } from '@/config/business';
  * 只做 HTTP 抓取，不引入 headless 浏览器：
  * 1) 优先取 meta 摘要（og:description / description / og:title）；
  * 2) 摘要不足时，正则抽取页面可见文本兜底；
- * 3) 都拿不到（登录墙、纯前端渲染）就返回失败，由调用方提示改用「粘贴分享文案」。
+ * 3) 都拿不到（登录墙、纯前端渲染）就返回失败，由调用方提示改用「粘贴笔记文案」。
  */
 
 const MAX_HTML_CHARS = 400 * 1024;

@@ -49,7 +49,7 @@ function sourceOf(text: string): ImportSource {
 
 /**
  * U02 首页の「导入地点美食先收藏」区块（本期新增）。
- * 粘贴分享文案 → POST /api/ai/extract 提取候选 → 勾选后 POST /api/places 落库为收藏。
+ * 粘贴笔记文案 → POST /api/ai/extract 提取候选 → 勾选后 POST /api/places 落库为收藏。
  */
 export function ImportCollectClient({
   isLoggedIn,

@@ -321,9 +321,12 @@ export function LoginClient({
           }}
         >
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-stone-700" htmlFor="email">
-              {MESSAGES.LOGIN_FORM.emailLabel}
-            </label>
+            <div className="mb-1.5 flex items-baseline justify-between gap-2">
+              <label className="text-sm font-medium text-stone-700" htmlFor="email">
+                {MESSAGES.LOGIN_FORM.emailLabel}
+              </label>
+              <span className="text-xs text-rose-500">{MESSAGES.LOGIN_FORM.emailHint}</span>
+            </div>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
               <input
@@ -336,7 +339,6 @@ export function LoginClient({
                 className={inputCls}
               />
             </div>
-            <p className="mt-1.5 text-xs text-stone-500">{MESSAGES.LOGIN_FORM.emailHint}</p>
           </div>
 
           {tab === 'register' ? (
@@ -425,9 +427,12 @@ export function LoginClient({
             }}
           >
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-stone-700" htmlFor="reset-email">
-                {MESSAGES.LOGIN_FORM.emailLabel}
-              </label>
+              <div className="mb-1.5 flex items-baseline justify-between gap-2">
+                <label className="text-sm font-medium text-stone-700" htmlFor="reset-email">
+                  {MESSAGES.LOGIN_FORM.emailLabel}
+                </label>
+                <span className="text-xs text-rose-500">{MESSAGES.LOGIN_FORM.emailHint}</span>
+              </div>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
                 <input
@@ -440,8 +445,6 @@ export function LoginClient({
                   className={inputCls}
                 />
               </div>
-              {/* 忘记密码表单同样补邮箱提示（T-032 补漏，样式与登录/注册共用表单一致） */}
-              <p className="mt-1.5 text-xs text-stone-500">{MESSAGES.LOGIN_FORM.emailHint}</p>
             </div>
 
             <div>

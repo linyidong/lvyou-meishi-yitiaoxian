@@ -61,7 +61,7 @@ export const BUSINESS = {
   MIN_PASSWORD_LENGTH: 8,
   /** B22 首页热门城市展示个数（U02，取自 config/cities.ts HOT_CITIES） */
   HOME_HOT_CITY_LIMIT: 10,
-  /** B23 导入文案字数上限（U06 粘贴分享文案，超限提示见 M34） */
+  /** B23 导入文案字数上限（U06 粘贴笔记文案，超限提示见 M34） */
   MAX_IMPORT_TEXT_LENGTH: 2000,
   /** B24 步行速度 km/h（U08 市内交通时间估算，与原型 walk 速度一致） */
   WALK_SPEED_KMH: 4.5,
