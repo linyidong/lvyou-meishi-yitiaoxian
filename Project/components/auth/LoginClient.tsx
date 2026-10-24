@@ -336,6 +336,7 @@ export function LoginClient({
                 className={inputCls}
               />
             </div>
+            <p className="mt-1.5 text-xs text-stone-500">{MESSAGES.LOGIN_FORM.emailHint}</p>
           </div>
 
           {tab === 'register' ? (
@@ -439,6 +440,8 @@ export function LoginClient({
                   className={inputCls}
                 />
               </div>
+              {/* 忘记密码表单同样补邮箱提示（T-032 补漏，样式与登录/注册共用表单一致） */}
+              <p className="mt-1.5 text-xs text-stone-500">{MESSAGES.LOGIN_FORM.emailHint}</p>
             </div>
 
             <div>

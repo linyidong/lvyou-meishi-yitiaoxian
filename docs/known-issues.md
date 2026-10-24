@@ -102,3 +102,9 @@
 3. 迁移是否全部在目标 Supabase 实例应用（025 经 `/pg/query` 执行过，其余 24 份状态未核对）→ Harness 查 `schema_migrations` 或逐表验证。
 4. 企业微信自建应用通道何时启用（依赖备案域名 + 固定 IP）→ 用户上线计划。
 5. 是否引入测试框架（playwright 候选）→ 用户决策（progress.md §5 已挂起）。
+
+## A8 dev server 热更新后出现假 404/500（2026-10-24 实测）
+
+- 现象：连续修改多个文件（文案批量替换）后，`/`、`/city` 返回 404，`/login` 返回 500，而 `/try/new` 仍 200；日志无编译错误。
+- 处理：`npm run dev` 重启后全部 200，确认非代码缺陷。
+- 规避：批量改动后重启 dev server 再验收；`npm run audit:mobile` / `test:e2e` 前先确认首页 200。
