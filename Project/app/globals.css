@@ -7,3 +7,32 @@
     @apply bg-background text-foreground antialiased;
   }
 }
+
+/* T-050 技术栈页动效：SVG 连线流动 + 明细面板淡入（纯 CSS，不引动画库） */
+@keyframes tech-stack-flow {
+  to {
+    stroke-dashoffset: -32;
+  }
+}
+@keyframes tech-stack-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.tech-flow-line {
+  animation: tech-stack-flow 1.2s linear infinite;
+}
+.tech-panel-in {
+  animation: tech-stack-fade-in 0.25s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tech-flow-line,
+  .tech-panel-in {
+    animation: none;
+  }
+}

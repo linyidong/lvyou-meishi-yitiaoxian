@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { CheckCircle2, Loader2 } from 'lucide-react';
+import { Check, CheckCircle2, Loader2, X } from 'lucide-react';
 import { MESSAGES } from '@/config/messages';
 import type { AppSettings } from '@/lib/app-settings';
 
@@ -81,7 +81,10 @@ function NumField({
   );
 }
 
-/** 业务开关行 */
+/**
+ * 业务开关行（T-050 改滑动开关）：开=绿色轨道+圆钮靠右+对勾，关=灰色+靠左+叉号；
+ * role=switch + aria-checked，button 原生支持 Space/Enter 触发 click，focus ring 可见。
+ */
 function SwitchField({
   label,
   hint,
@@ -94,18 +97,66 @@ function SwitchField({
   onChange: (v: boolean) => void;
 }) {
   return (
-    <label className="flex cursor-pointer items-start justify-between gap-4 rounded-xl border border-slate-200 p-4 hover:bg-slate-50">
+    <div className="flex items-start justify-between gap-4 rounded-xl border border-slate-200 p-4 hover:bg-slate-50">
       <span>
         <span className="block text-sm font-medium text-slate-900">{label}</span>
         <span className="mt-0.5 block text-xs text-slate-500">{hint}</span>
       </span>
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        className="mt-0.5 h-5 w-5 shrink-0 accent-slate-900"
-      />
-    </label>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
+        onClick={() => onChange(!checked)}
+        className={`relative mt-0.5 h-7 w-12 shrink-0 rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
+          checked
+            ? 'bg-emerald-500 focus-visible:ring-emerald-500'
+            : 'bg-slate-300 focus-visible:ring-slate-400'
+        }`}
+      >
+        <span
+          className={`absolute top-0.5 left-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-white shadow transition-transform duration-200 ${
+            checked ? 'translate-x-5' : 'translate-x-0'
+          }`}
+        >
+          {checked ? (
+            <Check className="h-3.5 w-3.5 text-emerald-500" />
+          ) : (
+            <X className="h-3.5 w-3.5 text-slate-400" />
+          )}
+        </span>
+      </button>
+    </div>
+  );
+}
+
+/** T-050 摘要行：只读展示「标签：供应商 · 当前值」，值与 DB 初值不一致时标「待保存」 */
+function SummaryRow({
+  label,
+  provider,
+  value,
+  savedValue,
+  pendingTag,
+}: {
+  label: string;
+  provider: string;
+  value: string;
+  savedValue: string;
+  pendingTag: string;
+}) {
+  const dirty = value !== savedValue;
+  return (
+    <p className="flex flex-wrap items-center gap-2">
+      <span className="text-slate-600">{label}：</span>
+      <span className="rounded-md bg-gradient-to-r from-primary-from to-primary-to px-2 py-0.5 font-mono text-xs text-white">
+        {provider} · {value.trim() || '—'}
+      </span>
+      {dirty ? (
+        <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-700">
+          {pendingTag}
+        </span>
+      ) : null}
+    </p>
   );
 }
 
@@ -191,6 +242,26 @@ export function SettingsForm({ initial }: { initial: AppSettings }) {
       {/* AI 模型 */}
       <section className="rounded-2xl border border-slate-200 bg-white p-5">
         <h2 className="mb-4 text-sm font-semibold text-slate-900">{M.groupAi}</h2>
+        {/* T-050 只读摘要：一眼看清当前生效的 AI 通道，输入改动实时同步，未保存标「待保存」 */}
+        <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+          <p className="mb-2 text-xs font-medium text-slate-500">{M.summaryTitle}</p>
+          <div className="space-y-1.5 text-sm">
+            <SummaryRow
+              label={M.summaryExtractLabel}
+              provider={M.summaryExtractProvider}
+              value={form.deepseekModel}
+              savedValue={initial.ai.deepseekModel}
+              pendingTag={M.pendingSave}
+            />
+            <SummaryRow
+              label={M.summaryOcrLabel}
+              provider={M.summaryOcrProvider}
+              value={form.ocrRegion}
+              savedValue={initial.ai.ocrRegion}
+              pendingTag={M.pendingSave}
+            />
+          </div>
+        </div>
         <div className="grid gap-4 sm:grid-cols-3">
           <label className="block">
             <span className="mb-1 block text-xs text-slate-500">{M.fieldDeepseekModel}</span>
