@@ -108,10 +108,22 @@ npm run dev -- -H 0.0.0.0 -p 3000
 
 | 文件 | 用法 | 行为 |
 |---|---|---|
-| `启动项目.command` | 双击（或终端执行） | ① 3000 已在监听 → 只打开浏览器并打印访问地址，不重复启动；② 未运行 → 先跑 `npm run check:env`（失败**只警告不阻塞**，Supabase 没开机也能先起页面）→ 前台启动 `npm run dev -- -H 0.0.0.0 -p 3000`（终端窗口保留日志）→ 就绪后自动 `open http://localhost:3000` 并打印手机访问地址（`ipconfig getifaddr en0/en1` 动态取局域网 IP） |
+| `启动项目.command` | 双击（或终端执行） | ① 3000 已在监听 → 只打开浏览器并打印访问地址，不重复启动；② 未运行 → 先跑 `npm run check:env`（失败**只警告不阻塞**）；③ **门禁（T-031 新增）**：等待自建 Supabase 就绪——每 5 秒探测 `GET {URL}/rest/v1/cities`（anon key 只读自 `.env.local`，绝不打印密钥），**REST 200 才继续**，未通期间**不启动 dev server**，每轮打印已等待时长与三态判定（见下），`Ctrl+C` 可放弃；④ 通过后前台启动 `npm run dev -- -H 0.0.0.0 -p 3000`（终端窗口保留日志）→ 就绪后自动 `open http://localhost:3000` 并打印手机访问地址（`ipconfig getifaddr en0/en1` 动态取局域网 IP） |
 | `停止项目.command` | 双击 | 只停 3000 端口上**确属本项目**的进程（命令行含项目路径，或进程工作目录在项目内——`next-server` 子进程命令行不含路径，靠工作目录兜底），并清理滞留的 `next dev` 父进程。**绝不用 `pkill -f node`**，其它 node 进程不受影响 |
 | `make-shortcut.sh` | 终端执行一次 | 用 `osacompile` 在桌面生成可双击的 `启动项目.app`（等效双击启动器，会打开 Terminal 窗口显示日志）；重复执行覆盖重建。⚠️ 项目目录若移动，需重跑本脚本再生成 |
 
 - 手机查看页面：与 Mac 同一 Wi-Fi，访问脚本打印的 `http://<局域网IP>:3000`
 - 停止的另一种方式：在启动器终端窗口直接 `Ctrl+C`
-- Supabase（另一台机器的 Docker）没开机时：启动器给出清晰提示但不闪退；查库功能（登录/路线/后台）会报错，需到那台机器 `docker compose up -d`（见 §6）
+
+### 启动门禁的三态提示（T-031）
+
+Supabase（另一台 Windows 机器的 Docker）未就绪时，启动器**不会起 dev server**，而是每 5 秒探测一次并按下表打印判定；对方恢复后**自动继续**启动，无需重开窗口：
+
+| 状态 | 判定 | 提示与处置 |
+|---|---|---|
+| A 电脑不可达 | ping 不通且端口不通 | 「那台 Windows 电脑可能没开机，或本机未连同一 Wi-Fi/局域网」→ 开机/连网后自动继续 |
+| B 电脑在线但服务没起 | ping 通但 Supabase 端口不通 | 「Docker Desktop 或 Supabase 容器没启动」→ 到那台电脑启动 Docker 并 `docker compose up -d`（见 §6） |
+| C 端口通但 REST 未 200 | TCP 可连但接口非 200 | 「容器可能还在启动或服务异常，继续等待」（刚重启容器先热身一次，见 L43） |
+
+- 放弃等待：在启动器终端窗口 `Ctrl+C`（退出干净、无残留进程）
+- **调试变量（仅调试用，日常勿设）**：`LYYTX_SUPABASE_HOST_OVERRIDE=<host[:port]>` 可把门禁探测目标指向别处（用于无 Windows 环境时模拟 A/B/C 态）；**只影响门禁提示，不改变应用实际连接的 Supabase 地址**
