@@ -103,7 +103,9 @@ export function LoginClient({
         return;
       }
 
-      router.replace(data.redirect ?? (isAdmin ? ROUTES.ADMIN_HOME : ROUTES.PROFILE));
+      // T-047：无 redirect 参数时，普通用户/注册成功跳首页；管理员登录仍进后台。
+      // 注：服务端 login/register 已把兜底 redirect 一并改为首页，这里的 ?? 仅作双保险。
+      router.replace(data.redirect ?? (isAdmin ? ROUTES.ADMIN_HOME : ROUTES.HOME));
       router.refresh();
     } catch {
       setError(MESSAGES.NETWORK_ERROR);

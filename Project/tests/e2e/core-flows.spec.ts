@@ -120,10 +120,12 @@ test('E2E-04 游客点「保存路线」→ 跳登录且带 redirect 参数', as
   await expect(page.getByText('旅行美食一条线').first()).toBeVisible();
 });
 
-test('E2E-05 已登录用户 → /profile 会员卡渲染并显示档位', async ({ page }) => {
+test('E2E-05 已登录用户 → 首页，/profile 会员卡渲染并显示档位', async ({ page }) => {
   test.skip(!hasCreds, NO_CREDS_REASON);
   await loginAsUser(page);
-  await expect(page).toHaveURL(/\/profile/, { timeout: 30_000 });
+  // T-047：登录成功默认跳首页（不再跳 /profile），个人中心改为显式进入
+  await expect(page).toHaveURL(/\/($|\?|#)/, { timeout: 30_000 });
+  await page.goto('/profile');
 
   // 会员卡三态之一（管理员 / 会员 / 正常版），证明档位已按身份渲染
   await expect(

@@ -75,6 +75,7 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const fallback = isAdminLogin ? ROUTES.ADMIN_HOME : ROUTES.PROFILE;
+  // T-047：普通用户登录成功默认跳首页（管理端登录仍进后台）
+  const fallback = isAdminLogin ? ROUTES.ADMIN_HOME : ROUTES.HOME;
   return NextResponse.json({ ok: true, redirect: sanitizeRedirect(body.redirect, fallback) });
 }

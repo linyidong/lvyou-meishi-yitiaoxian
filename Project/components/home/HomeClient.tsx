@@ -63,6 +63,19 @@ const SAMPLE_POINTS = [
   { x: 260, y: 110, n: 5, fill: '#14b8a6' },
 ] as const;
 
+/**
+ * T-047：地名标签位置（cx=标签中心 x，by=文字基线 y）。
+ * 按点位与虚线走向错开上/下，保证标签不与虚线、序号徽标、相邻标签重叠：
+ * 1 左上（1→2 虚线从其右下经过）、2/4 上方偏高、3 下方（虚线与徽标都在上方）、5 右上（4→5 虚线从其左下经过）。
+ */
+const LABEL_POS = [
+  { cx: 34, by: 92 },
+  { cx: 90, by: 44 },
+  { cx: 150, by: 127 },
+  { cx: 210, by: 26 },
+  { cx: 272, by: 82 },
+] as const;
+
 /** U02 首页（Slogan 首屏 + 草稿提示 + 导入收藏 + 四步说明 + 最近路线 + 差异说明） */
 export function HomeClient({ isLoggedIn, recentRoutes, draft, collectedCount, isMember }: HomeClientProps) {
   const [localDraft, setLocalDraft] = useState<{ city: string; count: number } | null>(null);
@@ -171,31 +184,43 @@ export function HomeClient({ isLoggedIn, recentRoutes, draft, collectedCount, is
               strokeWidth="4"
             />
             <g fontWeight="700" textAnchor="middle">
-              {SAMPLE_POINTS.map((p, i) => (
-                <g key={p.n}>
-                  {/* T-037：圆 r 13→15、图标 18px；T-038：改为显式 size/x/y 渲染（去掉嵌套 viewport，
-                      lucide 与自绘分支统一 18×18，实测宽度不再受图标自身宽高比影响） */}
-                  <circle cx={p.x} cy={p.y} r={15} fill={p.fill} />
-                  <PlaceGlyph
-                    iconKey={MESSAGES.SAMPLE_ROUTE.homeStationIconKeys[i]}
-                    size={18}
-                    x={p.x - 9}
-                    y={p.y - 9}
-                    style={{ color: '#fff' }}
-                  />
-                  <circle cx={p.x + 11} cy={p.y + 11} r={6.5} fill="#fff" />
-                  <text fontSize="8.5" fill={p.fill} x={p.x + 11} y={p.y + 14}>
-                    {p.n}
-                  </text>
-                </g>
-              ))}
+              {SAMPLE_POINTS.map((p, i) => {
+                // T-047：地名直接标在点位旁（原底部清单删除），半透明深色底衬避免与虚线/网格重叠
+                const name = MESSAGES.SAMPLE_ROUTE.stations[i];
+                const label = LABEL_POS[i];
+                const labelW = name.length * 11.5 + 8;
+                return (
+                  <g key={p.n}>
+                    {/* T-037：圆 r 13→15、图标 18px；T-038：改为显式 size/x/y 渲染（去掉嵌套 viewport，
+                        lucide 与自绘分支统一 18×18，实测宽度不再受图标自身宽高比影响） */}
+                    <circle cx={p.x} cy={p.y} r={15} fill={p.fill} />
+                    <PlaceGlyph
+                      iconKey={MESSAGES.SAMPLE_ROUTE.homeStationIconKeys[i]}
+                      size={18}
+                      x={p.x - 9}
+                      y={p.y - 9}
+                      style={{ color: '#fff' }}
+                    />
+                    <circle cx={p.x + 11} cy={p.y + 11} r={6.5} fill="#fff" />
+                    <text fontSize="8.5" fill={p.fill} x={p.x + 11} y={p.y + 14}>
+                      {p.n}
+                    </text>
+                    <rect
+                      x={label.cx - labelW / 2}
+                      y={label.by - 14}
+                      width={labelW}
+                      height={18}
+                      rx={4}
+                      fill="rgba(13,60,55,0.6)"
+                    />
+                    <text fontSize="11.5" fontWeight="600" fill="#fff" x={label.cx} y={label.by}>
+                      {name}
+                    </text>
+                  </g>
+                );
+              })}
             </g>
           </svg>
-          <ol className="relative mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs text-teal-50">
-            {MESSAGES.SAMPLE_ROUTE.stations.map((name, i) => (
-              <li key={name}>{`${i + 1} ${name}`}</li>
-            ))}
-          </ol>
           <div className="relative mt-4 flex flex-wrap items-center gap-3 text-xs">
             <span className="flex items-center gap-1">
               <span className="h-2.5 w-2.5 rounded-full bg-teal-400" />

@@ -79,6 +79,7 @@ export async function POST(request: NextRequest) {
     ok: true,
     needConfirm: false,
     message: MESSAGES.AUTH_REGISTER_OK,
-    redirect: sanitizeRedirect(body.redirect, ROUTES.PROFILE),
+    // T-047：注册即登录成功后默认跳首页（与登录口径一致）
+    redirect: sanitizeRedirect(body.redirect, ROUTES.HOME),
   });
 }
