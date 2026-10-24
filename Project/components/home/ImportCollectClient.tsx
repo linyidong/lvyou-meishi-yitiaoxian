@@ -98,12 +98,24 @@ export function ImportCollectClient({
   const [toast, setToast] = useState<Toast | null>(null);
   /** T-044 图片识别：已选文件 / 识别中 / 错误提示（与文本 error 分开，切标签互不干扰） */
   const [imageFile, setImageFile] = useState<File | null>(null);
+  /** T-046 已选图片的本地预览 URL（objectURL，换图/卸载时释放） */
+  const [imagePreview, setImagePreview] = useState<string>('');
+  /** 当前预览 URL 的 ref（卸载时统一释放；state 用于渲染） */
+  const imagePreviewRef = useRef<string>('');
   const [imageBusy, setImageBusy] = useState(false);
   const [imageError, setImageError] = useState('');
   /** 手动输入地点输入框：0 结果时用「去手动输入」按钮直接聚焦，减少操作步骤 */
   const manualRef = useRef<HTMLInputElement>(null);
   /** 图片识别「选择图片」按钮代理的隐藏 file input */
   const imageInputRef = useRef<HTMLInputElement>(null);
+  /** T-046 卸载时释放预览 URL（用 ref 取值，避免卸载后 setState） */
+  useEffect(
+    () => () => {
+      if (imagePreviewRef.current) URL.revokeObjectURL(imagePreviewRef.current);
+    },
+    [],
+  );
+
   /** T-045 粘贴图片：隐藏的可聚焦区；点「粘贴图片」时聚焦它，便于手机端唤起粘贴菜单 */
   const imagePasteRef = useRef<HTMLTextAreaElement>(null);
 
@@ -229,6 +241,11 @@ export function ImportCollectClient({
   /** T-044 选图：前端先校验格式与大小（服务端仍按魔数复验），不合格不落 state */
   function pickImage(file: File | null) {
     setImageError('');
+    // 换图/清空时释放上一张的 objectURL，避免内存泄漏
+    if (imagePreviewRef.current) URL.revokeObjectURL(imagePreviewRef.current);
+    const nextUrl = file ? URL.createObjectURL(file) : '';
+    imagePreviewRef.current = nextUrl;
+    setImagePreview(nextUrl);
     if (!file) {
       setImageFile(null);
       return;
@@ -505,7 +522,7 @@ export function ImportCollectClient({
                 <button
                   type="button"
                   onClick={() => imagePasteRef.current?.focus()}
-                  className="flex h-10 items-center gap-1.5 rounded-lg border border-stone-300 bg-white px-4 text-sm font-medium text-stone-700 hover:bg-stone-50"
+                  className="hidden h-10 items-center gap-1.5 rounded-lg border border-stone-300 bg-white px-4 text-sm font-medium text-stone-700 hover:bg-stone-50 sm:flex"
                 >
                   <ClipboardPaste className="h-4 w-4 text-violet-600" />
                   {MESSAGES.HOME_IMPORT.imagePaste}
@@ -528,8 +545,18 @@ export function ImportCollectClient({
                   }}
                 />
                 {imageFile ? (
-                  <span className="min-w-0 truncate text-xs text-stone-600">
-                    {imageFile.name}（{formatSize(imageFile.size)}）
+                  <span className="flex min-w-0 items-center gap-2">
+                    {imagePreview ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- blob URL 预览，不走 next/image
+                      <img
+                        src={imagePreview}
+                        alt={imageFile.name}
+                        className="h-10 w-10 shrink-0 rounded-md border border-stone-200 object-cover"
+                      />
+                    ) : null}
+                    <span className="min-w-0 truncate text-xs text-stone-600">
+                      {imageFile.name}（{formatSize(imageFile.size)}）
+                    </span>
                   </span>
                 ) : null}
                 <button
@@ -543,7 +570,7 @@ export function ImportCollectClient({
                 </button>
               </div>
               {imageError ? <p className="mt-2 text-xs text-red-600">{imageError}</p> : null}
-              <p className="mt-2 text-xs text-stone-500">{MESSAGES.HOME_IMPORT.imagePasteHint}</p>
+              <p className="mt-2 hidden text-xs text-stone-500 sm:block">{MESSAGES.HOME_IMPORT.imagePasteHint}</p>
               <p className="mt-1 text-xs text-stone-500">{MESSAGES.HOME_IMPORT.imagePrivacy}</p>
             </div>
           ) : null}
