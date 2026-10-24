@@ -94,6 +94,10 @@ export const MESSAGES = {
   PLACE_NAME_DUPLICATE: '当前城市已有同名地点，请更换名称',
   /** M42 手动添加地点名称过短（U06） */
   PLACE_NAME_TOO_SHORT: '地点名称至少 2 个字',
+  /** M42a T-049 业务开关关闭时 OCR 接口的 403 文案 */
+  OCR_FEATURE_DISABLED: '图片识别功能当前已关闭，请稍后再试',
+  /** M42b T-049 业务开关关闭时导入地点接口（extract / places）的 403 文案 */
+  IMPORT_FEATURE_DISABLED: '导入地点功能当前已关闭，请稍后再试',
   /** M43 地点批量添加成功（U06，count 为实际插入数） */
   PLACES_ADDED: (count: number) => `已成功添加 ${count} 个地点`,
   /** M44 注册失败兜底（D4，其余情况不再回显 GoTrue 英文原文） */
@@ -1188,6 +1192,8 @@ export const MESSAGES = {
     navRoutes: '路线列表',
     navImports: '导入记录',
     navOrders: '会员订单',
+    navSettings: '设置',
+    navTechStack: '技术栈',
     readOnlyNote: '后台不提供编辑 / 删除 / 踢出',
     logout: '退出后台',
     browsingAs: '运营管理员',
@@ -1292,6 +1298,58 @@ export const MESSAGES = {
     emptyDesc: '产品上线后，用户、地点、路线和导入数据会显示在这里',
     errorTitle: '概览数据加载失败',
     errorDesc: '统计接口超时，请稍后重试',
+  },
+  /** M334c T-049 管理端设置页：分组、字段、开关、保存反馈（按任务卡字段表） */
+  ADMIN_SETTINGS: {
+    title: '设置',
+    badge: '全局生效 · 仅管理员可改',
+    notice: '保存后立即生效；个别数字下次请求生效（服务端有 30 秒缓存）。',
+    riskNotice: '业务开关会立即改变线上行为（下单 / 识别 / 导入接口直接返回 403），修改前请确认影响范围。',
+    groupAi: 'AI 模型',
+    groupFlags: '业务开关',
+    groupQuotas: '配额数字',
+    fieldDeepseekModel: 'DeepSeek 模型名',
+    fieldOcrRegion: 'OCR 地域',
+    fieldOcrMonthlyQuota: 'OCR 月额度（全站每月总次数）',
+    fieldBilling: '开放付费',
+    fieldBillingHint: '关闭后下单接口返回 403，收银台提示暂停购买',
+    fieldOcr: '图片识别',
+    fieldOcrHint: '关闭后图片识别接口返回 403',
+    fieldImport: '导入地点',
+    fieldImportHint: '关闭后 AI 提取与批量添加地点接口返回 403',
+    fieldFreePlacesPerDay: '正常用户单日地点数',
+    fieldMemberPlacesPerDay: '会员单日地点数',
+    fieldMemberMonthlyRoutes: '会员每月路线数',
+    fieldFreeAiExtract: 'AI 提取 · 正常用户（次/日）',
+    fieldMemberAiExtract: 'AI 提取 · 会员（次/日）',
+    fieldOcrDailyLimit: 'OCR 每日次数（次/人/日）',
+    save: '保存设置',
+    saving: '正在保存…',
+    savedToast: '设置已保存并立即生效',
+    errLoad: '设置读取失败，请稍后重试',
+    errSave: '设置保存失败，请重试',
+  },
+  /** M334d T-049 管理端技术栈页：分组与占位（内容待产品提供截图后补充） */
+  ADMIN_TECH_STACK: {
+    title: '技术栈',
+    badge: '骨架 · 内容待补充',
+    notice: '本页为技术栈说明骨架，具体条目内容待补充。',
+    pending: '内容待补充',
+    groupFrontend: '前端',
+    groupBackend: '后端',
+    groupData: '数据',
+    groupMap: '地图与算路',
+    groupAi: 'AI 与外部服务',
+    groupOps: '部署与运维',
+    /** 占位条目：名称取自项目文档既有事实（AGENTS.md §0），具体说明与版本细节待产品截图后补充 */
+    items: {
+      frontend: ['Next.js 14.2.15（App Router）', 'React 18.3.1', 'TypeScript（strict）', 'TailwindCSS'],
+      backend: ['Next.js Route Handlers', '自建 Supabase（Auth / PostgREST）', '服务端 service_role 读写'],
+      data: ['Postgres（Supabase 自建）', 'user_daily_usage 用量计数', 'amap_usage 高德调用量', 'app_settings 全局设置'],
+      map: ['高德地图 JS API', '高德 Web 服务（多 Key 轮询）', '距离 / 算路结果落库缓存'],
+      ai: ['DeepSeek（文案提取）', '腾讯云 OCR（通用印刷体）', '企业微信机器人提醒'],
+      ops: ['部署形态', '发布流程', '监控与告警'],
+    },
   },
   /** M335 A03 用户列表：约束说明、筛选、表头、留痕、状态块、会员/删除弹窗（按原型原文） */
   ADMIN_USERS: {

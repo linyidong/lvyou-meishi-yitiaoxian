@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { BUSINESS, billingOrderBlocked } from '@/config/business';
 import { MEMBER_PLAN_LABEL, ORDER_STATUS } from '@/config/enums';
 import { MESSAGES } from '@/config/messages';
+import { getAppSettings } from '@/lib/app-settings';
 import { notifyNewMemberOrder } from '@/lib/order-notify';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
@@ -34,8 +35,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, message: MESSAGES.LOGIN_FIRST }, { status: 401 });
   }
 
-  // T-025 内测模式：鉴权通过后、创建订单前，服务端兜底拦截下单（双保险，不能只靠前端隐藏入口）
-  if (billingOrderBlocked()) {
+  // T-025 内测模式 + T-049 后台开关：鉴权通过后、创建订单前，服务端兜底拦截下单
+  // （双保险，不能只靠前端隐藏入口）；开关来源优先取后台全局设置，缺省回退 config/business.ts
+  const settings = await getAppSettings();
+  if (billingOrderBlocked(settings.flags.billingEnabled)) {
     return NextResponse.json({ ok: false, message: M.paused }, { status: 403 });
   }
 

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { BUSINESS } from '@/config/business';
 import { QUOTA_ERROR, USAGE_KIND } from '@/config/enums';
 import { MESSAGES } from '@/config/messages';
+import { getAppSettings } from '@/lib/app-settings';
 import { ensureCityInDb } from '@/lib/city-ensure';
 import { extractPlacesAndCity } from '@/lib/deepseek';
 import {
@@ -28,6 +29,12 @@ import { createClient } from '@/lib/supabase/server';
  * 链接读不到内容时返回 LINK_NEED_TEXT；文案+链接混输时返回 linkReadFailed 供前端提示。
  */
 export async function POST(request: NextRequest) {
+  // T-049 业务开关：关闭「导入地点」时直接 403（不解析入参、不调用 DeepSeek）
+  const settings = await getAppSettings();
+  if (!settings.flags.importEnabled) {
+    return NextResponse.json({ ok: false, error: MESSAGES.IMPORT_FEATURE_DISABLED }, { status: 403 });
+  }
+
   let body: { text?: string; url?: string };
   try {
     body = (await request.json()) as { text?: string; url?: string };

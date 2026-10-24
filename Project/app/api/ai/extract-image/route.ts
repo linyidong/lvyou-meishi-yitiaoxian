@@ -2,7 +2,8 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { BUSINESS } from '@/config/business';
 import { QUOTA_ERROR } from '@/config/enums';
 import { MESSAGES } from '@/config/messages';
-import { bumpOcrUsage, getOcrUsage, ocrDailyLimit } from '@/lib/ocr-usage';
+import { getAppSettings } from '@/lib/app-settings';
+import { bumpOcrUsage, getOcrUsage } from '@/lib/ocr-usage';
 import { createClient } from '@/lib/supabase/server';
 import { OcrError, ocrImageBase64, readOcrEnv, sniffImageMime } from '@/lib/tencent-ocr';
 
@@ -26,6 +27,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { ok: false, code: 'UNAUTHORIZED', error: MESSAGES.HOME_IMPORT.imageNeedLogin },
       { status: 401 },
+    );
+  }
+
+  // T-049 业务开关：关闭「图片识别」时直接 403（鉴权后即拦截，不消耗限额）
+  const settings = await getAppSettings();
+  if (!settings.flags.ocrEnabled) {
+    return NextResponse.json(
+      { ok: false, code: 'OCR_DISABLED', error: MESSAGES.OCR_FEATURE_DISABLED },
+      { status: 403 },
     );
   }
 
@@ -92,9 +102,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // 每日限额（识别成功才计数；超限 429）
+  // 每日限额（T-049：上限取后台全局设置，缺省回退 config/business.ts；识别成功才计数；超限 429）
   const used = await getOcrUsage(user.id);
-  const limit = ocrDailyLimit();
+  const limit = settings.quotas.ocrDailyLimit;
   if (used >= limit) {
     return NextResponse.json(
       { ok: false, code: QUOTA_ERROR.OCR_DAILY_LIMIT, error: MESSAGES.HOME_IMPORT.imageQuota(limit) },

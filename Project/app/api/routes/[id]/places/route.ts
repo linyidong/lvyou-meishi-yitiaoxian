@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { BUSINESS } from '@/config/business';
 import { QUOTA_ERROR } from '@/config/enums';
 import { MESSAGES } from '@/config/messages';
+import { getAppSettings } from '@/lib/app-settings';
 import { getQuotaProfile, limitsOf } from '@/lib/member-quota';
 import { createClient } from '@/lib/supabase/server';
 
@@ -72,6 +73,14 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   // 同时校验 dayIndex 不超出该路线天数，避免免费用户拿单日路线塞入多天下标绕过多日限制。
   const { tier } = await getQuotaProfile(user.id);
   const limits = limitsOf(tier);
+  // T-049 单日地点上限取后台全局设置（管理员不限；缺省回退 config/business.ts）
+  const settings = await getAppSettings();
+  const placesPerDay =
+    tier === 'member'
+      ? settings.quotas.memberPlacesPerDay
+      : tier === 'free'
+        ? settings.quotas.freePlacesPerDay
+        : limits.placesPerDay;
   const perDay = new Map<number, number>();
   for (const it of items) {
     if (it.dayIndex >= route.days) {
@@ -79,13 +88,13 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
     perDay.set(it.dayIndex, (perDay.get(it.dayIndex) ?? 0) + 1);
   }
-  if (tier !== 'admin' && Array.from(perDay.values()).some((c) => c > limits.placesPerDay)) {
+  if (tier !== 'admin' && Array.from(perDay.values()).some((c) => c > placesPerDay)) {
     const maxDay = Array.from(perDay.values()).reduce((a, b) => Math.max(a, b), 0);
     return NextResponse.json(
       {
         ok: false,
         code: QUOTA_ERROR.PLACES_PER_DAY_LIMIT,
-        message: MESSAGES.ROUTE_DAY_PLACES_LIMIT(limits.placesPerDay),
+        message: MESSAGES.ROUTE_DAY_PLACES_LIMIT(placesPerDay),
         maxPerDay: maxDay,
       },
       { status: 403 },

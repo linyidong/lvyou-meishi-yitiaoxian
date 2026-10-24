@@ -7,10 +7,12 @@ import {
   ArrowLeft,
   Eye,
   LayoutDashboard,
+  Layers,
   LogOut,
   MapPinned,
   ReceiptText,
   Route,
+  Settings,
   Upload,
   Users,
   Wifi,
@@ -36,6 +38,9 @@ export const ADMIN_NAV: NavItem[] = [
   { href: ROUTES.ADMIN_ROUTES, label: MESSAGES.ADMIN_SHELL.navRoutes, icon: Route },
   { href: ROUTES.ADMIN_IMPORTS, label: MESSAGES.ADMIN_SHELL.navImports, icon: Upload },
   { href: ROUTES.ADMIN_ORDERS, label: MESSAGES.ADMIN_SHELL.navOrders, icon: ReceiptText },
+  // T-049 新增：全局设置与技术栈说明（排在「会员订单」下方）
+  { href: ROUTES.ADMIN_SETTINGS, label: MESSAGES.ADMIN_SHELL.navSettings, icon: Settings },
+  { href: ROUTES.ADMIN_TECH_STACK, label: MESSAGES.ADMIN_SHELL.navTechStack, icon: Layers },
 ];
 
 /**

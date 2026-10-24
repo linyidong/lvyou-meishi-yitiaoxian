@@ -1,6 +1,7 @@
 import { BUSINESS } from '@/config/business';
 import { QUOTA_ERROR, USAGE_KIND, USER_ROLE, type UsageKind } from '@/config/enums';
 import { MESSAGES } from '@/config/messages';
+import { getAppSettings } from '@/lib/app-settings';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { straightDist2 } from '@/lib/route-order';
@@ -244,12 +245,15 @@ export async function getRouteQuota(userId: string, tier: MemberTier): Promise<R
   }
   const { kind, periodKey } = routeBucket(tier);
   const used = await readUsage(userId, kind, periodKey);
+  // T-049 会员每月路线上限取后台全局设置（免费档仍按 config/business.ts 的按天上限；缺省回退默认值）
+  const settings = await getAppSettings();
+  const limit = tier === 'member' ? settings.quotas.memberMonthlyRoutes : limits.routeLimit;
   return {
     tier,
     period: limits.routeLimitPeriod,
-    limit: limits.routeLimit,
+    limit,
     used,
-    remaining: Math.max(0, limits.routeLimit - used),
+    remaining: Math.max(0, limit - used),
   };
 }
 

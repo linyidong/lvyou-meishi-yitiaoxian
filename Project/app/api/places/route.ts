@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { BUSINESS } from '@/config/business';
 import { GEO_STATUS, IMPORT_SOURCE, IMPORT_STATUS, PLACE_TYPE } from '@/config/enums';
 import { MESSAGES } from '@/config/messages';
+import { getAppSettings } from '@/lib/app-settings';
 import { searchPlaces } from '@/lib/amap';
 import { ensureCityInDb } from '@/lib/city-ensure';
 import { createClient } from '@/lib/supabase/server';
@@ -87,6 +88,12 @@ async function geocodeAll(list: { name: string }[], city: string): Promise<Geoco
 }
 
 export async function POST(request: NextRequest) {
+  // T-049 业务开关：关闭「导入地点」时直接 403（AI 提取结果收藏与手动添加同口径）
+  const settings = await getAppSettings();
+  if (!settings.flags.importEnabled) {
+    return NextResponse.json({ ok: false, message: MESSAGES.IMPORT_FEATURE_DISABLED }, { status: 403 });
+  }
+
   const supabase = createClient();
   const {
     data: { user },

@@ -50,6 +50,10 @@ export const ROUTES = {
   TRY_PICK: '/try/pick',
   /** R23 游客试用 · 路线结果（免登录） */
   TRY_RESULT: '/try/result',
+  /** R24 管理员全局设置（T-049） */
+  ADMIN_SETTINGS: '/admin/settings',
+  /** R25 管理员技术栈说明（T-049） */
+  ADMIN_TECH_STACK: '/admin/tech-stack',
 } as const;
 
 /** 需登录才能访问的前缀（middleware.ts 使用） */
@@ -70,4 +74,6 @@ export const ADMIN_ROUTES = [
   ROUTES.ADMIN_ROUTES,
   ROUTES.ADMIN_IMPORTS,
   ROUTES.ADMIN_ORDERS,
+  ROUTES.ADMIN_SETTINGS,
+  ROUTES.ADMIN_TECH_STACK,
 ];

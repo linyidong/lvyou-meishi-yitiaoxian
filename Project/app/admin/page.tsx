@@ -17,6 +17,7 @@ import { MESSAGES } from '@/config/messages';
 import { ROUTES } from '@/config/routes';
 import { AdminEmptyState, AdminErrorState } from '@/components/admin/AdminState';
 import { AdminShell } from '@/components/layout/AdminShell';
+import { getAppSettings } from '@/lib/app-settings';
 import { getAmapUsage } from '@/lib/amap-usage';
 import { webKeyLabel } from '@/lib/amap-key-pool';
 import { getOcrMonthlyUsage } from '@/lib/ocr-usage';
@@ -136,7 +137,8 @@ export default async function AdminHomePage() {
 
   // T-048 本月图片 OCR 识别用量（user_daily_usage kind='ocr' 求和；查询失败降级为 0）
   const ocrMonthUsed = await getOcrMonthlyUsage();
-  const ocrQuota = BUSINESS.OCR_MONTHLY_QUOTA;
+  // T-049 分母取后台全局设置（缺省回退 config/business.ts 默认值）
+  const ocrQuota = (await getAppSettings()).ocrMonthlyQuota;
   const ocrPercent = ocrQuota > 0 ? Math.min(100, Math.round((ocrMonthUsed / ocrQuota) * 100)) : 0;
   const ocrRemain = Math.max(0, ocrQuota - ocrMonthUsed);
 
