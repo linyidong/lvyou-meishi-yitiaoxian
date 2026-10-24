@@ -408,6 +408,8 @@ export const MESSAGES = {
       '上传小红书 / 抖音笔记截图，系统识别图中文字并填入下方文本框，再点「AI 提取地点」即可。图片仅用于识别，不会保存。',
     imagePrivacy: '图片仅用于识别，不会保存',
     imageChoose: '选择图片',
+    imagePaste: '粘贴图片',
+    imagePasteHint: '也可以复制图片后直接按 ⌘/Ctrl + V 粘贴',
     imageSubmit: '识别图片',
     imageBusy: '正在识别图片…',
     imageNoFile: '请先选择一张图片',

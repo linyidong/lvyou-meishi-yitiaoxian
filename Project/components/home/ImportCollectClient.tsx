@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -104,6 +104,8 @@ export function ImportCollectClient({
   const manualRef = useRef<HTMLInputElement>(null);
   /** 图片识别「选择图片」按钮代理的隐藏 file input */
   const imageInputRef = useRef<HTMLInputElement>(null);
+  /** T-045 粘贴图片：隐藏的可聚焦区；点「粘贴图片」时聚焦它，便于手机端唤起粘贴菜单 */
+  const imagePasteRef = useRef<HTMLTextAreaElement>(null);
 
   const tooLong = text.length > BUSINESS.MAX_IMPORT_TEXT_LENGTH;
   const selected = candidates.filter((c) => c.checked && c.name.trim().length > 0);
@@ -243,6 +245,32 @@ export function ImportCollectClient({
     }
     setImageFile(file);
   }
+
+  /**
+   * T-045 粘贴图片：网页版小红书/其它站点可「复制图片」，用户在本页按 ⌘/Ctrl+V 即取剪贴板里的图片。
+   * 仅在「图片识别」标签激活时监听，避免影响文本/链接标签下的普通粘贴。
+   * 剪贴板里的图片没有文件名，补一个 pasted.png 便于展示。
+   */
+  useEffect(() => {
+    if (tab !== 'image') return;
+    function onPaste(e: ClipboardEvent) {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (let i = 0; i < items.length; i += 1) {
+        if (!items[i].type.startsWith('image/')) continue;
+        const blob = items[i].getAsFile();
+        if (!blob) continue;
+        e.preventDefault();
+        const named = new File([blob], blob.name && blob.name !== 'image.png' ? blob.name : 'pasted.png', {
+          type: blob.type,
+        });
+        pickImage(named);
+        return;
+      }
+    }
+    document.addEventListener('paste', onPaste);
+    return () => document.removeEventListener('paste', onPaste);
+  }, [tab]);
 
   /**
    * T-044 识别图片：POST /api/ai/extract-image（multipart，图片只在内存处理、不保存）。
@@ -474,6 +502,31 @@ export function ImportCollectClient({
                   <ScanText className="h-4 w-4 text-violet-600" />
                   {MESSAGES.HOME_IMPORT.imageChoose}
                 </button>
+                <button
+                  type="button"
+                  onClick={() => imagePasteRef.current?.focus()}
+                  className="flex h-10 items-center gap-1.5 rounded-lg border border-stone-300 bg-white px-4 text-sm font-medium text-stone-700 hover:bg-stone-50"
+                >
+                  <ClipboardPaste className="h-4 w-4 text-violet-600" />
+                  {MESSAGES.HOME_IMPORT.imagePaste}
+                </button>
+                <textarea
+                  ref={imagePasteRef}
+                  aria-label={MESSAGES.HOME_IMPORT.imagePaste}
+                  className="sr-only"
+                  onPaste={(e) => {
+                    const items = e.clipboardData?.items;
+                    if (!items) return;
+                    for (let i = 0; i < items.length; i += 1) {
+                      if (!items[i].type.startsWith('image/')) continue;
+                      const blob = items[i].getAsFile();
+                      if (!blob) continue;
+                      e.preventDefault();
+                      pickImage(new File([blob], 'pasted.png', { type: blob.type || 'image/png' }));
+                      return;
+                    }
+                  }}
+                />
                 {imageFile ? (
                   <span className="min-w-0 truncate text-xs text-stone-600">
                     {imageFile.name}（{formatSize(imageFile.size)}）
@@ -490,7 +543,8 @@ export function ImportCollectClient({
                 </button>
               </div>
               {imageError ? <p className="mt-2 text-xs text-red-600">{imageError}</p> : null}
-              <p className="mt-2 text-xs text-stone-500">{MESSAGES.HOME_IMPORT.imagePrivacy}</p>
+              <p className="mt-2 text-xs text-stone-500">{MESSAGES.HOME_IMPORT.imagePasteHint}</p>
+              <p className="mt-1 text-xs text-stone-500">{MESSAGES.HOME_IMPORT.imagePrivacy}</p>
             </div>
           ) : null}
 
