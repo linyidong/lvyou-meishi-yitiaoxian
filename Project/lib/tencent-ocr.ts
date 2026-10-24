@@ -1,4 +1,5 @@
 import { createHash, createHmac } from 'crypto';
+import { getAppSettings } from '@/lib/app-settings';
 
 /**
  * 腾讯云 OCR（仅服务端）：通用文字识别 GeneralBasicOCR，手写 TC3-HMAC-SHA256 签名
@@ -13,7 +14,6 @@ import { createHash, createHmac } from 'crypto';
 
 const OCR_HOST = 'ocr.tencentcloudapi.com';
 const OCR_SERVICE = 'ocr';
-const OCR_ACTION = 'GeneralBasicOCR';
 const OCR_VERSION = '2018-11-19';
 const CONTENT_TYPE = 'application/json; charset=utf-8';
 /** OCR 请求超时（毫秒）：外部 API 慢响应不拖死上传请求 */
@@ -121,6 +121,9 @@ export async function ocrImageBase64(base64: string): Promise<{ text: string; li
     throw new OcrError('OCR_NOT_CONFIGURED', '图片识别服务未配置（缺少 TENCENT_OCR 凭证）');
   }
 
+  // T-053：OCR 接口类型（X-TC-Action）从全局设置读取；该头不参与 TC3 签名，切换即生效
+  const { ocrAction } = (await getAppSettings()).ai;
+
   const payload = JSON.stringify({ ImageBase64: stripDataUriPrefix(base64) });
   const timestamp = Math.floor(Date.now() / 1000);
   // TC3 的 date 必须是 UTC 日期（与官方示例一致），不能用服务器本地日期
@@ -140,7 +143,7 @@ export async function ocrImageBase64(base64: string): Promise<{ text: string; li
       headers: {
         Authorization: authorization,
         'Content-Type': CONTENT_TYPE,
-        'X-TC-Action': OCR_ACTION,
+        'X-TC-Action': ocrAction,
         'X-TC-Version': OCR_VERSION,
         'X-TC-Timestamp': String(timestamp),
         'X-TC-Region': env.region,

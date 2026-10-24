@@ -10,10 +10,18 @@ import { createAdminClient } from '@/lib/supabase/admin';
  * 注意：本模块只在服务端引用，禁止进入前端组件。
  */
 
+/** T-053：OCR 接口白名单（腾讯云通用印刷体 / 高精度版，只允许这两个值） */
+export const OCR_ACTION_VALUES = ['GeneralBasicOCR', 'GeneralAccurateOCR'] as const;
+export type OcrAction = (typeof OCR_ACTION_VALUES)[number];
+
 export interface AppSettings {
-  /** AI 模型参数（本期仅持久化，接线生效见后续任务） */
+  /** AI 模型参数（T-053 接线生效：deepseek.ts / tencent-ocr.ts 从设置读取） */
   ai: {
     deepseekModel: string;
+    /** DeepSeek API 地址（不含 /chat/completions 路径），必须 http(s) */
+    deepseekBaseUrl: string;
+    /** 腾讯云 OCR 接口类型（X-TC-Action），白名单见 OCR_ACTION_VALUES */
+    ocrAction: OcrAction;
     ocrRegion: string;
   };
   /** 业务开关 */
@@ -53,7 +61,12 @@ const CACHE_TTL_MS = 30_000;
 /** 默认值一律取 config/business.ts，不在本文件写死数字 */
 export function defaultAppSettings(): AppSettings {
   return {
-    ai: { deepseekModel: 'deepseek-chat', ocrRegion: 'ap-guangzhou' },
+    ai: {
+      deepseekModel: 'deepseek-chat',
+      deepseekBaseUrl: 'https://api.deepseek.com',
+      ocrAction: 'GeneralBasicOCR',
+      ocrRegion: 'ap-guangzhou',
+    },
     flags: { billingEnabled: BUSINESS.BILLING_ENABLED, ocrEnabled: true, importEnabled: true },
     quotas: {
       freePlacesPerDay: BUSINESS.FREE_MAX_PLACES_PER_DAY,
@@ -126,6 +139,24 @@ export function validateSettingsPatch(raw: unknown): { ok: true; patch: AppSetti
     }
     return null;
   };
+  /** T-053：URL 字段校验（1–200 字符、可解析、协议必须 http/https） */
+  const checkUrl = (obj: Record<string, unknown>, key: string): string | null => {
+    const v = obj[key];
+    if (v === undefined) return null;
+    if (typeof v !== 'string' || v.trim().length === 0 || v.trim().length > 200) {
+      return `字段 ${key} 需为 1–200 个字符的字符串`;
+    }
+    let url: URL;
+    try {
+      url = new URL(v.trim());
+    } catch {
+      return `字段 ${key} 需为合法的 http(s) 地址`;
+    }
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      return `字段 ${key} 需为合法的 http(s) 地址`;
+    }
+    return null;
+  };
 
   // ai 组
   if (src.ai !== undefined) {
@@ -133,10 +164,25 @@ export function validateSettingsPatch(raw: unknown): { ok: true; patch: AppSetti
       return { ok: false, error: '字段 ai 格式不正确' };
     }
     const ai = src.ai as Record<string, unknown>;
-    const e = checkStr(ai, 'deepseekModel') ?? checkStr(ai, 'ocrRegion');
+    const e =
+      checkStr(ai, 'deepseekModel') ??
+      checkUrl(ai, 'deepseekBaseUrl') ??
+      checkStr(ai, 'ocrRegion');
     if (e) return { ok: false, error: e };
+    if (ai.ocrAction !== undefined) {
+      const v = ai.ocrAction;
+      if (typeof v !== 'string' || !(OCR_ACTION_VALUES as readonly string[]).includes(v.trim())) {
+        return { ok: false, error: `字段 ocrAction 仅支持 ${OCR_ACTION_VALUES.join(' / ')}` };
+      }
+    }
     patch.ai = {};
     if (typeof ai.deepseekModel === 'string') patch.ai.deepseekModel = ai.deepseekModel.trim();
+    if (typeof ai.deepseekBaseUrl === 'string') {
+      patch.ai.deepseekBaseUrl = ai.deepseekBaseUrl.trim();
+    }
+    if (typeof ai.ocrAction === 'string') {
+      patch.ai.ocrAction = ai.ocrAction.trim() as OcrAction;
+    }
     if (typeof ai.ocrRegion === 'string') patch.ai.ocrRegion = ai.ocrRegion.trim();
   }
 

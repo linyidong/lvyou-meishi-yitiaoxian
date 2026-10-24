@@ -29,6 +29,8 @@ describe('defaultAppSettings 默认值（与 config/business.ts 对齐，防漂�
     expect(s.flags.ocrEnabled).toBe(true);
     expect(s.flags.importEnabled).toBe(true);
     expect(s.ai.deepseekModel).toBe('deepseek-chat');
+    expect(s.ai.deepseekBaseUrl).toBe('https://api.deepseek.com');
+    expect(s.ai.ocrAction).toBe('GeneralBasicOCR');
     expect(s.ai.ocrRegion).toBe('ap-guangzhou');
   });
 });
@@ -96,6 +98,23 @@ describe('validateSettingsPatch 范围校验', () => {
   it('字符串空 / 超长被拒', () => {
     expect(validateSettingsPatch({ ai: { deepseekModel: '' } }).ok).toBe(false);
     expect(validateSettingsPatch({ ai: { ocrRegion: 'x'.repeat(65) } }).ok).toBe(false);
+  });
+
+  // T-053：Base URL 与 OCR 接口校验
+  it('Base URL 非 http(s) / 不可解析被拒', () => {
+    expect(validateSettingsPatch({ ai: { deepseekBaseUrl: 'ftp://api.deepseek.com' } }).ok).toBe(false);
+    expect(validateSettingsPatch({ ai: { deepseekBaseUrl: 'not-a-url' } }).ok).toBe(false);
+    expect(validateSettingsPatch({ ai: { deepseekBaseUrl: '' } }).ok).toBe(false);
+    const ok = validateSettingsPatch({ ai: { deepseekBaseUrl: ' https://api.deepseek.com/ ' } });
+    expect(ok.ok).toBe(true);
+    if (ok.ok) expect(ok.patch.ai?.deepseekBaseUrl).toBe('https://api.deepseek.com/');
+  });
+
+  it('OCR 接口只允许白名单两个值', () => {
+    expect(validateSettingsPatch({ ai: { ocrAction: 'GeneralAccurateOCR' } }).ok).toBe(true);
+    expect(validateSettingsPatch({ ai: { ocrAction: 'GeneralOCR' } }).ok).toBe(false);
+    expect(validateSettingsPatch({ ai: { ocrAction: '' } }).ok).toBe(false);
+    expect(validateSettingsPatch({ ai: { ocrAction: 123 } }).ok).toBe(false);
   });
 
   it('未知字段被拒', () => {

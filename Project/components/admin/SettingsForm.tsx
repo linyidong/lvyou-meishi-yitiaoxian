@@ -29,6 +29,9 @@ const NUM_RANGE: Record<string, { min: number; max: number }> = {
 
 interface FormState {
   deepseekModel: string;
+  /** T-053：DeepSeek API 地址与 OCR 接口类型（下拉值即 X-TC-Action） */
+  deepseekBaseUrl: string;
+  ocrAction: string;
   ocrRegion: string;
   ocrMonthlyQuota: string;
   billingEnabled: boolean;
@@ -45,6 +48,8 @@ interface FormState {
 function toForm(s: AppSettings): FormState {
   return {
     deepseekModel: s.ai.deepseekModel,
+    deepseekBaseUrl: s.ai.deepseekBaseUrl,
+    ocrAction: s.ai.ocrAction,
     ocrRegion: s.ai.ocrRegion,
     ocrMonthlyQuota: String(s.ocrMonthlyQuota),
     billingEnabled: s.flags.billingEnabled,
@@ -207,7 +212,15 @@ export function SettingsForm({ initial }: { initial: AppSettings }) {
         showToast('err', M.errSave);
         return;
       }
-      body = { ai: { deepseekModel: form.deepseekModel.trim(), ocrRegion: form.ocrRegion.trim() } };
+      // T-053：Base URL / OCR 接口一并提交；非法值由服务端 validateSettingsPatch 返回 400
+      body = {
+        ai: {
+          deepseekModel: form.deepseekModel.trim(),
+          deepseekBaseUrl: form.deepseekBaseUrl.trim(),
+          ocrAction: form.ocrAction,
+          ocrRegion: form.ocrRegion.trim(),
+        },
+      };
       okText = M.savedAiToast;
     } else if (module === 'flags') {
       body = {
@@ -297,15 +310,23 @@ export function SettingsForm({ initial }: { initial: AppSettings }) {
         <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
           <p className="mb-2 text-xs font-medium text-slate-500">{M.summaryTitle}</p>
           <div className="space-y-1.5 text-sm">
+            {/* T-053：摘要显示「模型 @ Base URL」与 OCR 接口类型（地域单列一行） */}
             <SummaryRow
               label={M.summaryExtractLabel}
               provider={M.summaryExtractProvider}
-              value={form.deepseekModel}
-              savedValue={initial.ai.deepseekModel}
+              value={`${form.deepseekModel} @ ${form.deepseekBaseUrl}`}
+              savedValue={`${initial.ai.deepseekModel} @ ${initial.ai.deepseekBaseUrl}`}
               pendingTag={M.pendingSave}
             />
             <SummaryRow
               label={M.summaryOcrLabel}
+              provider={M.summaryOcrProvider}
+              value={form.ocrAction}
+              savedValue={initial.ai.ocrAction}
+              pendingTag={M.pendingSave}
+            />
+            <SummaryRow
+              label={M.summaryOcrRegionLabel}
               provider={M.summaryOcrProvider}
               value={form.ocrRegion}
               savedValue={initial.ai.ocrRegion}
@@ -313,7 +334,7 @@ export function SettingsForm({ initial }: { initial: AppSettings }) {
             />
           </div>
         </div>
-        {/* T-052：OCR 月额度属配额语义，移入下方「配额数字 · 通用」分组，本卡只留 AI 两项 */}
+        {/* T-052：OCR 月额度属配额语义，移入下方「配额数字 · 通用」分组；T-053：本卡四项（模型 / Base URL / OCR 接口 / 地域） */}
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block">
             <span className="mb-1 block text-xs text-slate-500">{M.fieldDeepseekModel}</span>
@@ -323,6 +344,27 @@ export function SettingsForm({ initial }: { initial: AppSettings }) {
               maxLength={64}
               className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm focus:border-slate-900 focus:outline-none"
             />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs text-slate-500">{M.fieldDeepseekBaseUrl}</span>
+            <input
+              value={form.deepseekBaseUrl}
+              onChange={(e) => patch('deepseekBaseUrl', e.target.value)}
+              maxLength={200}
+              placeholder="https://api.deepseek.com"
+              className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm focus:border-slate-900 focus:outline-none"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs text-slate-500">{M.fieldOcrAction}</span>
+            <select
+              value={form.ocrAction}
+              onChange={(e) => patch('ocrAction', e.target.value)}
+              className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm focus:border-slate-900 focus:outline-none"
+            >
+              <option value="GeneralBasicOCR">{M.ocrActionBasic}</option>
+              <option value="GeneralAccurateOCR">{M.ocrActionAccurate}</option>
+            </select>
           </label>
           <label className="block">
             <span className="mb-1 block text-xs text-slate-500">{M.fieldOcrRegion}</span>

@@ -1312,6 +1312,11 @@ export const MESSAGES = {
     groupFlags: '业务开关',
     groupQuotas: '配额数字',
     fieldDeepseekModel: 'DeepSeek 模型名',
+    // T-053：AI 模型可配置新增项（Base URL / OCR 接口下拉）
+    fieldDeepseekBaseUrl: 'DeepSeek API 地址（Base URL）',
+    fieldOcrAction: 'OCR 接口',
+    ocrActionBasic: '通用印刷体识别（GeneralBasicOCR）',
+    ocrActionAccurate: '高精度版识别（GeneralAccurateOCR）',
     fieldOcrRegion: 'OCR 地域',
     fieldOcrMonthlyQuota: 'OCR 月额度（全站每月总次数）',
     fieldBilling: '开放付费',
@@ -1337,6 +1342,8 @@ export const MESSAGES = {
     summaryExtractProvider: 'DeepSeek',
     summaryOcrLabel: '图片识别',
     summaryOcrProvider: '腾讯云 OCR',
+    // T-053：摘要展示「模型 @ Base URL」与 OCR 接口类型，地域单列一行
+    summaryOcrRegionLabel: '图片识别地域',
     pendingSave: '待保存',
     // T-052：分模块保存——三个模块各自一个保存按钮（均在卡片标题行右侧），互不影响
     saveAi: '保存 AI 配置',
