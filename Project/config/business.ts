@@ -148,6 +148,10 @@ export const BUSINESS = {
   FREE_AI_EXTRACT_DAILY_LIMIT: 10,
   /** P08 会员每天 AI 提取地点次数上限 */
   MEMBER_AI_EXTRACT_DAILY_LIMIT: 20,
+  /** P09（T-044）登录用户每天图片识别（OCR）次数上限 */
+  OCR_DAILY_LIMIT: 20,
+  /** T-044 单张图片识别上传大小上限（7MB，与腾讯云 OCR 单图限制口径一致） */
+  MAX_OCR_IMAGE_BYTES: 7 * 1024 * 1024,
 
   /**
    * 阶段 3 会员付费开通（收款码人工核销）。

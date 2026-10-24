@@ -12,6 +12,7 @@ import {
   ClipboardPaste,
   LoaderCircle,
   Plus,
+  ScanText,
   Sparkles,
   SquarePen,
   Star,
@@ -40,6 +41,16 @@ type Toast = { text: string; tone: 'ok' | 'err' };
 
 const URL_ONLY_PATTERN = /^https?:\/\/\S+$/i;
 
+/** T-044 图片识别放行的格式（与服务端魔数嗅探口径一致） */
+const OCR_ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+/** 文件大小展示（B / KB / MB，一位小数） */
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 /** 从文案推断导入来源（与原型一致：含抖音 / 小红书特征则归到对应来源） */
 function sourceOf(text: string): ImportSource {
   if (/douyin|抖音/i.test(text)) return IMPORT_SOURCE.DOUYIN;
@@ -59,7 +70,7 @@ export function ImportCollectClient({
   collectedCount: number;
 }) {
   const router = useRouter();
-  const [tab, setTab] = useState<'text' | 'link'>('text');
+  const [tab, setTab] = useState<'text' | 'link' | 'image'>('text');
   const [text, setText] = useState('');
   /** AI 从文案里识别出的城市（用于提示，未必在内置城市列表中） */
   const [aiCity, setAiCity] = useState('');
@@ -85,8 +96,14 @@ export function ImportCollectClient({
   const [manualType, setManualType] = useState<PlaceType>(PLACE_TYPE.ATTRACTION);
   const [manualError, setManualError] = useState('');
   const [toast, setToast] = useState<Toast | null>(null);
+  /** T-044 图片识别：已选文件 / 识别中 / 错误提示（与文本 error 分开，切标签互不干扰） */
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageBusy, setImageBusy] = useState(false);
+  const [imageError, setImageError] = useState('');
   /** 手动输入地点输入框：0 结果时用「去手动输入」按钮直接聚焦，减少操作步骤 */
   const manualRef = useRef<HTMLInputElement>(null);
+  /** 图片识别「选择图片」按钮代理的隐藏 file input */
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const tooLong = text.length > BUSINESS.MAX_IMPORT_TEXT_LENGTH;
   const selected = candidates.filter((c) => c.checked && c.name.trim().length > 0);
@@ -114,11 +131,12 @@ export function ImportCollectClient({
     setTimeout(() => setToast(null), 2600);
   }
 
-  function switchTab(next: 'text' | 'link') {
+  function switchTab(next: 'text' | 'link' | 'image') {
     setTab(next);
     setNeedText(false);
     setLinkFailed(false);
     setError('');
+    setImageError('');
   }
 
   function applySample(i: number) {
@@ -203,6 +221,71 @@ export function ImportCollectClient({
       setError(MESSAGES.NETWORK_ERROR);
     } finally {
       setExtracting(false);
+    }
+  }
+
+  /** T-044 选图：前端先校验格式与大小（服务端仍按魔数复验），不合格不落 state */
+  function pickImage(file: File | null) {
+    setImageError('');
+    if (!file) {
+      setImageFile(null);
+      return;
+    }
+    if (!OCR_ALLOWED_TYPES.includes(file.type)) {
+      setImageFile(null);
+      setImageError(MESSAGES.HOME_IMPORT.imageBadType);
+      return;
+    }
+    if (file.size > BUSINESS.MAX_OCR_IMAGE_BYTES) {
+      setImageFile(null);
+      setImageError(MESSAGES.HOME_IMPORT.imageTooLarge);
+      return;
+    }
+    setImageFile(file);
+  }
+
+  /**
+   * T-044 识别图片：POST /api/ai/extract-image（multipart，图片只在内存处理、不保存）。
+   * 成功后把识别文本写入原文本框并切回「粘贴笔记文案」标签，继续走现有 AI 提取流程。
+   */
+  async function recognizeImage() {
+    if (!imageFile) {
+      setImageError(MESSAGES.HOME_IMPORT.imageNoFile);
+      return;
+    }
+    setImageBusy(true);
+    setImageError('');
+    try {
+      const fd = new FormData();
+      fd.append('file', imageFile);
+      const res = await fetch('/api/ai/extract-image', { method: 'POST', body: fd });
+      const data = (await res.json()) as {
+        ok: boolean;
+        text?: string;
+        lineCount?: number;
+        error?: string;
+      };
+      if (!data.ok) {
+        setImageError(data.error ?? MESSAGES.HOME_IMPORT.imageFailed);
+        return;
+      }
+      const recognized = (data.text ?? '').trim();
+      if (!recognized) {
+        setImageError(MESSAGES.HOME_IMPORT.imageEmpty);
+        return;
+      }
+      setText(recognized);
+      setNeedText(false);
+      setError('');
+      setTab('text');
+      showToast(
+        MESSAGES.HOME_IMPORT.imageDone(data.lineCount ?? recognized.split('\n').length),
+        'ok',
+      );
+    } catch {
+      setImageError(MESSAGES.NETWORK_ERROR);
+    } finally {
+      setImageBusy(false);
     }
   }
 
@@ -356,11 +439,58 @@ export function ImportCollectClient({
             <button type="button" onClick={() => switchTab('link')} className={tabCls(tab === 'link')}>
               {MESSAGES.HOME_IMPORT.tabLink}
             </button>
+            <button type="button" onClick={() => switchTab('image')} className={tabCls(tab === 'image')}>
+              {MESSAGES.HOME_IMPORT.tabImage}
+            </button>
           </div>
 
           {tab === 'link' ? (
             <div className="mt-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
               {MESSAGES.HOME_IMPORT.linkTip}
+            </div>
+          ) : null}
+
+          {/* T-044 图片识别：选图 → 识别 → 文本回填下方文本框，复用现有 AI 提取流程；图片不落盘 */}
+          {tab === 'image' ? (
+            <div className="mt-3 rounded-xl border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-800">
+              {MESSAGES.HOME_IMPORT.imageTip}
+            </div>
+          ) : null}
+          {tab === 'image' ? (
+            <div className="mt-3 rounded-xl border border-stone-200 bg-white p-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  ref={imageInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={(e) => pickImage(e.target.files?.[0] ?? null)}
+                />
+                <button
+                  type="button"
+                  onClick={() => imageInputRef.current?.click()}
+                  className="flex h-10 items-center gap-1.5 rounded-lg border border-stone-300 bg-white px-4 text-sm font-medium text-stone-700 hover:bg-stone-50"
+                >
+                  <ScanText className="h-4 w-4 text-violet-600" />
+                  {MESSAGES.HOME_IMPORT.imageChoose}
+                </button>
+                {imageFile ? (
+                  <span className="min-w-0 truncate text-xs text-stone-600">
+                    {imageFile.name}（{formatSize(imageFile.size)}）
+                  </span>
+                ) : null}
+                <button
+                  type="button"
+                  disabled={imageBusy || !imageFile}
+                  onClick={recognizeImage}
+                  className="ml-auto flex h-10 items-center gap-2 rounded-lg bg-gradient-to-r from-primary-from to-primary-to px-5 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-60"
+                >
+                  {imageBusy ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
+                  <span>{imageBusy ? MESSAGES.HOME_IMPORT.imageBusy : MESSAGES.HOME_IMPORT.imageSubmit}</span>
+                </button>
+              </div>
+              {imageError ? <p className="mt-2 text-xs text-red-600">{imageError}</p> : null}
+              <p className="mt-2 text-xs text-stone-500">{MESSAGES.HOME_IMPORT.imagePrivacy}</p>
             </div>
           ) : null}
 

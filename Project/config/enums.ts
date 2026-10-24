@@ -124,6 +124,8 @@ export const QUOTA_ERROR = {
   PLACES_PER_DAY_LIMIT: 'places_per_day_limit',
   /** 当天 AI 提取次数已用完 */
   AI_EXTRACT_DAILY_LIMIT: 'ai_extract_daily_limit',
+  /** 当天图片识别（OCR）次数已用完（T-044） */
+  OCR_DAILY_LIMIT: 'ocr_daily_limit',
 } as const;
 
 export type QuotaError = (typeof QUOTA_ERROR)[keyof typeof QUOTA_ERROR];

@@ -402,6 +402,24 @@ export const MESSAGES = {
     savedWithCity: (n: number, city: string) =>
       `已收藏 ${n} 个地点到「${city}」，可在“我的收藏地点”加入路线`,
     savedNoCity: (n: number) => `已收藏 ${n} 个地点（未指定城市），可在“我的收藏地点”加入路线`,
+    /** T-044 图片识别（OCR）标签页 */
+    tabImage: '图片识别',
+    imageTip:
+      '上传小红书 / 抖音笔记截图，系统识别图中文字并填入下方文本框，再点「AI 提取地点」即可。图片仅用于识别，不会保存。',
+    imagePrivacy: '图片仅用于识别，不会保存',
+    imageChoose: '选择图片',
+    imageSubmit: '识别图片',
+    imageBusy: '正在识别图片…',
+    imageNoFile: '请先选择一张图片',
+    imageTooLarge: '图片超过 7MB，请换一张小一点的图片',
+    imageBadType: '仅支持 JPG / PNG / WebP 格式的图片',
+    imageNeedLogin: '图片识别需登录后使用，请先登录',
+    imageNotConfigured: '图片识别服务暂未开通，请联系管理员',
+    imageFailed: '图片识别失败，请稍后重试',
+    imageEmpty: '图片里没识别到文字，换一张清晰的截图试试',
+    /** 识别成功：文本已回填文本框，提示下一步动作 */
+    imageDone: (n: number) => `已识别 ${n} 行文字，可点下方「AI 提取地点」`,
+    imageQuota: (n: number) => `今日图片识别次数已用完（${n} 次/日），明天再来吧`,
   },
   /** M107 U02「四步排好一条线」 */
   HOME_STEPS: {
