@@ -20,6 +20,8 @@ import path from 'node:path';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const DIST_THRESHOLD_M = 500;
+/** 默认只扫前 N 条（防止一次跑满高德单 Key 日配额）；--all 扫全库 */
+const DEFAULT_LIMIT = 300;
 const CONCURRENCY = 2;
 const RETRIES = 5;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -148,11 +150,19 @@ async function main() {
   const args = process.argv.slice(2);
   const jsonIdx = args.indexOf('--json');
   const jsonPath = jsonIdx >= 0 ? args[jsonIdx + 1] : '';
+  const limitIdx = args.indexOf('--limit');
+  const scanAll = args.includes('--all');
+  const limit = scanAll
+    ? Number.POSITIVE_INFINITY
+    : limitIdx >= 0
+      ? Number(args[limitIdx + 1]) || DEFAULT_LIMIT
+      : DEFAULT_LIMIT;
 
-  const rows = await sql(
+  const allRows = await sql(
     'select p.id,p.name,p.address,p.lat,p.lng,p.geo_status,c.name as city,c.adcode from places p join cities c on c.id=p.city_id where p.geo_status=\'matched\' and p.lat is not null and p.lng is not null order by c.name,p.name',
   );
-  console.log(`扫描 ${rows.length} 条已定位地点（阈值 ${DIST_THRESHOLD_M}m，并发 ${CONCURRENCY}）…\n`);
+  const rows = Number.isFinite(limit) ? allRows.slice(0, limit) : allRows;
+  console.log(`扫描 ${rows.length}/${allRows.length} 条已定位地点（阈值 ${DIST_THRESHOLD_M}m，并发 ${CONCURRENCY}）${Number.isFinite(limit) ? '\n提示：默认只扫前 ' + DEFAULT_LIMIT + ' 条，全库请加 --all（约 1,400 次高德调用，注意日配额）' : ''}…\n`);
 
   const findings = [];
   let done = 0;
