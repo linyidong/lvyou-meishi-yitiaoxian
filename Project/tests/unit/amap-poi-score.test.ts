@@ -28,7 +28,8 @@ describe('scorePoi', () => {
   });
 
   it('同名结果略有加成，但不敌水体降权', () => {
-    expect(scorePoi({ name: 'A', type: '', address: '' }, 'A')).toBe(1);
+    // 名称等于关键词 +2（实现为「等于或以关键词开头」统一 +2）
+    expect(scorePoi({ name: 'A', type: '', address: '' }, 'A')).toBe(2);
     const waterExact = scorePoi({ name: '南门湾', type: '自然地名;海湾海峡', address: '' }, '南门湾');
     expect(waterExact).toBeLessThan(0);
   });
