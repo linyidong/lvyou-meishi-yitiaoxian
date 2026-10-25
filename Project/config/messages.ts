@@ -2136,6 +2136,16 @@ export const MESSAGES = {
     posterSubtitle: '路线长图',
     posterQrHint: '扫码打开网页版查看完整路线',
     posterFooter: (date: string) => `生成于 ${date}`,
+    /** T-061 机票风格长图 */
+    posterBrandEn: 'ROUTE PASS',
+    posterBrandSub: '路线登机牌',
+    posterInfoCity: '城市',
+    posterInfoDays: '天数',
+    posterInfoPlaces: '地点数',
+    posterInfoTransport: '出行方式',
+    posterInfoExported: '导出日期',
+    posterDayPlaces: (count: number) => `${count} 个地点`,
+    posterMapUnavailable: '地图暂不可用',
     dayTitle: (day: number) => `第 ${day} 天`,
     placesTotal: (count: number) => `共 ${count} 个地点`,
     /** 公开分享页 */

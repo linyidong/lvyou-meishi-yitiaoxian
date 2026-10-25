@@ -81,7 +81,13 @@ export function SharePosterCard({
           lodgingNights: null,
           lodgingLabel: '',
         };
-        const poster = await renderRoutePoster({ snapshot, shareUrl, qrDataUrl });
+        // T-061：最小数据契约不含真实出行方式与坐标，关闭该栏（地图自然走占位框）
+        const poster = await renderRoutePoster({
+          snapshot,
+          shareUrl,
+          qrDataUrl,
+          showTransport: false,
+        });
         if (cancelled) return;
         objectUrl = URL.createObjectURL(poster);
         setBlob(poster);

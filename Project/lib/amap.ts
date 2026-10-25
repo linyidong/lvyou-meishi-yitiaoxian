@@ -322,6 +322,7 @@ function amapServiceName(url: string): string {
   if (path.includes('/v3/direction/driving')) return 'direction_driving';
   if (path.includes('/v3/direction/transit')) return 'direction_transit';
   if (path.includes('/v4/direction/bicycling')) return 'direction_bicycling';
+  if (path.includes('/v3/staticmap')) return 'staticmap';
   return 'other';
 }
 
@@ -952,4 +953,92 @@ export async function resolveCityAdcode(name: string): Promise<string> {
     }
   }
   return '';
+}
+
+/* ==================== T-061 静态地图（长图导出用） ==================== */
+
+/**
+ * 取一次二进制响应（静态地图成功返回 PNG；失败返回 JSON 错误体）。
+ * 与 amapGet 同一套 Key 池 + 限速队列 + 用量记录（service='staticmap'）；
+ * 静态地图成功时没有 status 字段，以 Content-Type 是否为图片判定成败。
+ */
+async function amapGetBinary(path: string, params: Record<string, string>): Promise<ArrayBuffer> {
+  if (ENV.AMAP_WEB_KEYS.length === 0) {
+    throw new Error('缺少 AMAP_WEB_SERVICE_KEY，请在 .env.local 中配置');
+  }
+
+  const exhausted = await getExhaustedWebKeySlots();
+  const slot = pickWebKeySlot(exhausted);
+  const entry = webKeyAt(slot);
+
+  const query: Record<string, string> = { key: entry!.key, ...params };
+  if (entry!.privateKey) {
+    query.sig = amapSignature(query, entry!.privateKey);
+  }
+
+  const url = new URL(AMAP_BASE + path);
+  Object.entries(query).forEach(([key, value]) => url.searchParams.set(key, value));
+  const finalUrl = url.toString();
+  const usedSlot = slot >= 0 ? slot : 0;
+
+  let res: Response;
+  try {
+    res = await throttledFetch(finalUrl);
+  } catch (err) {
+    recordAmapCall(finalUrl, true, usedSlot);
+    throw err;
+  }
+
+  const contentType = res.headers.get('content-type') ?? '';
+  if (!res.ok || !contentType.includes('image')) {
+    recordAmapCall(finalUrl, true, usedSlot);
+    let info = `高德静态地图 HTTP ${res.status}`;
+    let infocode = '';
+    try {
+      const json = (await res.json()) as Record<string, unknown>;
+      info = String(json.info ?? info);
+      infocode = String(json.infocode ?? '');
+    } catch {
+      // 响应体不是 JSON 时保留默认错误文案
+    }
+    throw new AmapError(info, infocode);
+  }
+
+  recordAmapCall(finalUrl, false, usedSlot);
+  return res.arrayBuffer();
+}
+
+/**
+ * 当天有序点位 → 高德静态地图 PNG。
+ * 中心取所有点位包围盒中点；≥2 个点画路线折线（paths），每个点落 marker 圆点；单点只画标记。
+ * 尺寸与缩放由调用方保证合法（代理接口负责校验）。
+ */
+export async function requestStaticMap(params: {
+  points: { lng: number; lat: number }[];
+  width: number;
+  height: number;
+  zoom: number;
+}): Promise<ArrayBuffer> {
+  const { points, width, height, zoom } = params;
+  const lats = points.map((p) => p.lat);
+  const lngs = points.map((p) => p.lng);
+  const center = `${((Math.min(...lngs) + Math.max(...lngs)) / 2).toFixed(6)},${(
+    (Math.min(...lats) + Math.max(...lats)) / 2
+  ).toFixed(6)}`;
+  const locs = points.map((p) => `${p.lng},${p.lat}`);
+
+  const query: Record<string, string> = {
+    location: center,
+    zoom: String(zoom),
+    size: `${width}*${height}`,
+    scale: '1',
+    // 每个站点落一个中号标记（同一样式组内点位用 ; 分隔，label 留空；2026-10-25 curl 实测格式）
+    markers: `mid,0xE11D48,:${locs.join(';')}`,
+  };
+  if (points.length >= 2) {
+    // 路线折线：6px 宽主色线（组内点位用 ; 分隔）
+    query.paths = `6,0x7C3AED,1,0x7C3AED,0.2:${locs.join(';')}`;
+  }
+
+  return amapGetBinary('/v3/staticmap', query);
 }
