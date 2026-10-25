@@ -212,8 +212,8 @@ export async function bumpDailyUsage(userId: string, kind: UsageKind, count = 1)
   await addUsage(userId, kind, localDayString(), count);
 }
 
-/** 「生成路线」的计数桶：免费落在按天桶，会员落在按月桶 */
-function routeBucket(tier: MemberTier): { kind: UsageKind; periodKey: string } {
+/** 「生成路线」的计数桶：免费落在按天桶，会员落在按月桶（T-054：POST /api/routes 需把桶键传给 guarded RPC） */
+export function routeBucket(tier: MemberTier): { kind: UsageKind; periodKey: string } {
   return limitsOf(tier).routeLimitPeriod === 'month'
     ? { kind: USAGE_KIND.GENERATE_ROUTE_MONTH, periodKey: localMonthString() }
     : { kind: USAGE_KIND.GENERATE_ROUTE, periodKey: localDayString() };

@@ -45,11 +45,17 @@ function nullableText(value: unknown): string | null {
 }
 
 /**
- * 服务端短期幂等：同一用户 15 秒内用完全相同的草稿重复提交，直接返回已建路线，
- * 避免网络重试 / 手快连点产生第二条路线（dev 单进程内存有效，与客户端 busy + 清草稿互补）。
+ * 服务端短期幂等（T-054/R4：登记前置为 in-flight）：
+ * 同一用户 15 秒窗口内用完全相同的草稿重复提交——第一个请求先登记 in-flight Promise，
+ * 并发请求 await 同一结果（只成功一次、不产生重复路线）；leader 失败则删除登记，
+ * 后续请求自行重试。进程内 Map 跨实例无效（与 known-issues B2 同根因，已在汇报备案）。
  */
 const PROMOTE_DEDUPE_MS = 15_000;
-const recentPromotions = new Map<string, { signature: string; routeId: string; at: number }>();
+interface PromoteOutcome {
+  status: number;
+  body: Record<string, unknown>;
+}
+const recentPromotions = new Map<string, { signature: string; at: number; outcome: Promise<PromoteOutcome> }>();
 
 export async function POST(request: NextRequest) {
   const supabase = createClient();
@@ -145,125 +151,151 @@ export async function POST(request: NextRequest) {
   const signature = `${cityId ?? ''}|${title}|${transportRaw}|${items.map((it) => it.name).join('\u0001')}`;
   const prev = recentPromotions.get(user.id);
   if (prev && prev.signature === signature && now - prev.at < PROMOTE_DEDUPE_MS) {
-    return NextResponse.json({ ok: true, routeId: prev.routeId, deduped: true });
+    // T-054：prev 可能是 in-flight（leader 仍在执行）——await 同一结果而非直接复用字段
+    const shared = await prev.outcome;
+    if (shared.status === 200) {
+      return NextResponse.json({ ...shared.body, deduped: true });
+    }
+    // 前一次尝试失败：不复用失败结果，本请求继续自行执行
   }
 
-  // ==================== 配额（服务端强制，口径照抄 POST /api/routes） ====================
-  // 管理员：不校验、不计数；会员 / 免费：按档位校验（免费按天、会员按月）。
-  const { tier } = await getQuotaProfile(user.id);
-  const limits = limitsOf(tier);
-  if (tier !== 'admin') {
-    const routeQuota = await getRouteQuota(user.id, tier);
-    if (routeQuota.remaining <= 0) {
-      return NextResponse.json({ ok: false, ...routeQuotaErrorBody(routeQuota) }, { status: 429 });
+  // T-054：登记前置为 in-flight。此后所有出口必须经 finish() 兑现 Promise，避免并发等待方悬挂。
+  let settle!: (o: PromoteOutcome) => void;
+  const outcome = new Promise<PromoteOutcome>((resolve) => {
+    settle = resolve;
+  });
+  const record = { signature, at: Date.now(), outcome };
+  recentPromotions.set(user.id, record);
+
+  const finish = (status: number, body: Record<string, unknown>): NextResponse => {
+    const ok = status === 200 && body.ok === true;
+    if (ok) {
+      // 成功：保留登记供窗口内重试复用，窗口起点刷新为完成时刻
+      recentPromotions.set(user.id, { ...record, at: Date.now() });
+    } else if (recentPromotions.get(user.id) === record) {
+      // 失败：删除登记，允许后续请求自行重试
+      recentPromotions.delete(user.id);
     }
-    if (items.length > limits.placesPerDay) {
-      return NextResponse.json(
-        {
+    settle({ status, body });
+    return NextResponse.json(body, { status });
+  };
+
+  try {
+    // ==================== 配额（服务端强制，口径照抄 POST /api/routes） ====================
+    // 管理员：不校验、不计数；会员 / 免费：按档位校验（免费按天、会员按月）。
+    const { tier } = await getQuotaProfile(user.id);
+    const limits = limitsOf(tier);
+    if (tier !== 'admin') {
+      const routeQuota = await getRouteQuota(user.id, tier);
+      if (routeQuota.remaining <= 0) {
+        return finish(429, { ok: false, ...routeQuotaErrorBody(routeQuota) });
+      }
+      if (items.length > limits.placesPerDay) {
+        return finish(403, {
           ok: false,
           code: QUOTA_ERROR.PLACES_PER_DAY_LIMIT,
           message: MESSAGES.ROUTE_DAY_PLACES_LIMIT(limits.placesPerDay),
           maxPerDay: items.length,
-        },
-        { status: 403 },
-      );
+        });
+      }
     }
-  }
 
-  // ==================== 落库（失败即回滚，不留半条路线） ====================
-  /** 本请求新建的 places（回滚时删除；已存在的复用记录不动） */
-  const createdPlaceIds: string[] = [];
-  const rollbackPlaces = async () => {
-    if (createdPlaceIds.length > 0) {
-      await supabase.from('places').delete().in('id', createdPlaceIds);
-    }
-  };
+    // ==================== 落库（失败即回滚，不留半条路线） ====================
+    /** 本请求新建的 places（回滚时删除；已存在的复用记录不动） */
+    const createdPlaceIds: string[] = [];
+    const rollbackPlaces = async () => {
+      if (createdPlaceIds.length > 0) {
+        await supabase.from('places').delete().in('id', createdPlaceIds);
+      }
+    };
 
-  // a) places：按 user_id + city_id + name 去重，已存在复用，不存在才插入
-  const keyOf = (city: string | null, name: string) => `${city ?? ''}|${name}`;
-  const placeIdByKey = new Map<string, string>();
-  const { data: existing, error: readError } = await supabase
-    .from('places')
-    .select('id,name,city_id')
-    .eq('user_id', user.id);
-  if (readError) {
-    return NextResponse.json({ ok: false, message: MESSAGES.NETWORK_ERROR }, { status: 500 });
-  }
-  for (const p of existing ?? []) {
-    placeIdByKey.set(keyOf(p.city_id, p.name), p.id);
-  }
-
-  for (const it of items) {
-    const key = keyOf(cityId, it.name);
-    if (placeIdByKey.has(key)) continue;
-    const { data, error } = await supabase
+    // a) places：按 user_id + city_id + name 去重，已存在复用，不存在才插入
+    const keyOf = (city: string | null, name: string) => `${city ?? ''}|${name}`;
+    const placeIdByKey = new Map<string, string>();
+    const { data: existing, error: readError } = await supabase
       .from('places')
+      .select('id,name,city_id')
+      .eq('user_id', user.id);
+    if (readError) {
+      return finish(500, { ok: false, message: MESSAGES.NETWORK_ERROR });
+    }
+    for (const p of existing ?? []) {
+      placeIdByKey.set(keyOf(p.city_id, p.name), p.id);
+    }
+
+    for (const it of items) {
+      const key = keyOf(cityId, it.name);
+      if (placeIdByKey.has(key)) continue;
+      const { data, error } = await supabase
+        .from('places')
+        .insert({
+          user_id: user.id,
+          city_id: cityId,
+          name: it.name,
+          type: it.type,
+          address: it.address,
+          lat: it.lat,
+          lng: it.lng,
+          image_url: it.imageUrl,
+          is_collected: true,
+          geo_status: GEO_STATUS.MATCHED,
+        })
+        .select('id')
+        .single();
+      if (error || !data) {
+        await rollbackPlaces();
+        return finish(500, { ok: false, message: MESSAGES.NETWORK_ERROR });
+      }
+      placeIdByKey.set(key, data.id);
+      createdPlaceIds.push(data.id);
+    }
+
+    // b) routes：单日路线，字段与默认值对齐 POST /api/routes；住宿文本取草稿（无类型时按「其他」落库，便于结果页展示）
+    const lodgingName = nullableText(body.lodgingName);
+    const lodgingArea = nullableText(body.lodgingArea);
+    const hasLodging = Boolean(lodgingName || lodgingArea);
+    const { data: routeRow, error: routeError } = await supabase
+      .from('routes')
       .insert({
         user_id: user.id,
         city_id: cityId,
-        name: it.name,
-        type: it.type,
-        address: it.address,
-        lat: it.lat,
-        lng: it.lng,
-        image_url: it.imageUrl,
-        is_collected: true,
-        geo_status: GEO_STATUS.MATCHED,
+        title,
+        days: 1,
+        transport: transportRaw as Transport,
+        lodging_type: hasLodging ? (LODGING_TYPE.OTHER as LodgingType) : null,
+        lodging_name: lodgingName,
+        lodging_area: lodgingArea,
       })
       .select('id')
       .single();
-    if (error || !data) {
+    if (routeError || !routeRow) {
       await rollbackPlaces();
-      return NextResponse.json({ ok: false, message: MESSAGES.NETWORK_ERROR }, { status: 500 });
+      return finish(500, { ok: false, message: MESSAGES.NETWORK_ERROR });
     }
-    placeIdByKey.set(key, data.id);
-    createdPlaceIds.push(data.id);
+
+    // c) route_places：按草稿顺序写入，day_index=0、order_index 从 0 递增（住宿点不占号位，照抄分享导入）
+    const routePlaces = items.map((it, index) => ({
+      route_id: routeRow.id,
+      place_id: placeIdByKey.get(keyOf(cityId, it.name)) as string,
+      day_index: 0,
+      order_index: index,
+    }));
+    const { error: rpError } = await supabase.from('route_places').insert(routePlaces);
+    if (rpError) {
+      // 关联写入失败：删刚建的路线（级联清 route_places），再清掉本请求新建的 places
+      await supabase.from('routes').delete().eq('id', routeRow.id);
+      await rollbackPlaces();
+      return finish(500, { ok: false, message: MESSAGES.NETWORK_ERROR });
+    }
+
+    // 计数放在成功后：仅会员 / 免费，管理员不计数
+    if (tier !== 'admin') {
+      await consumeRouteQuota(user.id, tier);
+    }
+
+    return finish(200, { ok: true, routeId: routeRow.id });
+  } catch {
+    // 异常兜底：兑现 500 并删除登记，避免并发等待方悬挂（常规失败路径已由 finish 处理）
+    return finish(500, { ok: false, message: MESSAGES.NETWORK_ERROR });
   }
-
-  // b) routes：单日路线，字段与默认值对齐 POST /api/routes；住宿文本取草稿（无类型时按「其他」落库，便于结果页展示）
-  const lodgingName = nullableText(body.lodgingName);
-  const lodgingArea = nullableText(body.lodgingArea);
-  const hasLodging = Boolean(lodgingName || lodgingArea);
-  const { data: routeRow, error: routeError } = await supabase
-    .from('routes')
-    .insert({
-      user_id: user.id,
-      city_id: cityId,
-      title,
-      days: 1,
-      transport: transportRaw as Transport,
-      lodging_type: hasLodging ? (LODGING_TYPE.OTHER as LodgingType) : null,
-      lodging_name: lodgingName,
-      lodging_area: lodgingArea,
-    })
-    .select('id')
-    .single();
-  if (routeError || !routeRow) {
-    await rollbackPlaces();
-    return NextResponse.json({ ok: false, message: MESSAGES.NETWORK_ERROR }, { status: 500 });
-  }
-
-  // c) route_places：按草稿顺序写入，day_index=0、order_index 从 0 递增（住宿点不占号位，照抄分享导入）
-  const routePlaces = items.map((it, index) => ({
-    route_id: routeRow.id,
-    place_id: placeIdByKey.get(keyOf(cityId, it.name)) as string,
-    day_index: 0,
-    order_index: index,
-  }));
-  const { error: rpError } = await supabase.from('route_places').insert(routePlaces);
-  if (rpError) {
-    // 关联写入失败：删刚建的路线（级联清 route_places），再清掉本请求新建的 places
-    await supabase.from('routes').delete().eq('id', routeRow.id);
-    await rollbackPlaces();
-    return NextResponse.json({ ok: false, message: MESSAGES.NETWORK_ERROR }, { status: 500 });
-  }
-
-  // 计数放在成功后：仅会员 / 免费，管理员不计数
-  if (tier !== 'admin') {
-    await consumeRouteQuota(user.id, tier);
-  }
-
-  recentPromotions.set(user.id, { signature, routeId: routeRow.id, at: Date.now() });
-
-  return NextResponse.json({ ok: true, routeId: routeRow.id });
 }

@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { BUSINESS, billingOrderBlocked } from '@/config/business';
-import { MEMBER_PLAN_LABEL, ORDER_STATUS } from '@/config/enums';
+import { MEMBER_PLAN_LABEL } from '@/config/enums';
 import { MESSAGES } from '@/config/messages';
 import { getAppSettings } from '@/lib/app-settings';
 import { notifyNewMemberOrder } from '@/lib/order-notify';
@@ -70,35 +70,32 @@ export async function POST(request: NextRequest) {
   try {
     const admin = createAdminClient();
 
-    const { count } = await admin
-      .from('member_orders')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .eq('status', ORDER_STATUS.PENDING);
-    if ((count ?? 0) >= BUSINESS.MAX_PENDING_ORDERS) {
+    // T-054/R3：「先 count 后 insert」改为 guarded RPC 事务内原子占额
+    // （pg_advisory_xact_lock + 计数 + 插入，迁移 033），并发请求不再能突破软上限；
+    // 上限值（BUSINESS.MAX_PENDING_ORDERS）、错误码与文案与改造前一致。
+    const { data, error } = await admin.rpc('create_member_order_guarded', {
+      p_user_id: user.id,
+      p_plan: plan.key,
+      p_amount: plan.priceCents,
+      p_channel: channel.key,
+      p_note: payNote,
+      p_max_pending: BUSINESS.MAX_PENDING_ORDERS,
+    });
+    const res = (error ? null : data) as { result?: string; order_id?: string } | null;
+    if (!res) {
+      return NextResponse.json({ ok: false, message: M.errOrderFailed }, { status: 500 });
+    }
+    if (res.result === 'LIMIT') {
       return NextResponse.json({ ok: false, message: M.errPendingFull }, { status: 400 });
     }
-
-    const { data, error } = await admin
-      .from('member_orders')
-      .insert({
-        user_id: user.id,
-        plan: plan.key,
-        amount_cents: plan.priceCents,
-        pay_note: payNote,
-        pay_channel: channel.key,
-        status: ORDER_STATUS.PENDING,
-      })
-      .select('id')
-      .single();
-    if (error || !data) {
+    if (res.result !== 'OK' || !res.order_id) {
       return NextResponse.json({ ok: false, message: M.errOrderFailed }, { status: 500 });
     }
 
     // 外发到账提醒：推到管理员手机（企业微信群机器人），失败不影响下单结果
     const yuan = plan.priceCents % 100 === 0 ? String(plan.priceCents / 100) : (plan.priceCents / 100).toFixed(2);
     await notifyNewMemberOrder({
-      orderId: data.id,
+      orderId: res.order_id,
       email: user.email ?? '—',
       planLabel: MEMBER_PLAN_LABEL[plan.key] ?? plan.key,
       amountYuan: `¥${yuan}`,

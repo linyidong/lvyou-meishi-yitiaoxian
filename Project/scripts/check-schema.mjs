@@ -27,6 +27,7 @@ const EXPECT = {
     'handle_new_user', 'is_admin', 'prevent_member_self_grant', 'prevent_role_change',
     'sync_admin_member', 'bump_amap_usage', 'bump_user_daily_usage', 'get_user_daily_usage',
     'replace_route_places', 'approve_member_order',
+    'create_member_order_guarded', 'create_route_guarded',
   ],
   constraints: [
     'route_places_slot_uniq', 'route_places_route_place_uniq',
