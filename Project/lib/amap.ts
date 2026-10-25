@@ -753,14 +753,16 @@ export async function resolveLodgingCoords(params: {
   name: string | null;
   area: string | null;
   city: string | null;
+  /** T-058：城市 adcode（有则锁定城市搜索，防止住宿被解析到外城） */
+  cityAdcode?: string | null;
 }): Promise<LodgingCoords | null> {
-  const { name, area, city } = params;
+  const { name, area, city, cityAdcode } = params;
   if (!city) return null;
 
   for (const keyword of [name, area]) {
     if (!keyword) continue;
     try {
-      const pois = await searchPlaces(keyword, city);
+      const pois = await searchPlaces(keyword, city, cityAdcode);
       const hit = pois[0];
       if (hit) return { name: name ?? hit.name, lat: hit.lat, lng: hit.lng };
     } catch (err) {
@@ -773,15 +775,29 @@ export async function resolveLodgingCoords(params: {
 
 /**
  * 关键词搜地点（v3 文本搜索，extensions=all 以便一并取回照片与评分）。
+ * T-058 串城修复：
+ * - 请求加 `citylimit=true`，并优先用 adcode（6 位数字）作为 city，锁定目标城市；
+ * - 结果保留 POI 的 adcode / cityname；给定 cityAdcode 时只保留同城结果
+ *   （adcode 前 4 位一致，或 cityname 与目标城市同名——兼容「北京」这类直辖市 adcode 前 4 位为 00 的情况）；
+ *   过滤后为空返回 []，调用方据此走 unmatched，绝不回填错城市地址。
+ * - 缓存键用 adcode 优先（adcode || city），不同城市不再共用同一缓存。
  * 带落库缓存：同一城市 + 同一关键词命中缓存直接返回，不再消耗高德额度（见 readGeocodeCache）。
  */
-export async function searchPlaces(keywords: string, city: string): Promise<AmapPlaceResult[]> {
-  const cached = await readGeocodeCache(city, keywords);
+export async function searchPlaces(
+  keywords: string,
+  city: string,
+  cityAdcode?: string | null,
+): Promise<AmapPlaceResult[]> {
+  const adcode = typeof cityAdcode === 'string' && /^\d{6}$/.test(cityAdcode) ? cityAdcode : '';
+  const cacheCity = adcode || city;
+
+  const cached = await readGeocodeCache(cacheCity, keywords);
   if (cached) return cached;
 
   const data = await amapGet('/v3/place/text', {
     keywords,
-    city,
+    city: cacheCity,
+    citylimit: 'true',
     offset: '20',
     page: '1',
     extensions: 'all',
@@ -805,12 +821,26 @@ export async function searchPlaces(keywords: string, city: string): Promise<Amap
         lat: location.lat,
         lng: location.lng,
         imageUrl: httpsPhoto(photos[0]?.url),
+        adcode: String(poi.adcode ?? ''),
+        cityname: String(poi.cityname ?? ''),
       },
     ];
   });
 
-  void writeGeocodeCache(city, keywords, results);
-  return results;
+  // 城市一致性过滤：给定 adcode 时只保留同城结果（前 4 位一致 或 cityname 同名）
+  let filtered = results;
+  if (adcode) {
+    const prefix = adcode.slice(0, 4);
+    filtered = results.filter(
+      (poi) =>
+        poi.adcode!.slice(0, 4) === prefix ||
+        poi.cityname === city ||
+        poi.cityname === `${city}市`,
+    );
+  }
+
+  void writeGeocodeCache(cacheCity, keywords, filtered);
+  return filtered;
 }
 
 /**

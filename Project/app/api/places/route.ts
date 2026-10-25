@@ -58,9 +58,10 @@ const GEO_EMPTY: Geocoded = {
  * 搜到 → matched，带回高德地址与照片；搜不到 → unmatched；
  * 高德调用失败（网络 / 额度）→ pending，都不阻断收藏，留给后续重试。
  */
-async function geocodeOne(name: string, city: string): Promise<Geocoded> {
+async function geocodeOne(name: string, city: string, cityAdcode?: string | null): Promise<Geocoded> {
   try {
-    const [hit] = await searchPlaces(name, city);
+    // T-058：带 adcode 锁定城市，只接受同城结果；搜不到 → unmatched + address=null，绝不回填错城市地址
+    const [hit] = await searchPlaces(name, city, cityAdcode);
     if (!hit) return { ...GEO_EMPTY, status: GEO_STATUS.UNMATCHED };
     return {
       lat: hit.lat,
@@ -75,12 +76,16 @@ async function geocodeOne(name: string, city: string): Promise<Geocoded> {
 }
 
 /** 分批并发补坐标，返回顺序与入参一致 */
-async function geocodeAll(list: { name: string }[], city: string): Promise<Geocoded[]> {
+async function geocodeAll(
+  list: { name: string }[],
+  city: string,
+  cityAdcode?: string | null,
+): Promise<Geocoded[]> {
   const out: Geocoded[] = [];
   for (let i = 0; i < list.length; i += GEOCODE_CONCURRENCY) {
     out.push(
       ...(await Promise.all(
-        list.slice(i, i + GEOCODE_CONCURRENCY).map((it) => geocodeOne(it.name, city)),
+        list.slice(i, i + GEOCODE_CONCURRENCY).map((it) => geocodeOne(it.name, city, cityAdcode)),
       )),
     );
   }
@@ -138,10 +143,12 @@ export async function POST(request: NextRequest) {
   let cityId = typeof body.cityId === 'string' && body.cityId ? body.cityId : null;
   const cityName = typeof body.cityName === 'string' ? body.cityName.trim() : '';
   let cityMatched = true;
+  /** T-058：所属城市 adcode，传给 searchPlaces 锁定城市，防止同名 POI 串城 */
+  let cityAdcode: string | null = null;
   if (!cityId && cityName) {
     const { data: cityRow, error: cityError } = await supabase
       .from('cities')
-      .select('id')
+      .select('id,adcode')
       .eq('name', cityName)
       .maybeSingle();
     if (cityError) {
@@ -149,6 +156,7 @@ export async function POST(request: NextRequest) {
     }
     if (cityRow) {
       cityId = cityRow.id;
+      cityAdcode = cityRow.adcode ?? null;
     } else {
       // T-043：兜底入库（extract 阶段通常已入库，这里幂等命中直接复用；lib/city-ensure.ts）
       const ensured = await ensureCityInDb(cityName);
@@ -166,10 +174,20 @@ export async function POST(request: NextRequest) {
   if (!geoCity && cityId) {
     const { data: cityRow } = await supabase
       .from('cities')
-      .select('name')
+      .select('name,adcode')
       .eq('id', cityId)
       .maybeSingle();
     geoCity = cityRow?.name ?? '';
+    cityAdcode = cityRow?.adcode ?? null;
+  }
+  // 城市是新入库（ensureCityInDb）时名字已知但 adcode 未知：按 id 补查一次
+  if (geoCity && cityId && cityAdcode === null) {
+    const { data: cityRow } = await supabase
+      .from('cities')
+      .select('adcode')
+      .eq('id', cityId)
+      .maybeSingle();
+    cityAdcode = cityRow?.adcode ?? null;
   }
 
   const sourceRaw = body.source;
@@ -218,7 +236,7 @@ export async function POST(request: NextRequest) {
 
   // 写入前用高德补经纬度与地址：搜到 → matched，搜不到 → unmatched，
   // 高德调用失败 → pending；一律不阻断收藏（技术方案 v1.1 §4.4）
-  const geocoded = await geocodeAll(toInsert, geoCity);
+  const geocoded = await geocodeAll(toInsert, geoCity, cityAdcode);
 
   const { data: insertedRows, error: insertError } = await supabase
     .from('places')

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { BUSINESS } from '@/config/business';
+import { CITIES } from '@/config/cities';
 import { NAV_MODE, NAV_MODE_VALUES, PLACE_TYPE } from '@/config/enums';
 import { MESSAGES } from '@/config/messages';
 import {
@@ -151,6 +152,8 @@ export async function POST(request: NextRequest) {
           name: lodgingName || null,
           area: lodgingArea || null,
           city: lodgingCity,
+          // T-058：内置城市表取 adcode，锁定住宿解析范围
+          cityAdcode: CITIES.find((c) => c.name === lodgingCity)?.adcode ?? null,
         });
         if (coords) {
           lodgingMeta = {

@@ -43,4 +43,8 @@ export interface AmapPlaceResult {
   lng: number;
   /** 高德 POI 首张照片地址（extensions=all 才有），无图时为 null */
   imageUrl: string | null;
+  /** 高德 POI 所属区划编码（6 位，如 350626）；T-058 用于城市一致性校验，可能为空串 */
+  adcode?: string;
+  /** 高德 POI 所属城市名（如「漳州市」）；T-058 用于城市一致性校验，可能为空串 */
+  cityname?: string;
 }

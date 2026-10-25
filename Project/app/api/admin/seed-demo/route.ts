@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
     .map((s) => s.trim())
     .filter(Boolean);
 
-  let cityQuery = admin.from('cities').select('id,name').order('name');
+  let cityQuery = admin.from('cities').select('id,name,adcode').order('name');
   if (only.length) cityQuery = cityQuery.in('name', only);
   const { data: cityRows, error: cityError } = await cityQuery;
   if (cityError) {
@@ -151,8 +151,9 @@ export async function POST(request: NextRequest) {
     for (const category of CATEGORIES) {
       let pois: Awaited<ReturnType<typeof searchPlaces>> = [];
       try {
-        pois = await searchPlaces(category.keyword, city.name);
-        if (pois.length === 0) pois = await searchPlaces(category.fallback, city.name);
+        // T-058：带城市 adcode 锁定搜索范围，防止示例数据串城
+        pois = await searchPlaces(category.keyword, city.name, city.adcode);
+        if (pois.length === 0) pois = await searchPlaces(category.fallback, city.name, city.adcode);
       } catch (err) {
         // 单个城市/关键词失败不影响整体，继续下一批
         console.warn(`[seed-demo] ${city.name} / ${category.keyword} 拉取失败：`, err);

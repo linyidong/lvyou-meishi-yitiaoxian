@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { BUSINESS } from '@/config/business';
+import { CITIES } from '@/config/cities';
 import { MESSAGES } from '@/config/messages';
 import { searchPlaces } from '@/lib/amap';
 import { extractPlacesAndCity } from '@/lib/deepseek';
@@ -117,6 +118,8 @@ export async function POST(request: NextRequest) {
   }
 
   // 按当前出发城市补坐标；命中 amap_geocode_cache 时不消耗高德额度
+  // T-058：从内置城市表取 adcode 锁定城市（试用城市都来自内置列表；取不到则退回按城市名搜索）
+  const cityAdcode = CITIES.find((c) => c.name === cityName)?.adcode ?? null;
   const geocoded: GuestPlace[] = [];
   let failed = 0;
   const seen = new Set<string>();
@@ -126,7 +129,7 @@ export async function POST(request: NextRequest) {
     const hits = await Promise.all(
       chunk.map(async (place) => {
         try {
-          const [hit] = await searchPlaces(place.name, cityName);
+          const [hit] = await searchPlaces(place.name, cityName, cityAdcode);
           return { place, hit };
         } catch {
           return { place, hit: undefined };

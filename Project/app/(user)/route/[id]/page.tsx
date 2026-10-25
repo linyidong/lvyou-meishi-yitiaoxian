@@ -139,6 +139,7 @@ export default async function RouteDetailPage({ params }: { params: { id: string
     name: route.lodging_name,
     area: route.lodging_area,
     city: cityName,
+    cityAdcode,
   });
 
   // 阶段 2 会员分层：只有会员 / 管理员可用「手机高德导航」，游客按钮转锁定态

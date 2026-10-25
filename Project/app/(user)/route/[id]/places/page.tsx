@@ -65,13 +65,15 @@ export default async function RoutePlacesPage({ params }: { params: { id: string
   }
 
   let cityName: string | null = null;
+  let cityAdcode: string | null = null;
   if (route.city_id) {
     const { data: city } = await supabase
       .from('cities')
-      .select('name')
+      .select('name,adcode')
       .eq('id', route.city_id)
       .maybeSingle();
     cityName = city?.name ?? null;
+    cityAdcode = city?.adcode ?? null;
   }
 
   // 住宿坐标：用于「起点默认离住宿最近」与地图上的住宿标记
@@ -79,6 +81,7 @@ export default async function RoutePlacesPage({ params }: { params: { id: string
     name: route.lodging_name,
     area: route.lodging_area,
     city: cityName,
+    cityAdcode,
   });
 
   let places: RoutePlaceOption[] = [];
