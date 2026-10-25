@@ -380,7 +380,8 @@ export function TryResultClient({ loggedIn }: { loggedIn: boolean }) {
     return () => {
       cancelled = true;
     };
-  }, [draft, mode, nonce, M.error, M.rateLimited, lodgingBody]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- MESSAGES 为模块常量，加入依赖会触发"多余依赖"，故不列入
+  }, [draft, mode, nonce, lodgingBody]);
 
   const points = result?.points ?? [];
 

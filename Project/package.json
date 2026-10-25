@@ -13,7 +13,8 @@
     "test:e2e": "playwright test",
     "check:env": "node scripts/check-env.mjs",
     "check:cities": "node scripts/check-cities.mjs",
-    "audit:mobile": "node scripts/mobile-audit.mjs"
+    "audit:mobile": "node scripts/mobile-audit.mjs",
+    "check:schema": "node scripts/check-schema.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

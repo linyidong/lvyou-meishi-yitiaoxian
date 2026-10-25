@@ -140,7 +140,8 @@ export function TryPickClient() {
     } finally {
       setLoading(false);
     }
-  }, [cityId, M.error, M.rateLimited]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- MESSAGES 为模块常量，加入依赖会触发"多余依赖"，故不列入
+  }, [cityId]);
 
   useEffect(() => {
     if (ready) void load();
