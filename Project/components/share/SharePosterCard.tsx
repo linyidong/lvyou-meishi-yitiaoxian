@@ -53,7 +53,7 @@ export function SharePosterCard({
     (async () => {
       try {
         const shareUrl = window.location.href;
-        const qrDataUrl = await QRCode.toDataURL(shareUrl, { margin: 1, width: 240 });
+        const qrDataUrl = await QRCode.toDataURL(shareUrl, { margin: 1, width: 512 });
         // 拼成 renderRoutePoster 的类型兼容入参：下方占位字段均不会被绘制消费
         const snapshot: RouteShareSnapshot = {
           title: view.title,

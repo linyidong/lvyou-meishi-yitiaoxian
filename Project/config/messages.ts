@@ -2173,7 +2173,7 @@ export const MESSAGES = {
     importHomeBtn: '导入分享路线',
     importMemberOnly: '会员可用该功能',
     dialogTitle: '导入分享路线',
-    dialogDesc: '粘贴会员分享的路线链接（或直接粘贴 token），选择导入方式',
+    dialogDesc: '粘贴分享链接或上传含二维码的路线长图，先预览再选择导入方式',
     inputLabel: '分享链接 / token',
     inputPlaceholder: '例如 https://…/share/xxxxxxxx，或直接粘贴 token',
     modeRouteTitle: '建成我的路线',
@@ -2187,6 +2187,24 @@ export const MESSAGES = {
     donePlaces: (n: number) => `已收藏 ${n} 个地点`,
     goMyRoutes: '去我的路线',
     goCollected: '去我的收藏夹',
+    /** T-060 双入口（链接 / 二维码长图）→ 先预览 → 再选择动作 */
+    tabLink: '粘贴链接',
+    tabQr: '上传长图',
+    qrTabDesc: '上传含二维码的路线长图（png / jpg / webp，≤7MB），自动识别分享链接',
+    qrPick: '选择长图',
+    qrBusy: '正在识别二维码…',
+    qrTooLarge: '图片超过 7MB，请压缩后再上传',
+    qrBadType: '仅支持 png / jpg / webp 图片',
+    qrFailed: '没识别到二维码，请确认上传的是含分享二维码的路线长图',
+    previewBtn: '查看路线预览',
+    previewBusy: '正在加载预览…',
+    previewTitle: '路线预览',
+    previewPlacesShown: (shown: number, total: number) =>
+      shown < total ? `显示前 ${shown} 个，共 ${total} 个地点` : `共 ${total} 个地点`,
+    previewExported: (date: string) => `分享时间：${date}`,
+    previewBack: '返回重新选择',
+    revoked: '该分享已被作者关闭',
+    previewFailed: '预览加载失败，请稍后重试',
   },
   /** M343 游客试用（免登录）：设置路线 / 挑选地点 / 查看结果三步（草稿存 sessionStorage，关闭页面即清空） */
   TRY: {

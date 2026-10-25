@@ -17,7 +17,8 @@ const LINE_H = 34;
 /** 顶部品牌条 + 标题区预估高度 */
 const HEADER_H = 260;
 /** 底部二维码区高度 */
-const FOOTER_H = 220;
+// T-060 修正：底部区 = 分隔线(20) + 二维码(56+200) + 页脚(30) + 余量
+const FOOTER_H = 340;
 
 function font(size: number, weight = '400') {
   return `${weight} ${size}px ${FONT}`;
@@ -215,7 +216,7 @@ export async function renderRoutePoster(input: {
   ctx.lineTo(WIDTH - 40, y + 20);
   ctx.stroke();
 
-  const qrSize = 180;
+  const qrSize = 200;
   const qrY = y + 56;
   const qrImg = await loadImage(qrDataUrl);
   ctx.fillStyle = '#FFFFFF';

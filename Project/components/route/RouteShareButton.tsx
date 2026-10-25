@@ -65,7 +65,7 @@ export function RouteShareButton({
         setPhase('error');
         return;
       }
-      const qrDataUrl = await QRCode.toDataURL(data.url, { margin: 1, width: 240 });
+      const qrDataUrl = await QRCode.toDataURL(data.url, { margin: 1, width: 512 });
       const poster = await renderRoutePoster({
         snapshot: data.snapshot,
         shareUrl: data.url,
