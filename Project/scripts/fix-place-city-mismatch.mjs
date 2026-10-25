@@ -121,14 +121,17 @@ async function dbPatch(id, payload) {
  * 也拿不到 cityname，故该规则是直辖市唯一的可靠判定路径。
  */
 function sameCity(poiAdcode, poiCityname, cityName, cityAdcode) {
-  if (poiAdcode) {
-    if (cityAdcode.slice(2) === '0000') {
-      if (poiAdcode.slice(0, 2) === cityAdcode.slice(0, 2)) return true;
-    } else if (poiAdcode.slice(0, 4) === cityAdcode.slice(0, 4)) {
-      return true;
-    }
+  const poi = String(poiAdcode ?? '').trim();
+  const target = String(cityAdcode ?? '').trim();
+  if (!/^\d{6}$/.test(poi) || !/^\d{6}$/.test(target)) {
+    return poiCityname === cityName || poiCityname === `${cityName}市`;
   }
-  return poiCityname === cityName || poiCityname === `${cityName}市`;
+  // 与 lib/amap.ts adcodeWithin 同规则：直辖市比前 2 位、地级市比前 4 位、区县必须精确相等
+  if (target.endsWith('0000')) return poi.slice(0, 2) === target.slice(0, 2);
+  if (target.endsWith('00')) return poi.slice(0, 4) === target.slice(0, 4);
+  if (poi === target) return true;
+  // 区县级目标不应靠 cityname 兜底（漳州市 ≠ 东山县），仅当地级市时才有意义
+  return false;
 }
 
 async function main() {

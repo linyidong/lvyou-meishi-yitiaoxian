@@ -783,6 +783,31 @@ export async function resolveLodgingCoords(params: {
  * - 缓存键用 adcode 优先（adcode || city），不同城市不再共用同一缓存。
  * 带落库缓存：同一城市 + 同一关键词命中缓存直接返回，不再消耗高德额度（见 readGeocodeCache）。
  */
+
+/**
+ * 判断 POI 的 adcode 是否属于目标城市（T-058 追加：粒度必须到区县）。
+ *
+ * 规则按目标 adcode 的层级决定比较粒度，避免"同一地级市内跨区县"被放过：
+ * - 直辖市（110000/310000/120000/500000，后 4 位为 0）→ 比前 2 位
+ * - 地级市（后 2 位为 0，如 350600）→ 比前 4 位
+ * - 区 / 县（如 350626 东山县）→ **必须精确相等**（350602 芗城区不算东山县）
+ *
+ * 返回 false 表示不属于；调用方据此丢弃该 POI（宁缺勿错）。
+ */
+export function adcodeWithin(poiAdcode: string, targetAdcode: string): boolean {
+  const poi = String(poiAdcode ?? '').trim();
+  const target = String(targetAdcode ?? '').trim();
+  if (!/^\d{6}$/.test(poi) || !/^\d{6}$/.test(target)) return false;
+  if (target.endsWith('0000')) return poi.slice(0, 2) === target.slice(0, 2);
+  if (target.endsWith('00')) return poi.slice(0, 4) === target.slice(0, 4);
+  return poi === target;
+}
+
+/** 目标 adcode 是否地级市/直辖市层级（此时允许用 cityname 兜底比对） */
+function isBroadAdcode(adcode: string): boolean {
+  return /^\d{6}$/.test(adcode) && adcode.endsWith('00');
+}
+
 export async function searchPlaces(
   keywords: string,
   city: string,
@@ -827,15 +852,34 @@ export async function searchPlaces(
     ];
   });
 
-  // 城市一致性过滤：给定 adcode 时只保留同城结果（前 4 位一致 或 cityname 同名）
+  // 城市一致性过滤（T-058）：按目标 adcode 层级比较，区县级必须精确匹配；
+  // adcode 缺失时用逆地理补全后再判定；cityname 仅在目标是地级市/直辖市时用于兜底。
+  if (adcode) {
+    const unknown = results.filter((poi) => !poi.adcode).slice(0, 5);
+    for (const poi of unknown) {
+      try {
+        const rg = await amapGet('/v3/geocode/regeo', {
+          location: `${poi.lng},${poi.lat}`,
+          extensions: 'base',
+        });
+        const regeo = (rg as { regeocode?: { addressComponent?: Record<string, unknown> } })
+          .regeocode;
+        const comp = regeo?.addressComponent ?? {};
+        poi.adcode = String(comp.adcode ?? '');
+        if (!poi.cityname) poi.cityname = String(comp.city ?? comp.province ?? '');
+      } catch {
+        // 逆地理失败：保留空 adcode，交给下面判定（会被过滤掉）
+      }
+    }
+  }
+
   let filtered = results;
   if (adcode) {
-    const prefix = adcode.slice(0, 4);
     filtered = results.filter(
       (poi) =>
-        poi.adcode!.slice(0, 4) === prefix ||
-        poi.cityname === city ||
-        poi.cityname === `${city}市`,
+        adcodeWithin(poi.adcode!, adcode) ||
+        (isBroadAdcode(adcode) &&
+          (poi.cityname === city || poi.cityname === `${city}市`)),
     );
   }
 
