@@ -808,6 +808,39 @@ function isBroadAdcode(adcode: string): boolean {
   return /^\d{6}$/.test(adcode) && adcode.endsWith('00');
 }
 
+
+/** 水体/自然地名类型：落在海面/河面上的中心点，作为地点会"漂在水里" */
+const WATER_TYPE_RE = /海湾|河流|湖泊|海域|水库|海峡|自然地名/;
+/** 适合作为行程地点的类型：景区、餐饮、购物、道路、交通设施、文化体育 */
+const GOOD_TYPE_RE = /风景名胜|餐饮|购物|道路|交通设施|科教文化|体育休闲|住宿服务/;
+/** 停车场/公交站/出入口等"配套设施"：有地址但通常不是用户想去的地点本身，降权 */
+const FACILITY_TYPE_RE = /停车场|停车库|公交车站|公交站|出入口|入口|出口|收费站|服务区/;
+
+/**
+ * POI 候选打分（T-058 追加）：高分优先。
+ *
+ * 背景：「南门湾」高德第一条是「海湾海峡」（水面中心点），标注会落在海里；
+ * 而「南门湾风景区」在岸上（南门海堤）。因此对水体类降权、对有具体地址与景区/餐饮类加权，
+ * 并轻微偏好与关键词同名的结果。
+ */
+export function scorePoi(
+  poi: { name: string; type?: string; address?: string },
+  keyword: string,
+): number {
+  const type = poi.type ?? '';
+  const address = (poi.address ?? '').trim();
+  let score = 0;
+  if (WATER_TYPE_RE.test(type)) score -= 5;
+  if (FACILITY_TYPE_RE.test(type)) score -= 3;
+  if (/风景名胜|景点/.test(type)) score += 5;
+  else if (GOOD_TYPE_RE.test(type)) score += 2;
+  if (address && address !== '[]' && address !== poi.name) score += 2;
+  // 名称以关键词开头（如「南门湾风景区」之于「南门湾」）更贴近用户本意
+  if (poi.name === keyword) score += 2;
+  else if (poi.name.startsWith(keyword)) score += 2;
+  return score;
+}
+
 export async function searchPlaces(
   keywords: string,
   city: string,
@@ -848,6 +881,7 @@ export async function searchPlaces(
         imageUrl: httpsPhoto(photos[0]?.url),
         adcode: String(poi.adcode ?? ''),
         cityname: String(poi.cityname ?? ''),
+        type: String(poi.type ?? ''),
       },
     ];
   });
