@@ -403,8 +403,10 @@ docker exec -i <postgres_container> psql -U postgres -d postgres < backup_YYYYMM
 
 ### 4.8 设备依赖矩阵与演进路径（2026-10-22 用户提问后补充）
 
-**关键事实**：融合方案里，**应用（Next）跑在家机、数据库跑在 Windows、云机只是入口**。
-因此"只开 Windows、Mac 随便关"**不成立**——Mac 关机 = 应用消失。
+**关键事实（2026-10-25 已变更）**：早期方案是"应用跑 Mac、数据库跑 Windows、云机入口"，所以"只开 Windows、Mac 关机"不成立。
+现已支持**应用也跑在 Windows**（`windows/启动项目.bat` 一键：检查 Supabase → 构建/启动 Next → 打开浏览器），
+因此"只开 Windows、Mac 关机"**成立**：电脑与手机都可访问 `http://<Windows 局域网 IP>:3000`。
+Mac 退回"开发机"角色。
 
 | 形态 | 云机 | Windows(DB) | Mac(App) | 手机可访问 | 代价 |
 |---|---|---|---|---|---|
