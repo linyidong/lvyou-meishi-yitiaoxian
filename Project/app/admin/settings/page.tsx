@@ -3,7 +3,7 @@ import { MESSAGES } from '@/config/messages';
 import { ROUTES } from '@/config/routes';
 import { AdminShell } from '@/components/layout/AdminShell';
 import { SettingsForm } from '@/components/admin/SettingsForm';
-import { getAppSettings } from '@/lib/app-settings';
+import { getAppSettings, toPublicSettings } from '@/lib/app-settings';
 
 /**
  * T-049 管理端「设置」页：三组表单（AI 模型 / 业务开关 / 配额数字），
@@ -16,7 +16,8 @@ const M = MESSAGES.ADMIN_SETTINGS;
 export const dynamic = 'force-dynamic';
 
 export default async function AdminSettingsPage() {
-  const settings = await getAppSettings();
+  // T-057：页面初值走掩码形态，明文 API Key 绝不进入客户端 RSC payload
+  const settings = toPublicSettings(await getAppSettings());
 
   return (
     <AdminShell currentPath={ROUTES.ADMIN_SETTINGS} title={M.title} badge={M.badge}>

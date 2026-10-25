@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { USER_ROLE } from '@/config/enums';
 import { MESSAGES } from '@/config/messages';
-import { getAppSettings, saveAppSettings, validateSettingsPatch } from '@/lib/app-settings';
+import { getAppSettings, saveAppSettings, toPublicSettings, validateSettingsPatch } from '@/lib/app-settings';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase/server';
  * GET   /api/admin/settings → 当前生效设置（DB 值与默认值合并后）
  * PATCH /api/admin/settings → 校验后合并保存，返回保存后的完整设置
  * 仅 role=admin 可访问；app_settings 表 RLS 无策略，读写全部走 service_role（lib/app-settings.ts）。
+ * T-057：响应统一走 toPublicSettings —— ai 段只回 apiKeyMask / hasApiKey，绝不回传明文 Key。
  */
 
 /** 管理员身份校验（与 A08 订单核销接口同一口径） */
@@ -32,7 +33,7 @@ export async function GET() {
   if (denied) return denied;
   try {
     const settings = await getAppSettings();
-    return NextResponse.json({ ok: true, settings });
+    return NextResponse.json({ ok: true, settings: toPublicSettings(settings) });
   } catch {
     return NextResponse.json({ ok: false, message: MESSAGES.ADMIN_SETTINGS.errLoad }, { status: 500 });
   }
@@ -56,7 +57,7 @@ export async function PATCH(request: NextRequest) {
 
   try {
     const settings = await saveAppSettings(checked.patch);
-    return NextResponse.json({ ok: true, settings });
+    return NextResponse.json({ ok: true, settings: toPublicSettings(settings) });
   } catch {
     return NextResponse.json({ ok: false, message: MESSAGES.ADMIN_SETTINGS.errSave }, { status: 500 });
   }

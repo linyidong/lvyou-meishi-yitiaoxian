@@ -1,7 +1,6 @@
 import { BUSINESS } from '@/config/business';
-import { ENV } from '@/config/env';
 import { PLACE_TYPE } from '@/config/enums';
-import { getAppSettings } from '@/lib/app-settings';
+import { chatJson } from '@/lib/llm';
 import type { PlaceType } from '@/types';
 
 export interface ExtractedPlace {
@@ -51,45 +50,12 @@ function normalizeCity(raw: unknown): string {
   return city.replace(/[市区县]$/, '').slice(0, 20);
 }
 
-/** 调 DeepSeek 提取「城市 + 地点」（技术方案 v1.1 §4.3）；模型与地址从全局设置读取（T-053） */
+/**
+ * 调大模型提取「城市 + 地点」（技术方案 v1.1 §4.3）。
+ * T-057：改走 lib/llm.ts chatJson（主模型 45s 超时，失败自动兜底备用模型一次）；
+ * 对外签名不变，调用方（/api/ai/extract、/api/try/extract）无感知。
+ */
 export async function extractPlacesAndCity(text: string): Promise<ExtractResult> {
-  if (!ENV.DEEPSEEK_API_KEY) {
-    throw new Error('缺少 DEEPSEEK_API_KEY，请在 .env.local 中配置');
-  }
-
-  const { deepseekModel, deepseekBaseUrl } = (await getAppSettings()).ai;
-  // Base URL 去掉末尾斜杠后拼接 completions 路径，避免双斜杠
-  const url = `${deepseekBaseUrl.replace(/\/+$/, '')}/chat/completions`;
-
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${ENV.DEEPSEEK_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: deepseekModel,
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: text },
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.2,
-    }),
-    cache: 'no-store',
-  });
-
-  if (!res.ok) {
-    throw new Error(`DeepSeek HTTP ${res.status}`);
-  }
-
-  const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
-  const content = data.choices?.[0]?.message?.content ?? '';
-
-  try {
-    const parsed = JSON.parse(content) as unknown;
-    return { city: normalizeCity(parsed), places: normalizePlaces(parsed) };
-  } catch {
-    throw new Error('AI 返回内容不是合法 JSON');
-  }
+  const { data } = await chatJson<unknown>({ system: SYSTEM_PROMPT, user: text });
+  return { city: normalizeCity(data), places: normalizePlaces(data) };
 }

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check, CheckCircle2, Loader2, X } from 'lucide-react';
 import { MESSAGES } from '@/config/messages';
-import type { AppSettings } from '@/lib/app-settings';
+import type { PublicAppSettings, PublicLlmProvider } from '@/lib/app-settings';
 
 /**
  * T-049 设置页表单（客户端）：三组字段（AI 模型 / 业务开关 / 配额数字）。
@@ -12,6 +12,8 @@ import type { AppSettings } from '@/lib/app-settings';
  * （服务端 mergeAppSettings 深合并，未提交的段保持 DB 原值），互不影响；
  * 各自显示保存中（按钮文案）/ 已保存 / 失败（toast），成功后 router.refresh() 回读 DB。
  * 初始值由服务端页面从 app_settings 读出传入，刷新后仍是 DB 持久化值。
+ * T-057：AI 区改为主模型卡 + 备用模型卡（可添加/清除），每卡 [测试连接]；
+ * API Key 输入框 type=password，占位只显示掩码；留空 = 保持不变，「清除 Key」= 提交 null 回落环境变量。
  */
 
 const M = MESSAGES.ADMIN_SETTINGS;
@@ -27,10 +29,31 @@ const NUM_RANGE: Record<string, { min: number; max: number }> = {
   ocrMonthlyQuota: { min: 1, max: 100000 },
 };
 
+/** T-057：单张模型卡的编辑态（apiKeyInput 为空 = 不改动已存 Key；clearKey = 提交 null 清空） */
+interface ProviderForm {
+  label: string;
+  baseUrl: string;
+  model: string;
+  apiKeyInput: string;
+  clearKey: boolean;
+  enabled: boolean;
+}
+
+/** 测试连接按钮状态（针对服务端已保存配置，与表单未保存改动无关） */
+interface TestState {
+  status: 'idle' | 'running' | 'done';
+  ok?: boolean;
+  ms?: number;
+  error?: string;
+}
+
 interface FormState {
-  deepseekModel: string;
-  /** T-053：DeepSeek API 地址与 OCR 接口类型（下拉值即 X-TC-Action） */
-  deepseekBaseUrl: string;
+  primary: ProviderForm;
+  /** 备用卡是否展开编辑（false 且初值有备用 = 用户点了「清除备用」，保存时提交 null） */
+  fallbackPresent: boolean;
+  /** 初值里是否本来就有备用模型（决定清除时提交 null 还是省略字段） */
+  fallbackExisted: boolean;
+  fallback: ProviderForm;
   ocrAction: string;
   ocrRegion: string;
   ocrMonthlyQuota: string;
@@ -45,10 +68,20 @@ interface FormState {
   ocrDailyLimit: string;
 }
 
-function toForm(s: AppSettings): FormState {
+function emptyProvider(): ProviderForm {
+  return { label: '', baseUrl: '', model: '', apiKeyInput: '', clearKey: false, enabled: true };
+}
+
+function providerFromPublic(p: PublicLlmProvider): ProviderForm {
+  return { label: p.label, baseUrl: p.baseUrl, model: p.model, apiKeyInput: '', clearKey: false, enabled: p.enabled };
+}
+
+function toForm(s: PublicAppSettings): FormState {
   return {
-    deepseekModel: s.ai.deepseekModel,
-    deepseekBaseUrl: s.ai.deepseekBaseUrl,
+    primary: providerFromPublic(s.ai.primary),
+    fallbackPresent: s.ai.fallback !== null,
+    fallbackExisted: s.ai.fallback !== null,
+    fallback: s.ai.fallback ? providerFromPublic(s.ai.fallback) : emptyProvider(),
     ocrAction: s.ai.ocrAction,
     ocrRegion: s.ai.ocrRegion,
     ocrMonthlyQuota: String(s.ocrMonthlyQuota),
@@ -170,12 +203,153 @@ function SummaryRow({
 /** T-052：可独立保存的模块（与各卡片一一对应） */
 type Module = 'ai' | 'flags' | 'quotas';
 
-export function SettingsForm({ initial }: { initial: AppSettings }) {
+/** T-057：单张模型卡（主/备共用）：显示名称 / Base URL / 模型名 / API Key（password）/ 启用 / 测试连接 */
+function ProviderCard({
+  title,
+  form,
+  saved,
+  onChange,
+  test,
+  onTest,
+  extra,
+}: {
+  title: string;
+  form: ProviderForm;
+  /** 服务端已保存形态（用于 Key 占位掩码；null = 尚未保存过，如刚点「添加备用模型」） */
+  saved: PublicLlmProvider | null;
+  onChange: (patch: Partial<ProviderForm>) => void;
+  test: TestState;
+  onTest: () => void;
+  /** 卡片标题行右侧附加操作（如「清除备用」） */
+  extra?: React.ReactNode;
+}) {
+  const keyPlaceholder = form.clearKey
+    ? M.apiKeyClear
+    : saved?.hasApiKey
+      ? M.apiKeySaved(saved.apiKeyMask)
+      : M.apiKeyNone;
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
+        <div className="flex items-center gap-2">
+          {extra}
+          <button
+            type="button"
+            onClick={onTest}
+            disabled={test.status === 'running'}
+            className="flex h-8 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+          >
+            {test.status === 'running' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+            {test.status === 'running' ? M.testing : M.testBtn}
+          </button>
+        </div>
+      </div>
+      {test.status === 'done' ? (
+        <p
+          className={`mb-3 text-xs font-medium ${test.ok ? 'text-emerald-600' : 'text-red-600'}`}
+          role="status"
+        >
+          {test.ok ? M.testOk(test.ms ?? 0) : M.testErr(test.error ?? '')}
+        </p>
+      ) : null}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <label className="block">
+          <span className="mb-1 block text-xs text-slate-500">{M.fieldProviderLabel}</span>
+          <input
+            value={form.label}
+            onChange={(e) => onChange({ label: e.target.value })}
+            maxLength={64}
+            placeholder={M.fieldProviderLabelHint}
+            className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm focus:border-slate-900 focus:outline-none"
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-xs text-slate-500">{M.fieldLlmModel}</span>
+          <input
+            value={form.model}
+            onChange={(e) => onChange({ model: e.target.value })}
+            maxLength={64}
+            placeholder="deepseek-chat"
+            className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm focus:border-slate-900 focus:outline-none"
+          />
+        </label>
+        <label className="block sm:col-span-2">
+          <span className="mb-1 block text-xs text-slate-500">{M.fieldLlmBaseUrl}</span>
+          <input
+            value={form.baseUrl}
+            onChange={(e) => onChange({ baseUrl: e.target.value })}
+            maxLength={200}
+            placeholder="https://api.deepseek.com"
+            className="h-10 w-full rounded-lg border border-slate-300 px-3 font-mono text-sm focus:border-slate-900 focus:outline-none"
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-xs text-slate-500">{M.fieldLlmApiKey}</span>
+          <div className="flex gap-2">
+            <input
+              type="password"
+              autoComplete="new-password"
+              value={form.apiKeyInput}
+              onChange={(e) => onChange({ apiKeyInput: e.target.value, clearKey: false })}
+              placeholder={keyPlaceholder}
+              className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm focus:border-slate-900 focus:outline-none"
+            />
+            {saved?.hasApiKey && !form.clearKey ? (
+              <button
+                type="button"
+                onClick={() => onChange({ clearKey: true, apiKeyInput: '' })}
+                className="h-10 shrink-0 rounded-lg border border-slate-300 bg-white px-3 text-xs text-slate-500 hover:bg-slate-50"
+              >
+                {M.apiKeyClear}
+              </button>
+            ) : null}
+          </div>
+        </label>
+        <div className="flex items-end pb-1">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={form.enabled}
+            aria-label={`${title} ${M.fieldLlmEnabled}`}
+            onClick={() => onChange({ enabled: !form.enabled })}
+            className={`relative h-7 w-12 shrink-0 rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
+              form.enabled
+                ? 'bg-emerald-500 focus-visible:ring-emerald-500'
+                : 'bg-slate-300 focus-visible:ring-slate-400'
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 left-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-white shadow transition-transform duration-200 ${
+                form.enabled ? 'translate-x-5' : 'translate-x-0'
+              }`}
+            >
+              {form.enabled ? (
+                <Check className="h-3.5 w-3.5 text-emerald-500" />
+              ) : (
+                <X className="h-3.5 w-3.5 text-slate-400" />
+              )}
+            </span>
+            <span className="sr-only">{M.fieldLlmEnabled}</span>
+          </button>
+          <span className="ml-2 text-xs text-slate-500">{M.fieldLlmEnabled}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function SettingsForm({ initial }: { initial: PublicAppSettings }) {
   const router = useRouter();
   const [form, setForm] = useState<FormState>(() => toForm(initial));
   /** 当前正在保存的模块（null=空闲）；同一时刻只允许一个模块提交 */
   const [savingModule, setSavingModule] = useState<Module | null>(null);
   const [toast, setToast] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  /** T-057：两张卡各自的测试连接状态 */
+  const [test, setTest] = useState<Record<'primary' | 'fallback', TestState>>({
+    primary: { status: 'idle' },
+    fallback: { status: 'idle' },
+  });
 
   function showToast(kind: 'ok' | 'err', text: string) {
     setToast({ kind, text });
@@ -184,6 +358,14 @@ export function SettingsForm({ initial }: { initial: AppSettings }) {
 
   function patch<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  function patchPrimary(p: Partial<ProviderForm>) {
+    setForm((f) => ({ ...f, primary: { ...f.primary, ...p } }));
+  }
+
+  function patchFallback(p: Partial<ProviderForm>) {
+    setForm((f) => ({ ...f, fallback: { ...f.fallback, ...p } }));
   }
 
   /** 数字字段提交前范围校验（服务端 validateSettingsPatch 仍会二次校验） */
@@ -199,6 +381,45 @@ export function SettingsForm({ initial }: { initial: AppSettings }) {
   }
 
   /**
+   * T-057：单卡 → PATCH provider 形态。
+   * apiKey 三态：输入了新值 → 提交字符串；点了「清除 Key」→ 提交 null；都没动 → 省略（保持不变）。
+   */
+  function providerPatch(p: ProviderForm): Record<string, unknown> {
+    const body: Record<string, unknown> = {
+      label: p.label.trim(),
+      baseUrl: p.baseUrl.trim(),
+      model: p.model.trim(),
+      enabled: p.enabled,
+    };
+    if (p.clearKey) body.apiKey = null;
+    else if (p.apiKeyInput.trim()) body.apiKey = p.apiKeyInput.trim();
+    return body;
+  }
+
+  /** T-057：测试连接（针对服务端已保存配置；Key 不出服务端，结果只含 ok/ms/error） */
+  async function testLlm(which: 'primary' | 'fallback') {
+    setTest((t) => ({ ...t, [which]: { status: 'running' } }));
+    try {
+      const res = await fetch('/api/admin/settings/test-llm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ which }),
+      });
+      const data = (await res.json()) as { ok?: boolean; ms?: number; error?: string; message?: string };
+      if (!res.ok && !data.error) {
+        setTest((t) => ({ ...t, [which]: { status: 'done', ok: false, error: data.message || M.errTest } }));
+        return;
+      }
+      setTest((t) => ({
+        ...t,
+        [which]: { status: 'done', ok: !!data.ok, ms: data.ms ?? 0, error: data.error },
+      }));
+    } catch {
+      setTest((t) => ({ ...t, [which]: { status: 'done', ok: false, error: M.errTest } }));
+    }
+  }
+
+  /**
    * 分模块保存（T-052）：每块只 PATCH 自己的段，服务端深合并后其余段保持 DB 原值。
    * 保存中显示在对应按钮上；成功 / 失败用 toast 反馈，成功后 refresh 回读持久化值。
    */
@@ -208,19 +429,23 @@ export function SettingsForm({ initial }: { initial: AppSettings }) {
     let okText: string;
 
     if (module === 'ai') {
-      if (!form.deepseekModel.trim() || !form.ocrRegion.trim()) {
+      if (!form.primary.label.trim() || !form.primary.baseUrl.trim() || !form.primary.model.trim() || !form.ocrRegion.trim()) {
         showToast('err', M.errSave);
         return;
       }
-      // T-053：Base URL / OCR 接口一并提交；非法值由服务端 validateSettingsPatch 返回 400
-      body = {
-        ai: {
-          deepseekModel: form.deepseekModel.trim(),
-          deepseekBaseUrl: form.deepseekBaseUrl.trim(),
-          ocrAction: form.ocrAction,
-          ocrRegion: form.ocrRegion.trim(),
-        },
+      if (form.fallbackPresent && (!form.fallback.baseUrl.trim() || !form.fallback.model.trim())) {
+        showToast('err', M.errSave);
+        return;
+      }
+      // T-057：主/备双卡 + OCR 两项一并提交；非法 baseUrl（http / 内网）由服务端 400 拒绝
+      const aiBody: Record<string, unknown> = {
+        primary: providerPatch(form.primary),
+        ocrAction: form.ocrAction,
+        ocrRegion: form.ocrRegion.trim(),
       };
+      if (form.fallbackPresent) aiBody.fallback = providerPatch(form.fallback);
+      else if (form.fallbackExisted) aiBody.fallback = null; // 用户点了「清除备用」
+      body = { ai: aiBody };
       okText = M.savedAiToast;
     } else if (module === 'flags') {
       body = {
@@ -298,9 +523,30 @@ export function SettingsForm({ initial }: { initial: AppSettings }) {
     );
   }
 
+  /** T-057：备用模型摘要文本（未配置 / label · model（已启用/未启用）） */
+  function fallbackSummaryText(): string {
+    if (!form.fallbackPresent) return M.summaryFallbackNone;
+    const label = form.fallback.label.trim() || '—';
+    return `${label} · ${form.fallback.model.trim() || '—'}（${form.fallback.enabled ? M.summaryFallbackOn : M.summaryFallbackOff}）`;
+  }
+
+  function fallbackSavedText(): string {
+    if (!initial.ai.fallback) return M.summaryFallbackNone;
+    const f = initial.ai.fallback;
+    return `${f.label || '—'} · ${f.model || '—'}（${f.enabled ? M.summaryFallbackOn : M.summaryFallbackOff}）`;
+  }
+
+  /** 备用行摘要：「label · model（状态）」拆成 provider/value；无分隔符（未配置）时 provider 固定「备用」 */
+  function splitSummary(text: string): { provider: string; value: string } {
+    const i = text.indexOf(' · ');
+    return i === -1 ? { provider: '备用', value: text } : { provider: text.slice(0, i), value: text.slice(i + 3) };
+  }
+  const fbNow = splitSummary(fallbackSummaryText());
+  const fbSaved = splitSummary(fallbackSavedText());
+
   return (
     <div className="space-y-6">
-      {/* AI 模型 */}
+      {/* AI 模型（T-057：主/备双卡 + 测试连接） */}
       <section className="rounded-2xl border border-slate-200 bg-white p-5">
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="text-sm font-semibold text-slate-900">{M.groupAi}</h2>
@@ -310,12 +556,19 @@ export function SettingsForm({ initial }: { initial: AppSettings }) {
         <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
           <p className="mb-2 text-xs font-medium text-slate-500">{M.summaryTitle}</p>
           <div className="space-y-1.5 text-sm">
-            {/* T-053：摘要显示「模型 @ Base URL」与 OCR 接口类型（地域单列一行） */}
+            {/* T-057：主/备当前模型两行；T-053：OCR 接口类型与地域仍单列 */}
             <SummaryRow
-              label={M.summaryExtractLabel}
-              provider={M.summaryExtractProvider}
-              value={`${form.deepseekModel} @ ${form.deepseekBaseUrl}`}
-              savedValue={`${initial.ai.deepseekModel} @ ${initial.ai.deepseekBaseUrl}`}
+              label={M.summaryPrimaryLabel}
+              provider={form.primary.label.trim() || '—'}
+              value={form.primary.model}
+              savedValue={initial.ai.primary.model}
+              pendingTag={M.pendingSave}
+            />
+            <SummaryRow
+              label={M.summaryFallbackLabel}
+              provider={fbNow.provider}
+              value={fbNow.value}
+              savedValue={fbSaved.value}
               pendingTag={M.pendingSave}
             />
             <SummaryRow
@@ -334,47 +587,70 @@ export function SettingsForm({ initial }: { initial: AppSettings }) {
             />
           </div>
         </div>
-        {/* T-052：OCR 月额度属配额语义，移入下方「配额数字 · 通用」分组；T-053：本卡四项（模型 / Base URL / OCR 接口 / 地域） */}
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="block">
-            <span className="mb-1 block text-xs text-slate-500">{M.fieldDeepseekModel}</span>
-            <input
-              value={form.deepseekModel}
-              onChange={(e) => patch('deepseekModel', e.target.value)}
-              maxLength={64}
-              className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm focus:border-slate-900 focus:outline-none"
+
+        <div className="space-y-4">
+          <ProviderCard
+            title={M.cardPrimary}
+            form={form.primary}
+            saved={initial.ai.primary}
+            onChange={patchPrimary}
+            test={test.primary}
+            onTest={() => testLlm('primary')}
+          />
+          {form.fallbackPresent ? (
+            <ProviderCard
+              title={M.cardFallback}
+              form={form.fallback}
+              saved={initial.ai.fallback}
+              onChange={patchFallback}
+              test={test.fallback}
+              onTest={() => testLlm('fallback')}
+              extra={
+                <button
+                  type="button"
+                  onClick={() => patch('fallbackPresent', false)}
+                  className="h-8 rounded-lg border border-red-200 bg-white px-3 text-xs text-red-600 hover:bg-red-50"
+                >
+                  {M.fallbackClear}
+                </button>
+              }
             />
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-xs text-slate-500">{M.fieldDeepseekBaseUrl}</span>
-            <input
-              value={form.deepseekBaseUrl}
-              onChange={(e) => patch('deepseekBaseUrl', e.target.value)}
-              maxLength={200}
-              placeholder="https://api.deepseek.com"
-              className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm focus:border-slate-900 focus:outline-none"
-            />
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-xs text-slate-500">{M.fieldOcrAction}</span>
-            <select
-              value={form.ocrAction}
-              onChange={(e) => patch('ocrAction', e.target.value)}
-              className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm focus:border-slate-900 focus:outline-none"
-            >
-              <option value="GeneralBasicOCR">{M.ocrActionBasic}</option>
-              <option value="GeneralAccurateOCR">{M.ocrActionAccurate}</option>
-            </select>
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-xs text-slate-500">{M.fieldOcrRegion}</span>
-            <input
-              value={form.ocrRegion}
-              onChange={(e) => patch('ocrRegion', e.target.value)}
-              maxLength={64}
-              className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm focus:border-slate-900 focus:outline-none"
-            />
-          </label>
+          ) : (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50/60 px-4 py-3">
+              <p className="text-xs text-slate-500">{M.fallbackNoneHint}</p>
+              <button
+                type="button"
+                onClick={() => patch('fallbackPresent', true)}
+                className="h-8 shrink-0 rounded-lg border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50"
+              >
+                {M.fallbackAdd}
+              </button>
+            </div>
+          )}
+
+          {/* T-052：OCR 月额度属配额语义，在下方「配额数字 · 通用」分组；本区保留 OCR 接口 / 地域两项 */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block">
+              <span className="mb-1 block text-xs text-slate-500">{M.fieldOcrAction}</span>
+              <select
+                value={form.ocrAction}
+                onChange={(e) => patch('ocrAction', e.target.value)}
+                className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm focus:border-slate-900 focus:outline-none"
+              >
+                <option value="GeneralBasicOCR">{M.ocrActionBasic}</option>
+                <option value="GeneralAccurateOCR">{M.ocrActionAccurate}</option>
+              </select>
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs text-slate-500">{M.fieldOcrRegion}</span>
+              <input
+                value={form.ocrRegion}
+                onChange={(e) => patch('ocrRegion', e.target.value)}
+                maxLength={64}
+                className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm focus:border-slate-900 focus:outline-none"
+              />
+            </label>
+          </div>
         </div>
       </section>
 

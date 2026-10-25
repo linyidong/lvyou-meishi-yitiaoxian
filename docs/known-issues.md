@@ -115,3 +115,9 @@
 - 原原因：`user_daily_usage.kind` CHECK 约束未包含 `ocr`，加值需 DB 迁移，T-044 时未授权写库。
 - 原影响：进程重启后计数清零；多实例部署不共享。
 - **修复（T-048）**：迁移 031 已放宽 kind 约束含 `ocr`（Harness 执行）；`lib/ocr-usage.ts` 改读写 `user_daily_usage`（kind='ocr'，`createAdminClient` + rpc `get_user_daily_usage`/`bump_user_daily_usage`，计数失败降级放行并 `console.warn`）；新增 `getOcrMonthlyUsage()` + 后台「本月图片 OCR 识别用量」卡片（额度 `BUSINESS.OCR_MONTHLY_QUOTA=1000`）。实测：调 OCR 后库内 count=1，**重启 dev 不归零**，后台卡片与库一致；接口签名、鉴权、大小校验零改动。单测 6 条（含降级放行与本月求和）。
+
+## 4. 安全观察项
+
+| # | 事项 | 说明 | 标记 |
+|---|---|---|---|
+| S1 | **AI 模型 API Key 存于 `app_settings`（明文 JSON）** | T-057 支持后台录入 Key 后，Key 与 `NEXT_PUBLIC_*` 之外的密文同库；RLS 无策略（仅 service_role 可读写），前端不可读。信任级别等同"能拿数据库超级权限的人可读 Key"。若要更强，可后续改为加密存储（如 pgcrypto + 独立密钥） | `[已知取舍]` |
