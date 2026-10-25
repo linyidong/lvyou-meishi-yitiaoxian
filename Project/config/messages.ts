@@ -1363,9 +1363,16 @@ export const MESSAGES = {
    */
   ADMIN_TECH_STACK: {
     title: '技术栈',
-    badge: '真实技术栈 · 点击分层查看明细',
-    notice: '分层架构 / 请求链路 / 关键目录 / 自检命令：点击任意节点或条目展开明细；统计数字取自当前仓库实测。',
+    badge: '真实技术栈 · 一页总览',
+    notice: '一页总览：统计 · 架构链路 · 六层技术栈 · 关键目录 · 自检命令；条目可点击展开补充说明。',
     statsLabel: '仓库实测',
+    /** T-056 一页铺开：各分区标题（tab 取消） */
+    sections: {
+      chain: '架构链路',
+      layers: '技术栈六层',
+      dirs: '关键目录',
+      cmds: '自检命令',
+    },
     stats: [
       { value: 82, label: '单元测试用例' },
       { value: 8, label: '端到端用例' },
@@ -1374,8 +1381,7 @@ export const MESSAGES = {
       { value: 15, label: '数据表' },
       { value: 25, label: '页面' },
     ],
-    /** 四个 tab 的标签（T-055 新增三块） */
-    tabs: { layers: '分层架构', chain: '请求链路', dirs: '关键目录', cmds: '自检命令' },
+
     layers: [
       {
         name: '前端',
@@ -1646,7 +1652,6 @@ export const MESSAGES = {
     ],
     /** T-055 新增①：请求链路（浏览器 → Route Handler → Supabase → Postgres + 外部服务） */
     chain: {
-      title: '请求链路',
       summary: '一次典型业务请求的完整路径；点击节点查看职责与代码位置。',
       nodes: [
         {
@@ -1700,7 +1705,6 @@ export const MESSAGES = {
     },
     /** T-055 新增②：关键目录 */
     dirs: {
-      title: '关键目录',
       summary: '代码组织按域分组；点击目录查看职责与为什么这样放。',
       items: [
         {
@@ -1755,7 +1759,6 @@ export const MESSAGES = {
     },
     /** T-055 新增③：自检命令 */
     cmds: {
-      title: '自检命令',
       summary: '改动前后按场景执行；点击命令查看用途与执行时机。',
       items: [
         {
