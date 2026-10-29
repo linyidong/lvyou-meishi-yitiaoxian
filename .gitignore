@@ -57,3 +57,12 @@ Project/public/pay-qr.png
 # 测试产物（T-019：vitest / playwright）
 test-results/
 playwright-report/
+
+# 收款码（含经营信息，不入库；本地放置即可）
+Project/public/pay-qr*.png
+# 面试/简历材料（只在 _resume，不入仓库）
+docs/面试题.md
+docs/面试-一页case.md
+# 环境变量备份（同样含密钥）
+.env.local.bak*
+Project/.env.local.bak*
