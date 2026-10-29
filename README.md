@@ -86,23 +86,21 @@
 
 ```text
 浏览器 / 手机浏览器
-        │
-        ▼
-┌──────────────────────────────────────────────┐
-│ Next.js 14（App Router）                     │
-│  · 页面（Server Components）                 │
-│  · Route Handlers ×35（鉴权 / 配额 / 算路）  │
-└───────┬───────────────┬──────────────────────┘
-        │ Cookie 会话   │ HTTPS
-        ▼               ▼
-┌──────────────────┐  ┌───────────────────────────────┐
-│ 自建 Supabase     │  │ 外部服务                       │
-│ PostgreSQL 15    │  │  · 高德 JS API + Web 服务 Key 池│
-│ GoTrue（Auth）    │  │  · DeepSeek（主/备模型）        │
-│ PostgREST        │  │  · 腾讯云 OCR                  │
-│ RLS / pg_cron    │  │  · 企业微信（订单提醒）         │
-│ 原子 RPC ×4       │  └───────────────────────────────┘
-└──────────────────┘
+   │
+   ▼
+Next.js 14（App Router）
+   · 页面（Server Components）
+   · Route Handlers ×35（鉴权 / 配额 / 算路 / 分享）
+   │
+   ├── Cookie 会话 ──▶ 自建 Supabase
+   │                    PostgreSQL 15 · GoTrue · PostgREST
+   │                    RLS · pg_cron · 原子 RPC ×4
+   │
+   └── HTTPS ────────▶ 外部服务
+                        高德 JS API + Web 服务 Key 池
+                        DeepSeek（主 / 备模型）
+                        腾讯云 OCR
+                        企业微信（订单提醒）
 ```
 
 | 层 | 技术 |
