@@ -10,7 +10,7 @@
 |---|---|
 | 应用 | 旅行美食一条线（Next.js 14 App Router 单体） |
 | 代码 | `Project/`（GitHub `linyidong/lvyou-meishi-yitiaoxian`，分支 `main`） |
-| 现状形态 | 本机 macOS dev（`next dev`）+ 自建 Supabase（Windows Docker，192.168.1.11） |
+| 现状形态 | 本机 macOS dev（`next dev`）+ 自建 Supabase（Windows Docker，主机名 `desktop-vrd3hft`；IP 由 DHCP 分配，**不要写死 IP**） |
 | 目标形态 | **单台国内云服务器**：Nginx + Next（`next start`）+ 同机 Docker 版 Supabase（裁剪版） |
 | 目标用户量 | 起步阶段（≤100 注册用户），非高并发 |
 
@@ -266,7 +266,7 @@
 
 ## 6. 数据迁移与备份
 
-迁移源：Windows Docker 上的 Supabase（`192.168.1.11:8000`，Postgres 5432）。
+迁移源：Windows Docker 上的 Supabase（`desktop-vrd3hft:8000`，Postgres 5432）。
 
 ```bash
 # ① 源库导出（在 Windows/Docker 内执行）
@@ -397,7 +397,7 @@ docker exec -i <postgres_container> psql -U postgres -d postgres < backup_YYYYMM
 | 隧道 | ✅ SSH 反向隧道：`8080→家机3000`（HTTP 200，约 70ms）、`8081→Supabase Kong`（HTTP 401 正常） |
 | 域名解析 | **未添加**（备案要求） |
 
-**踩坑记录**：隧道最初把 Supabase 目标写成 `127.0.0.1:8000`，但自建 Supabase 实际在局域网另一台机器 `192.168.1.11:8000` → 8081 不通。已在 `deploy/tunnel.sh` 中改为可配置的 `SUPABASE_HOST`（默认 192.168.1.11）。
+**踩坑记录**：隧道最初把 Supabase 目标写成 `127.0.0.1:8000`，但自建 Supabase 实际在局域网另一台机器（曾用 `192.168.1.11:8000`，现用主机名 `desktop-vrd3hft:8000`）→ 8081 不通。已在 `deploy/tunnel.sh` 中改为可配置的 `SUPABASE_HOST`（默认主机名 `desktop-vrd3hft`）。
 
 **frp 未使用**：云机从 GitHub 下载 frp release 超时，改用系统自带 SSH 反向隧道（零第三方二进制）。
 
@@ -513,3 +513,26 @@ Mac 退回"开发机"角色。
 **结论**：家宽 IP 会变，把 22 固定成单个 IP 会周期性失联。
 **建议**：22 来源改为「全部 IPv4」+ 服务器端禁用密码登录（仅密钥）+ fail2ban（已运行）。
 登录兜底：腾讯云控制台「登录」（网页终端）不受此白名单限制。
+
+---
+
+## 附：DHCP 换 IP 的教训（2026-10-29 实际发生）
+
+**现象**：应用突然连不上 Supabase，报 `ECONNREFUSED`；启动器提示「状态B：电脑在线但 8000 不通」。
+
+**真相**：Windows 那台一直开着，Supabase 也正常——只是路由器把它的 IP 从 `192.168.1.11` 换成了 `192.168.1.10`，
+而 `192.168.1.11` 被 Mac 拿到（所以 `ping 192.168.1.11` 0.1ms、端口全不通，看起来像"机器没了"）。
+
+**定位方法**：
+
+```bash
+ipconfig getifaddr en0          # 先看本机 IP —— 如果就是 192.168.1.11，说明 Windows 换 IP 了
+arp -a | grep 192.168.1.        # 找 Windows 主机名（如 desktop-vrd3hft）
+nc -z -G 2 <候选IP> 8000        # 谁能开 8000/5432 就是 Supabase 所在机器
+```
+
+**修复**：`.env.local` 的 `NEXT_PUBLIC_SUPABASE_URL` 改用**主机名** `http://desktop-vrd3hft:8000`
+（Mac 的 Node 能解析该主机名；应用只有服务端连 Supabase，手机端不需要解析）。
+
+**根因预防**：在路由器给这台 Windows 做 **DHCP 地址保留**（绑定 MAC `3c:a0:67:af:13:f7`），
+或在 Windows 网卡里设静态 IP，避免下次再漂。
