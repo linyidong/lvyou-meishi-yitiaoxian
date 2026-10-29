@@ -65,22 +65,15 @@
 
 ## 功能截图
 
-> 截图为演示数据且**已脱敏**：邮箱/手机号/内网 IP/API Key/分享 token/二维码均已打码；后台「技术栈」等内部页面不公开。
+> 截图为演示数据且**已脱敏**：邮箱 / 手机号 / 内网 IP / API Key / 分享 token / 二维码均已打码；后台「技术栈」等内部页面不公开。
 
-<p align="center">
-  <img src="docs/showcase/01-首页.png" width="380" alt="首页" />
-  <img src="docs/showcase/02-结果页-地图与调序.png" width="380" alt="结果页" />
-</p>
-<p align="center">
-  <img src="docs/showcase/03-AI提取.png" width="380" alt="AI 提取" />
-  <img src="docs/showcase/04-分享导入-先预览再选择.png" width="280" alt="分享导入预览" />
-</p>
-<p align="center">
-  <img src="docs/showcase/05-导出长图-登机牌.png" width="230" alt="导出长图" />
-  <img src="docs/showcase/06-后台设置.png" width="380" alt="后台设置" />
-</p>
-
----
+| 首页：三个入口 + 示范路线 | 结果页：地图与调序 |
+|---|---|
+| <img src="docs/showcase/01-首页.png" width="380" alt="首页" /> | <img src="docs/showcase/02-结果页-地图与调序.png" width="380" alt="结果页" /> |
+| **AI 提取**：文案 → 城市 + 地点 → 收藏 | **分享导入**：先预览，再选「建成路线 / 只收藏」 |
+| <img src="docs/showcase/03-AI提取.png" width="380" alt="AI 提取" /> | <img src="docs/showcase/04-分享导入-先预览再选择.png" width="300" alt="分享导入预览" /> |
+| **导出长图**：登机牌风格，每天一张地图 | **后台设置**：主/备模型、开关、配额（Key 已打码） |
+| <img src="docs/showcase/05-导出长图-登机牌.png" width="240" alt="导出长图" /> | <img src="docs/showcase/06-后台设置.png" width="380" alt="后台设置" /> |
 
 ## 四、技术架构
 
