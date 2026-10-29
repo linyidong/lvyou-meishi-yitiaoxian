@@ -84,15 +84,25 @@
 
 ## 四、技术架构
 
-```mermaid
-flowchart LR
-  U["浏览器 / 手机浏览器"] --> N["Next.js 14<br/>App Router + Route Handlers"]
-  N -->|"Cookie 会话"| SB[("自建 Supabase<br/>PostgreSQL + GoTrue + PostgREST")]
-  N -->|"HTTPS"| AMAP["高德 JS API + Web 服务 Key 池"]
-  N -->|"HTTPS"| LLM["DeepSeek 主/备模型"]
-  N -->|"HTTPS"| OCR["腾讯云 OCR"]
-  N -->|"HTTPS"| WECOM["企业微信 订单提醒"]
-  SB -->|"pg_cron / RPC / RLS"| PG[("PostgreSQL 15<br/>15 张表")]
+```text
+浏览器 / 手机浏览器
+        │
+        ▼
+┌──────────────────────────────────────────────┐
+│ Next.js 14（App Router）                     │
+│  · 页面（Server Components）                 │
+│  · Route Handlers ×35（鉴权 / 配额 / 算路）  │
+└───────┬───────────────┬──────────────────────┘
+        │ Cookie 会话   │ HTTPS
+        ▼               ▼
+┌──────────────────┐  ┌───────────────────────────────┐
+│ 自建 Supabase     │  │ 外部服务                       │
+│ PostgreSQL 15    │  │  · 高德 JS API + Web 服务 Key 池│
+│ GoTrue（Auth）    │  │  · DeepSeek（主/备模型）        │
+│ PostgREST        │  │  · 腾讯云 OCR                  │
+│ RLS / pg_cron    │  │  · 企业微信（订单提醒）         │
+│ 原子 RPC ×4       │  └───────────────────────────────┘
+└──────────────────┘
 ```
 
 | 层 | 技术 |
