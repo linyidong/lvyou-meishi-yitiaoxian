@@ -49,6 +49,9 @@ export const MESSAGES = {
   /** M19 会员操作失败 */
   MEMBER_OP_FAILED: '会员服务暂时不可用，请稍后重试',
   /** M20 邮箱必填（U01 登录 / 注册） */
+  AUTH_ACCOUNT_REQUIRED: '请输入邮箱或手机号',
+  AUTH_ACCOUNT_INVALID: '请输入正确的邮箱或手机号',
+  AUTH_PHONE_EXISTS: '该手机号已注册',
   AUTH_EMAIL_REQUIRED: '请输入邮箱',
   /** M21 邮箱格式不正确 */
   AUTH_EMAIL_INVALID: '邮箱格式不正确，请检查后重试',
@@ -57,7 +60,7 @@ export const MESSAGES = {
   /** M23 密码过短（位数取自 B21） */
   AUTH_PASSWORD_TOO_SHORT: `密码至少 ${BUSINESS.MIN_PASSWORD_LENGTH} 位`,
   /** M24 登录失败（邮箱或密码错误） */
-  AUTH_LOGIN_FAILED: '邮箱或密码不正确，请重试',
+  AUTH_LOGIN_FAILED: '账号或密码不正确，请重试',
   /** M25 注册成功且已登录 */
   AUTH_REGISTER_OK: '注册成功，已为你登录',
   /** M26 注册成功但需邮箱确认 */
@@ -356,13 +359,16 @@ export const MESSAGES = {
     tabRegister: '注册',
     titleLogin: '欢迎回来',
     titleRegister: '创建账号，开始排路线',
+    accountLabel: '邮箱或手机号',
+    accountPlaceholder: '例如 xiaoman@qq.com 或 13800138000',
+    /** 登录/注册两个 tab 共用的账号小提醒（T-032 / T-088） */
+    accountHint: '支持邮箱或手机号注册登录',
     emailLabel: '邮箱',
     emailPlaceholder: '例如 xiaoman@qq.com',
-    /** 登录/注册两个 tab 共用的邮箱小提醒（T-032） */
     emailHint: '建议使用常用邮箱注册登录',
     usernameLabel: '用户名',
     usernameOptional: '（选填）',
-    usernamePlaceholder: '不填写则显示邮箱前缀',
+    usernamePlaceholder: '不填写则显示邮箱 / 手机号',
     passwordLabel: '密码',
     passwordPlaceholder: `至少 ${BUSINESS.MIN_PASSWORD_LENGTH} 位，包含字母和数字`,
     remember: '7 天内自动登录',
@@ -384,6 +390,9 @@ export const MESSAGES = {
   RESET_PASSWORD: {
     title: '重置密码',
     desc: '输入注册邮箱和新密码即可重置。账号不变，会员权益保持不变。',
+    emailLabel: '注册邮箱',
+    emailPlaceholder: '例如 xiaoman@qq.com',
+    emailHint: '重置密码暂仅支持邮箱账号',
     hint: '提示：换成新密码后用新密码登录即可，无需重新注册。',
     newPasswordLabel: '新密码',
     confirmLabel: '确认新密码',

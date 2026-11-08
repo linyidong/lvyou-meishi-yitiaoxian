@@ -3,6 +3,7 @@ import { USER_ROLE } from '@/config/enums';
 import { MESSAGES } from '@/config/messages';
 import { ROUTES } from '@/config/routes';
 import { createClient } from '@/lib/supabase/server';
+import { isEmailLike, normalizeChinaPhone } from '@/lib/phone';
 import { sanitizeRedirect } from '@/lib/utils';
 
 /**
@@ -23,19 +24,26 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, message: MESSAGES.INVALID_PARAMS }, { status: 400 });
   }
 
-  const email = typeof body.email === 'string' ? body.email.trim() : '';
+  const account = typeof body.email === 'string' ? body.email.trim() : '';
   const password = typeof body.password === 'string' ? body.password : '';
   const isAdminLogin = body.admin === true;
 
-  if (!email) {
-    return NextResponse.json({ ok: false, message: MESSAGES.AUTH_EMAIL_REQUIRED }, { status: 400 });
+  if (!account) {
+    return NextResponse.json({ ok: false, message: MESSAGES.AUTH_ACCOUNT_REQUIRED }, { status: 400 });
+  }
+  const phone = normalizeChinaPhone(account);
+  if (!phone && !isEmailLike(account)) {
+    return NextResponse.json({ ok: false, message: MESSAGES.AUTH_ACCOUNT_INVALID }, { status: 400 });
   }
   if (!password) {
     return NextResponse.json({ ok: false, message: MESSAGES.AUTH_PASSWORD_REQUIRED }, { status: 400 });
   }
 
   const startedAt = Date.now();
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  // T-088：邮箱或手机号登录；手机号走 Supabase phone + password（注册时已 phone_confirm）
+  const { data, error } = phone
+    ? await supabase.auth.signInWithPassword({ phone, password })
+    : await supabase.auth.signInWithPassword({ email: account, password });
   if (error || !data.user) {
     // 记录 Supabase 返回的原始错误（只记错误码与耗时，不含邮箱与密码），便于定位登录失败原因
     console.warn('[login] supabase auth failed', {

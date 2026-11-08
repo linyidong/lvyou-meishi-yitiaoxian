@@ -27,7 +27,7 @@ export default async function UserLayout({ children }: { children: React.ReactNo
       .select('username,email,member_since,member_source')
       .eq('id', user.id)
       .maybeSingle();
-    displayName = profile?.username ?? profile?.email ?? user.email ?? null;
+    displayName = profile?.username ?? profile?.email ?? user.email ?? user.phone ?? null;
     // 档位统一由 lib/member-quota.ts 判定（含管理员最高级会员、付费会员 member_until 到期回落），
     // 也顺带兼容迁移 021 未执行时 member_until 列不存在的降级查询。
     const { tier } = await getQuotaProfile(user.id);

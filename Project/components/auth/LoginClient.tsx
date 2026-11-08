@@ -4,13 +4,14 @@ import { Fragment, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Eye, EyeOff, Footprints, Info, LoaderCircle, Lock, Mail, Rocket, Save, User } from 'lucide-react';
+import { Eye, EyeOff, Footprints, Info, LoaderCircle, Lock, Mail, Rocket, Save, Smartphone, User } from 'lucide-react';
 import { BUSINESS } from '@/config/business';
 import { PLACE_TYPE } from '@/config/enums';
 import { MESSAGES } from '@/config/messages';
 import { PRODUCT } from '@/config/product';
 import { ROUTES } from '@/config/routes';
 import { PlaceGlyph } from '@/components/icons/PlaceGlyph';
+import { isEmailLike, normalizeChinaPhone } from '@/lib/phone';
 
 type Tab = 'login' | 'register';
 
@@ -53,8 +54,11 @@ export function LoginClient({
   const isLogin = tab === 'login';
 
   function validate(): string {
-    if (!email.trim()) return MESSAGES.AUTH_EMAIL_REQUIRED;
-    if (!EMAIL_RE.test(email.trim())) return MESSAGES.AUTH_EMAIL_INVALID;
+    const account = email.trim();
+    if (!account) return MESSAGES.AUTH_ACCOUNT_REQUIRED;
+    if (!isEmailLike(account) && !normalizeChinaPhone(account)) {
+      return MESSAGES.AUTH_ACCOUNT_INVALID;
+    }
     if (!password) return MESSAGES.AUTH_PASSWORD_REQUIRED;
     if (tab === 'register' && password.length < BUSINESS.MIN_PASSWORD_LENGTH) {
       return MESSAGES.AUTH_PASSWORD_TOO_SHORT;
@@ -83,7 +87,13 @@ export function LoginClient({
       const res = await fetch(`/api/auth/${tab === 'register' ? 'register' : 'login'}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), password, admin: isAdmin, redirect: initialRedirect }),
+        body: JSON.stringify({
+          email: email.trim(),
+          password,
+          username: username.trim() || undefined,
+          admin: isAdmin,
+          redirect: initialRedirect,
+        }),
       });
       const data = (await res.json()) as {
         ok: boolean;
@@ -338,19 +348,20 @@ export function LoginClient({
           <div>
             <div className="mb-1.5 flex items-baseline justify-between gap-2">
               <label className="text-sm font-medium text-stone-700" htmlFor="email">
-                {MESSAGES.LOGIN_FORM.emailLabel}
+                {MESSAGES.LOGIN_FORM.accountLabel}
               </label>
-              <span className="text-xs text-rose-500">{MESSAGES.LOGIN_FORM.emailHint}</span>
+              <span className="text-xs text-rose-500">{MESSAGES.LOGIN_FORM.accountHint}</span>
             </div>
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
+              <Smartphone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
               <input
                 id="email"
-                type="email"
-                autoComplete="email"
+                type="text"
+                inputMode="email"
+                autoComplete="username"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder={MESSAGES.LOGIN_FORM.emailPlaceholder}
+                placeholder={MESSAGES.LOGIN_FORM.accountPlaceholder}
                 className={inputCls}
               />
             </div>
@@ -444,9 +455,9 @@ export function LoginClient({
             <div>
               <div className="mb-1.5 flex items-baseline justify-between gap-2">
                 <label className="text-sm font-medium text-stone-700" htmlFor="reset-email">
-                  {MESSAGES.LOGIN_FORM.emailLabel}
+                  {MESSAGES.RESET_PASSWORD.emailLabel}
                 </label>
-                <span className="text-xs text-rose-500">{MESSAGES.LOGIN_FORM.emailHint}</span>
+                <span className="text-xs text-rose-500">{MESSAGES.RESET_PASSWORD.emailHint}</span>
               </div>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
@@ -456,7 +467,7 @@ export function LoginClient({
                   autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder={MESSAGES.LOGIN_FORM.emailPlaceholder}
+                  placeholder={MESSAGES.RESET_PASSWORD.emailPlaceholder}
                   className={inputCls}
                 />
               </div>

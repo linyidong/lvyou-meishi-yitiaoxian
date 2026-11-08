@@ -5,6 +5,7 @@ import { ROUTES } from '@/config/routes';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { sanitizeRedirect } from '@/lib/utils';
+import { isEmailLike, normalizeChinaPhone } from '@/lib/phone';
 
 /**
  * U01 注册（邮箱 + 密码），走 Supabase Auth。
@@ -20,18 +21,23 @@ import { sanitizeRedirect } from '@/lib/utils';
 export async function POST(request: NextRequest) {
   const supabase = createClient();
 
-  let body: { email?: unknown; password?: unknown; redirect?: unknown } = {};
+  let body: { email?: unknown; password?: unknown; username?: unknown; redirect?: unknown } = {};
   try {
     body = (await request.json()) as typeof body;
   } catch {
     return NextResponse.json({ ok: false, message: MESSAGES.INVALID_PARAMS }, { status: 400 });
   }
 
-  const email = typeof body.email === 'string' ? body.email.trim() : '';
+  const account = typeof body.email === 'string' ? body.email.trim() : '';
   const password = typeof body.password === 'string' ? body.password : '';
+  const username = typeof body.username === 'string' ? body.username.trim().slice(0, 20) : '';
 
-  if (!email) {
-    return NextResponse.json({ ok: false, message: MESSAGES.AUTH_EMAIL_REQUIRED }, { status: 400 });
+  if (!account) {
+    return NextResponse.json({ ok: false, message: MESSAGES.AUTH_ACCOUNT_REQUIRED }, { status: 400 });
+  }
+  const phone = normalizeChinaPhone(account);
+  if (!phone && !isEmailLike(account)) {
+    return NextResponse.json({ ok: false, message: MESSAGES.AUTH_ACCOUNT_INVALID }, { status: 400 });
   }
   if (!password) {
     return NextResponse.json({ ok: false, message: MESSAGES.AUTH_PASSWORD_REQUIRED }, { status: 400 });
@@ -39,22 +45,32 @@ export async function POST(request: NextRequest) {
   if (password.length < BUSINESS.MIN_PASSWORD_LENGTH) {
     return NextResponse.json({ ok: false, message: MESSAGES.AUTH_PASSWORD_TOO_SHORT }, { status: 400 });
   }
+  // 手机号注册未填用户名时，默认用手机号（去掉 +86）作为展示名
+  const displayUsername = username || (phone ? phone.replace(/^\+86/, '') : '');
 
-  // 1) 用 Secret Key 建号并直接确认邮箱（绕过自建版缺失的 SMTP）
+  // 1) 用 Secret Key 建号并直接确认邮箱/手机号（绕过自建版缺失的 SMTP / SMS）
   const admin = createAdminClient();
-  const { data: created, error: createError } = await admin.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-  });
+  const { data: created, error: createError } = phone
+    ? await admin.auth.admin.createUser({
+        phone,
+        password,
+        phone_confirm: true,
+        user_metadata: displayUsername ? { username: displayUsername } : undefined,
+      })
+    : await admin.auth.admin.createUser({
+        email: account,
+        password,
+        email_confirm: true,
+        user_metadata: username ? { username } : undefined,
+      });
 
   if (createError) {
     // 不把 GoTrue 的英文原文回显给前端（D4），按场景映射成中文友好文案
     const raw = createError.message;
     let message: string;
     if (/already|registered|exists/i.test(raw)) {
-      message = MESSAGES.AUTH_EMAIL_EXISTS;
-    } else if (/sending|smtp|confirmation email|rate limit/i.test(raw)) {
+      message = phone ? MESSAGES.AUTH_PHONE_EXISTS : MESSAGES.AUTH_EMAIL_EXISTS;
+    } else if (!phone && /sending|smtp|confirmation email|rate limit/i.test(raw)) {
       message = MESSAGES.AUTH_REGISTER_MAIL_FAILED;
     } else {
       message = MESSAGES.AUTH_REGISTER_FAILED;
@@ -66,11 +82,20 @@ export async function POST(request: NextRequest) {
   if (created.user) {
     await admin
       .from('users')
-      .upsert({ id: created.user.id, email }, { onConflict: 'id', ignoreDuplicates: true });
+      .upsert(
+        {
+          id: created.user.id,
+          email: phone ? null : account,
+          ...(displayUsername ? { username: displayUsername } : {}),
+        },
+        { onConflict: 'id' },
+      );
   }
 
   // 3) 登录一次，把会话写进 Cookie（注册即登录）
-  const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+  const { error: signInError } = phone
+    ? await supabase.auth.signInWithPassword({ phone, password })
+    : await supabase.auth.signInWithPassword({ email: account, password });
   if (signInError) {
     return NextResponse.json({ ok: false, message: MESSAGES.AUTH_REGISTER_FAILED }, { status: 500 });
   }
