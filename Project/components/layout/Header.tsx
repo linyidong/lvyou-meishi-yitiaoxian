@@ -64,7 +64,7 @@ export function Header({
             <span className="font-bold text-stone-900">{PRODUCT.NAME}</span>
           </span>
         ) : (
-          <Link href={ROUTES.HOME} className="flex shrink-0 items-center gap-2">
+          <Link href={ROUTES.HOME} className="flex min-h-10 shrink-0 items-center gap-2">
             <Image
               src={PRODUCT.LOGO_PATH}
               alt={PRODUCT.NAME}

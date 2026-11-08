@@ -60,7 +60,7 @@ export function FlowSteps({ current }: { current: number }) {
                 {done ? (
                   <li className="flex items-center gap-1.5 text-stone-400">
                     {href ? (
-                      <Link href={href} className="flex items-center gap-1.5 text-stone-400">
+                      <Link href={href} className="inline-flex min-h-10 items-center gap-1.5 text-stone-400">
                         {body}
                       </Link>
                     ) : (

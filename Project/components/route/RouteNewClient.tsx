@@ -224,7 +224,7 @@ export function RouteNewClient({
           )}
           <span>
             {errors.city ? M.TRIP_CITY.guideBadPre : M.TRIP_CITY.guidePre}
-            <Link href={ROUTES.CITY} className="font-semibold underline">
+            <Link href={ROUTES.CITY} className="inline-flex min-h-10 items-center font-semibold underline">
               {M.TRIP_CITY.guideLink}
             </Link>
             {errors.city ? M.TRIP_CITY.guideBadPost : M.TRIP_CITY.guidePost}

@@ -323,7 +323,7 @@ function OrderBadge({
   return (
     <span
       className={cn(
-        'relative grid h-8 w-8 shrink-0 place-items-center rounded-full text-sm font-bold text-white',
+        'relative grid h-10 w-10 shrink-0 place-items-center rounded-full text-sm font-bold text-white',
         isFood ? 'bg-amber-500' : 'bg-teal-500',
       )}
     >
@@ -518,7 +518,7 @@ function SortablePlaceRow({
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(isDragging && 'relative z-30 opacity-90')}
     >
-      <div className="relative flex items-center gap-3.5 py-2.5 md:gap-3 md:py-0">
+      <div className="relative flex flex-wrap items-center gap-x-3.5 gap-y-1 py-2.5 md:flex-nowrap md:gap-3 md:py-0">
         <OrderBadge
           position={serial}
           isFood={isFood}
@@ -549,14 +549,14 @@ function SortablePlaceRow({
             {PLACE_TYPE_LABEL[place.type]} · {place.address ?? M.noAddress}
           </p>
         </div>
-        <div className="flex shrink-0 items-center">
+        <div className="flex w-full shrink-0 items-center justify-end gap-0.5 pt-0.5 md:w-auto md:justify-start md:pt-0">
           {canChangeStart ? (
             <button
               type="button"
               aria-label={M.startChange}
               onClick={() => onToggleStart?.(!startOpen)}
               className={cn(
-                'mr-1.5 grid h-7 place-items-center rounded-md border px-2.5 text-sm font-medium leading-none',
+                'mr-1.5 grid h-10 place-items-center rounded-md border px-2.5 text-sm font-medium leading-none',
                 startOpen
                   ? 'border-violet-500 bg-violet-50 text-violet-700'
                   : 'border-violet-200 bg-white text-violet-600 hover:bg-violet-50',
@@ -570,7 +570,7 @@ function SortablePlaceRow({
             aria-label={M.orderUp}
             disabled={!canUp}
             onClick={() => onStep(-1)}
-            className="grid h-7 w-7 place-items-center rounded-md text-stone-400 hover:bg-stone-100 disabled:opacity-30"
+            className="grid h-10 w-10 place-items-center rounded-md text-stone-400 hover:bg-stone-100 disabled:opacity-30"
           >
             <ChevronUp className="h-[18px] w-[18px] md:h-4 md:w-4" />
           </button>
@@ -579,7 +579,7 @@ function SortablePlaceRow({
             aria-label={M.orderDown}
             disabled={!canDown}
             onClick={() => onStep(1)}
-            className="grid h-7 w-7 place-items-center rounded-md text-stone-400 hover:bg-stone-100 disabled:opacity-30"
+            className="grid h-10 w-10 place-items-center rounded-md text-stone-400 hover:bg-stone-100 disabled:opacity-30"
           >
             <ChevronDown className="h-[18px] w-[18px] md:h-4 md:w-4" />
           </button>
@@ -588,7 +588,7 @@ function SortablePlaceRow({
             aria-label={M.orderMove}
             onClick={() => onToggleMove(!moveOpen)}
             className={cn(
-              'ml-1 grid h-7 place-items-center rounded-md border px-2 text-xs font-medium',
+              'ml-1 grid h-10 place-items-center rounded-md border px-2 text-xs font-medium',
               moveOpen
                 ? 'border-primary/40 bg-primary/10 text-primary'
                 : 'border-stone-200 bg-stone-50 text-stone-600 hover:bg-stone-100',
@@ -601,7 +601,7 @@ function SortablePlaceRow({
             aria-label={M.orderRemove}
             disabled={removeDisabled}
             onClick={onRemove}
-            className="ml-1 grid h-7 place-items-center rounded-md border border-red-200 bg-white px-2 text-xs font-medium text-red-500 hover:bg-red-50 disabled:opacity-30"
+            className="ml-1 grid h-10 place-items-center rounded-md border border-red-200 bg-white px-2 text-xs font-medium text-red-500 hover:bg-red-50 disabled:opacity-30"
           >
             {M.removeBtn}
           </button>
@@ -1586,7 +1586,7 @@ export function RouteResultClient({
             <Link
               href={ROUTES.ROUTE_EDIT(routeId)}
               aria-label={M.backAria}
-              className="grid h-9 w-9 place-items-center rounded-lg border border-stone-200 bg-white"
+              className="grid h-10 w-10 place-items-center rounded-lg border border-stone-200 bg-white"
             >
               <ArrowLeft className="h-4 w-4" />
             </Link>
@@ -1676,7 +1676,7 @@ export function RouteResultClient({
             <button
               type="button"
               onClick={() => setActiveDay(-1)}
-              className={`h-8 shrink-0 rounded-full px-3 text-xs ${
+              className={`h-10 shrink-0 rounded-full px-3 text-xs ${
                 activeDay === -1 ? 'bg-stone-900 text-white' : 'bg-stone-100 text-stone-600'
               }`}
             >
@@ -1687,7 +1687,7 @@ export function RouteResultClient({
                 key={d.dayIndex}
                 type="button"
                 onClick={() => setActiveDay(d.dayIndex)}
-                className={`flex h-8 shrink-0 items-center gap-1 rounded-full px-3 text-xs ${
+                className={`flex h-10 shrink-0 items-center gap-1 rounded-full px-3 text-xs ${
                   activeDay === d.dayIndex ? 'bg-stone-900 text-white' : 'bg-stone-100 text-stone-600'
                 }`}
               >
@@ -1740,7 +1740,7 @@ export function RouteResultClient({
                     if (item !== mode) void syncRoute(item, true);
                   }}
                   className={cn(
-                    'flex h-8 items-center gap-1.5 rounded-full px-3 text-xs transition',
+                    'flex h-10 items-center gap-1.5 rounded-full px-3 text-xs transition',
                     active
                       ? 'bg-gradient-to-r from-primary-from to-primary-to font-semibold text-white'
                       : 'border border-stone-200 bg-white text-stone-600 hover:border-stone-300',
@@ -1781,7 +1781,7 @@ export function RouteResultClient({
                   type="button"
                   onClick={resetOrder}
                   disabled={!orderDirty || navBusy || removing || orderState === 'saving' || !initialOrderRef.current}
-                  className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="inline-flex h-10 items-center rounded-lg border border-stone-200 bg-stone-50 px-3 text-xs font-medium text-stone-600 hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {MESSAGES.TRY.RESULT.resetBtn}
                 </button>
@@ -1818,14 +1818,14 @@ export function RouteResultClient({
                 const sortIds = day.places.map((p, i) => `${day.dayIndex}:${i}:${p.id}`);
                 return day.places.length === 0 ? null : (
                   <Fragment key={`day-${day.dayIndex}`}>
-                    <li className="mb-2 mt-4 flex items-center gap-2 text-sm font-semibold first:mt-0">
+                    <li className="mb-2 mt-4 flex items-center gap-2 text-sm font-semibold whitespace-nowrap first:mt-0">
                       <span
                         className="h-2.5 w-2.5 rounded-full"
                         style={{ background: DAY_HEX[day.dayIndex % 5] }}
                       />
                       {many ? M.dayLabel(day.dayIndex + 1) : M.singleDayLabel}
                       {dayKm > 0 ? (
-                        <span className="min-w-0 truncate text-xs font-normal text-stone-400">
+                        <span className="hidden min-w-0 truncate text-xs font-normal text-stone-400 sm:inline">
                           {M.dayMeta(dayKm.toFixed(1), M.duration(dayMin))}
                         </span>
                       ) : null}
@@ -1833,7 +1833,7 @@ export function RouteResultClient({
                         type="button"
                         onClick={() => loadDayLandmarks(day.dayIndex)}
                         disabled={landmarkLoadingDay === day.dayIndex}
-                        className="ml-auto flex h-7 shrink-0 items-center gap-1 rounded-full border border-stone-200 bg-white px-2.5 text-xs font-medium text-stone-600 transition hover:border-stone-300 hover:bg-stone-50 disabled:opacity-60"
+                        className="ml-auto flex h-10 shrink-0 items-center gap-1 rounded-full border border-stone-200 bg-white px-2.5 text-xs font-medium text-stone-600 transition hover:border-stone-300 hover:bg-stone-50 disabled:opacity-60"
                       >
                         {landmarkLoadingDay === day.dayIndex ? (
                           <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1847,7 +1847,7 @@ export function RouteResultClient({
                           type="button"
                           title={M.amapNavTitle}
                           onClick={() => openAmapNav(day)}
-                          className="flex h-7 shrink-0 items-center gap-1 rounded-full bg-gradient-to-r from-emerald-500 to-green-600 px-2.5 text-xs font-semibold text-white shadow-sm transition hover:from-emerald-600 hover:to-green-700 hover:shadow"
+                          className="flex h-10 shrink-0 items-center gap-1 rounded-full bg-gradient-to-r from-emerald-500 to-green-600 px-2.5 text-xs font-semibold text-white shadow-sm transition hover:from-emerald-600 hover:to-green-700 hover:shadow"
                         >
                           <Navigation className="h-3.5 w-3.5" />
                           {M.amapNav}
@@ -1858,7 +1858,7 @@ export function RouteResultClient({
                           type="button"
                           title={M.amapNavLockedTitle}
                           onClick={() => setUpgradeOpen(true)}
-                          className="flex h-7 shrink-0 items-center gap-1 rounded-full bg-gradient-to-r from-emerald-500/70 to-green-600/70 px-2.5 text-xs font-semibold text-white shadow-sm transition hover:from-emerald-600/80 hover:to-green-700/80"
+                          className="flex h-10 shrink-0 items-center gap-1 rounded-full bg-gradient-to-r from-emerald-500/70 to-green-600/70 px-2.5 text-xs font-semibold text-white shadow-sm transition hover:from-emerald-600/80 hover:to-green-700/80"
                         >
                           <Lock className="h-3.5 w-3.5" />
                           {M.amapNav}
@@ -1897,7 +1897,7 @@ export function RouteResultClient({
                                   );
                                 }}
                                 className={cn(
-                                  'grid h-7 place-items-center rounded-md border px-2.5 text-sm font-medium leading-none',
+                                  'grid h-9 place-items-center rounded-md border px-2.5 text-sm font-medium leading-none',
                                   startOpenDay === day.dayIndex
                                     ? 'border-violet-500 bg-violet-50 text-violet-700'
                                     : 'border-violet-200 bg-white text-violet-600 hover:bg-violet-50',
@@ -2123,7 +2123,7 @@ export function RouteResultClient({
                   type="button"
                   aria-label={mapFull ? M.fsExitAria : M.fsEnterAria}
                   onClick={() => setMapFull((v) => !v)}
-                  className="h-8 rounded-lg bg-white px-2 text-xs font-medium text-stone-600 shadow hover:bg-stone-50"
+                  className="h-10 rounded-lg bg-white px-2 text-xs font-medium text-stone-600 shadow hover:bg-stone-50"
                 >
                   {mapFull ? M.fsExit : M.fsEnter}
                 </button>
@@ -2131,7 +2131,7 @@ export function RouteResultClient({
                   type="button"
                   aria-label={M.zoomIn}
                   onClick={() => mapApi?.zoomIn()}
-                  className="h-8 w-8 rounded-lg bg-white text-stone-600 shadow"
+                  className="h-10 w-10 rounded-lg bg-white text-stone-600 shadow"
                 >
                   +
                 </button>
@@ -2139,7 +2139,7 @@ export function RouteResultClient({
                   type="button"
                   aria-label={M.zoomOut}
                   onClick={() => mapApi?.zoomOut()}
-                  className="h-8 w-8 rounded-lg bg-white text-stone-600 shadow"
+                  className="h-10 w-10 rounded-lg bg-white text-stone-600 shadow"
                 >
                   −
                 </button>

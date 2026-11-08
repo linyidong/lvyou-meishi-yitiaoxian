@@ -254,7 +254,7 @@ export function HomeClient({
                   // T-047：地名直接标在点位旁（原底部清单删除），半透明深色底衬避免与虚线/网格重叠
                   const name = MESSAGES.SAMPLE_ROUTE.stations[i];
                   const label = LABEL_POS[i];
-                  const labelW = name.length * 11.5 + 8;
+                  const labelW = name.length * 12 + 8;
                   return (
                     <g key={p.n}>
                       {/* T-037：圆 r 13→15、图标 18px；T-038：改为显式 size/x/y 渲染（去掉嵌套 viewport，
@@ -268,7 +268,7 @@ export function HomeClient({
                         style={{ color: '#fff' }}
                       />
                       <circle cx={p.x + 11} cy={p.y + 11} r={6.5} fill="#fff" />
-                      <text fontSize="8.5" fill={p.fill} x={p.x + 11} y={p.y + 14}>
+                      <text fontSize="10" fill={p.fill} x={p.x + 11} y={p.y + 14}>
                         {p.n}
                       </text>
                       <rect
@@ -279,7 +279,7 @@ export function HomeClient({
                         rx={4}
                         fill="rgba(13,60,55,0.6)"
                       />
-                      <text fontSize="11.5" fontWeight="600" fill="#fff" x={label.cx} y={label.by}>
+                      <text fontSize="12" fontWeight="600" fill="#fff" x={label.cx} y={label.by}>
                         {name}
                       </text>
                     </g>
@@ -330,7 +330,7 @@ export function HomeClient({
                         <circle cx="9" cy="8" r="1.4" fill="#fda4af" />
                       </svg>
                     </span>
-                    <span className="min-w-0 truncate text-[11px] font-bold text-stone-700 sm:text-xs">
+                    <span className="min-w-0 truncate text-xs font-bold text-stone-700">
                       {CAROUSEL.exportSlide.brand}
                     </span>
                   </span>
@@ -366,7 +366,7 @@ export function HomeClient({
                       className={`min-w-0 px-1.5 first:pl-0 last:pr-0 ${c.minor ? 'hidden sm:block' : 'block'}`}
                     >
                       <p className="text-[8px] tracking-wide text-stone-400 sm:text-[9px]">{c.label}</p>
-                      <p className="whitespace-nowrap text-[10px] font-bold text-stone-800 sm:text-xs">{c.value}</p>
+                      <p className="whitespace-nowrap text-xs font-bold text-stone-800">{c.value}</p>
                     </div>
                   ))}
                 </div>
@@ -543,7 +543,7 @@ export function HomeClient({
                         <circle cx="9" cy="8" r="1.4" fill="#fda4af" />
                       </svg>
                     </span>
-                    <span className="min-w-0 truncate text-[11px] font-bold text-stone-700 sm:text-xs">
+                    <span className="min-w-0 truncate text-xs font-bold text-stone-700">
                       {CAROUSEL.exportSlide.brand}
                     </span>
                   </span>
@@ -566,7 +566,7 @@ export function HomeClient({
                       className={`min-w-0 px-1.5 first:pl-0 last:pr-0 ${c.wide ? 'flex-[1.5]' : 'flex-1'} ${c.minor ? 'hidden sm:block' : 'block'}`}
                     >
                       <p className="text-[8px] tracking-wide text-stone-400 sm:text-[9px]">{c.label}</p>
-                      <p className="whitespace-nowrap text-[10px] font-bold text-stone-800 sm:text-xs">{c.value}</p>
+                      <p className="whitespace-nowrap text-xs font-bold text-stone-800">{c.value}</p>
                     </div>
                   ))}
                 </div>
@@ -664,7 +664,7 @@ export function HomeClient({
             <p className="relative hidden pt-2 text-center text-[10px] text-white/60 sm:block">{CAROUSEL.exportSlide.caption}</p>
           </div>
           {/* 底部圆点：button 可点击切换；当前屏 aria-current="true"；浅色背景屏（第 2/4 屏）用深色圆点 */}
-          <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 items-center gap-2">
+          <div className="absolute bottom-0 left-1/2 flex -translate-x-1/2 items-center">
             {Array.from({ length: SLIDE_COUNT }, (_, i) => (
               <button
                 key={i}
@@ -672,16 +672,20 @@ export function HomeClient({
                 aria-label={CAROUSEL.dotLabel(i + 1)}
                 aria-current={slide === i ? true : undefined}
                 onClick={() => setSlide(i)}
-                className={`h-2.5 w-2.5 rounded-full transition-colors ${
-                  CAROUSEL.slides[slide].dotDark
-                    ? slide === i
-                      ? 'bg-stone-900'
-                      : 'bg-stone-800/45 hover:bg-stone-800/70'
-                    : slide === i
-                      ? 'bg-white'
-                      : 'bg-white/40 hover:bg-white/70'
-                }`}
-              />
+                className="grid h-10 w-10 place-items-center"
+              >
+                <span
+                  className={`h-2.5 w-2.5 rounded-full transition-colors ${
+                    CAROUSEL.slides[slide].dotDark
+                      ? slide === i
+                        ? 'bg-stone-900'
+                        : 'bg-stone-800/45'
+                      : slide === i
+                        ? 'bg-white'
+                        : 'bg-white/40'
+                  }`}
+                />
+              </button>
             ))}
           </div>
         </div>

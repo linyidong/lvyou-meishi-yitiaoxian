@@ -173,7 +173,7 @@ export function TryNewClient({
           <MapPinned className="mt-0.5 h-5 w-5 shrink-0" />
           <span>
             {MESSAGES.TRIP_CITY.guidePre}
-            <Link href={ROUTES.CITY} className="font-semibold underline py-2.5 md:py-0">
+            <Link href={ROUTES.CITY} className="inline-flex min-h-10 items-center font-semibold underline">
               {MESSAGES.TRIP_CITY.guideLink}
             </Link>
             {MESSAGES.TRIP_CITY.guidePost}
