@@ -263,12 +263,20 @@ export const MESSAGES = {
         { bg: '#7c2d12', dotDark: false },
         { bg: '#1e1b4b', dotDark: false },
       ],
-      /** 第 2 屏：真实地图截图（本地 public/showcase/photos/，版权说明见 docs/image-credits.md） */
+      /** 第 2 屏：真实地图截图（T-071 票根化，与第 6 屏同一视觉语言；版权说明见 docs/image-credits.md） */
       mapSlide: {
-        title: '成都 · 第 1 天',
-        tag: '路线地图',
+        ticketTitle: '成都 · 2 天地图',
+        badgeTop: 'ROUTE PASS',
+        badgeSub: '路线地图',
         copyright: '© 高德地图',
         img: { src: '/showcase/photos/map-route.jpg', alt: '成都示例路线地图截图' },
+        /** 票根底部信息行（minor=390 下可隐藏的次要列） */
+        infoCols: [
+          { label: '城市', value: '成都' },
+          { label: '天数', value: '2 天' },
+          { label: '地点', value: '3 个' },
+          { label: '交通', value: '步行', minor: true },
+        ] as { label: string; value: string; minor?: boolean }[],
       },
       /** 第 3 屏：收藏夹示意（PlaceGlyph 图标 + 名称 + 景点/美食标签 + 脚注） */
       collectSlide: {
@@ -327,6 +335,12 @@ export const MESSAGES = {
         stampTop: '已出发',
         stampSub: 'DEPARTED',
         footer: 'TRAVEL FOOD LINE · CHENGDU',
+        /** T-071 副票区「每天一张地图」条：pos=缩略图 object-position 裁切，points=缩略图上简化折线（viewBox 24×16） */
+        dayStripLabel: '每天一张地图',
+        days: [
+          { n: 1, stops: '宽窄巷子 → 人民公园', pos: '20% 25%', points: '3,12 10,5 19,9' },
+          { n: 2, stops: '钟水饺 → 春熙路', pos: '75% 75%', points: '4,5 13,11 21,4' },
+        ] as { n: number; stops: string; pos: string; points: string }[],
       },
     },
   },
