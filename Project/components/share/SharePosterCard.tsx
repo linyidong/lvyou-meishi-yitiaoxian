@@ -1,13 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
 import QRCode from 'qrcode';
 import { Crown, Download, Loader2 } from 'lucide-react';
 import { PLACE_TYPE_LABEL, TRANSPORT } from '@/config/enums';
 import { MESSAGES } from '@/config/messages';
-import { PRODUCT } from '@/config/product';
 import { ROUTES } from '@/config/routes';
 import { renderRoutePoster } from '@/lib/route-poster';
 import type { PlaceType, RouteShareSnapshot } from '@/types';
@@ -119,33 +117,9 @@ export function SharePosterCard({
     URL.revokeObjectURL(url);
   }
 
-  const summary = view.cityName
-    ? view.days > 1
-      ? S.summary(view.cityName, view.days, view.totalPlaces)
-      : S.summarySingle(view.cityName, view.totalPlaces)
-    : S.placesTotal(view.totalPlaces);
-
+  // T-078：删除顶部品牌横幅（与海报票头重复），页面直接从海报卡片开始（保留 px-4 pt-4 间距）
   return (
     <div className="mx-auto w-full max-w-screen-md">
-      {/* 品牌区（与会员视图同款渐变头，仅展示最小字段） */}
-      <header className="overflow-hidden bg-gradient-to-r from-primary-from to-primary-to px-5 pt-6 pb-8 text-white">
-        <div className="flex items-center gap-2">
-          <Image
-            src={PRODUCT.LOGO_PATH}
-            alt={productName}
-            width={32}
-            height={32}
-            className="h-8 w-8 rounded-lg bg-white/90 p-0.5"
-          />
-          <div>
-            <p className="text-sm leading-tight font-semibold">{productName}</p>
-            <p className="text-[11px] text-white/80">{S.sharedBy}</p>
-          </div>
-        </div>
-        <h1 className="mt-4 text-xl leading-snug font-bold">{view.title}</h1>
-        <p className="mt-2 text-sm text-white/85">{summary}</p>
-      </header>
-
       <div className="px-4 pt-4">
         {posterUrl ? (
           /* eslint-disable-next-line @next/next/no-img-element -- blob URL 无法走 next/image */

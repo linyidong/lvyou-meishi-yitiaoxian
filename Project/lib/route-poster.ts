@@ -32,6 +32,8 @@ const QR_SIZE = 240;
 const HEADER_BASE_H = 160;
 /** 标题行高 */
 const TITLE_LINE_H = 60;
+/** T-078：logo 行与标题之间的间距（标题不再紧贴 logo） */
+const TITLE_GAP = 18;
 /** 信息区高度 */
 const INFO_H = 150;
 /** 每天区块：胶囊区 + 地图 + 地图与清单间距 + 底部间距 */
@@ -258,7 +260,7 @@ export async function renderRoutePoster(input: {
   // 标题行数要先测量，票头高度随之变化（resize 会清空画布，须在绘制前完成）
   ctx.font = font(44, '700');
   const titleLines = wrapText(ctx, snapshot.title, CONTENT_W, 2);
-  const headerH = HEADER_BASE_H + titleLines.length * TITLE_LINE_H;
+  const headerH = HEADER_BASE_H + TITLE_GAP + titleLines.length * TITLE_LINE_H;
   const dayBlockH = snapshot.dayPlans.map(
     (d) =>
       DAY_PILL_H +
@@ -303,7 +305,7 @@ export async function renderRoutePoster(input: {
   // 路线标题
   ctx.fillStyle = '#FFFFFF';
   ctx.font = font(44, '700');
-  let titleY = HEADER_BASE_H - 10;
+  let titleY = HEADER_BASE_H + TITLE_GAP - 10;
   for (const line of titleLines) {
     ctx.fillText(line, PAD, titleY);
     titleY += TITLE_LINE_H;

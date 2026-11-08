@@ -1018,26 +1018,40 @@ export async function requestStaticMap(params: {
   width: number;
   height: number;
   zoom: number;
+  /** T-078：逐点自定义标记（编号/配色，与路线页口径一致）；不传保持旧「统一红点」行为 */
+  markers?: { lng: number; lat: number; label?: string; color?: string }[];
+  /** T-078：折线颜色（#RRGGBB 或 0xRRGGBB）；不传保持旧紫色 0x7C3AED */
+  lineColor?: string;
 }): Promise<ArrayBuffer> {
-  const { points, width, height, zoom } = params;
+  const { points, width, height, zoom, markers, lineColor } = params;
   const lats = points.map((p) => p.lat);
   const lngs = points.map((p) => p.lng);
   const center = `${((Math.min(...lngs) + Math.max(...lngs)) / 2).toFixed(6)},${(
     (Math.min(...lats) + Math.max(...lats)) / 2
   ).toFixed(6)}`;
   const locs = points.map((p) => `${p.lng},${p.lat}`);
+  // #RRGGBB / RRGGBB / 0xRRGGBB → 高德要求的 0xRRGGBB
+  const toAmapHex = (c: string) => `0x${c.replace(/^0x/i, '').replace(/^#/, '').toUpperCase()}`;
 
   const query: Record<string, string> = {
     location: center,
     zoom: String(zoom),
     size: `${width}*${height}`,
     scale: '1',
-    // 每个站点落一个中号标记（同一样式组内点位用 ; 分隔，label 留空；2026-10-25 curl 实测格式）
-    markers: `mid,0xE11D48,:${locs.join(';')}`,
   };
+  if (markers && markers.length > 0) {
+    // T-078：每个点单独一个 marker 组（组间 | 分隔），支持编号 label 与逐点配色
+    query.markers = markers
+      .map((m) => `mid,${toAmapHex(m.color ?? '#E11D48')},${m.label ?? ''}:${m.lng},${m.lat}`)
+      .join('|');
+  } else {
+    // 每个站点落一个中号标记（同一样式组内点位用 ; 分隔，label 留空；2026-10-25 curl 实测格式）
+    query.markers = `mid,0xE11D48,:${locs.join(';')}`;
+  }
   if (points.length >= 2) {
     // 路线折线：6px 宽主色线（组内点位用 ; 分隔）
-    query.paths = `6,0x7C3AED,1,0x7C3AED,0.2:${locs.join(';')}`;
+    const lineHex = lineColor ? toAmapHex(lineColor) : '0x7C3AED';
+    query.paths = `6,${lineHex},1,${lineHex},0.2:${locs.join(';')}`;
   }
 
   return amapGetBinary('/v3/staticmap', query);
