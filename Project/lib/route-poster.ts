@@ -20,6 +20,9 @@ const CONTENT_W = WIDTH - PAD * 2;
 /** 每天地图尺寸（≤ 高德静态图 1024*1024 上限） */
 const MAP_W = CONTENT_W;
 const MAP_H = 552;
+/** T-077：服务端（lib/share-poster-map）生成免费海报静态地图时复用同一尺寸口径 */
+export const POSTER_MAP_W = MAP_W;
+export const POSTER_MAP_H = MAP_H;
 /** 逐天清单每行高度 */
 const LINE_H = 46;
 /** 二维码绘制边长（≥200，保证可解码） */
@@ -177,8 +180,8 @@ function drawBarcode(
   }
 }
 
-/** 按当天点位跨度选缩放级别（10-16，与代理接口校验同口径） */
-function pickZoom(points: { lng: number; lat: number }[]): number {
+/** 按当天点位跨度选缩放级别（10-16，与代理接口校验同口径；T-077 服务端复用导出） */
+export function pickZoom(points: { lng: number; lat: number }[]): number {
   if (points.length < 2) return 14;
   const span = Math.max(
     Math.max(...points.map((p) => p.lng)) - Math.min(...points.map((p) => p.lng)),
@@ -224,8 +227,10 @@ export async function renderRoutePoster(input: {
   qrDataUrl: string;
   /** 公开分享页最小数据契约不含真实出行方式，置 false 时该栏显示「—」 */
   showTransport?: boolean;
+  /** T-077：服务端预生成的每天静态地图 data URL（免费分享视图用，坐标不下发客户端）；缺省/该天为 null 时沿用客户端代理 */
+  mapImages?: (string | null)[];
 }): Promise<Blob> {
-  const { snapshot, shareUrl, qrDataUrl, showTransport = true } = input;
+  const { snapshot, shareUrl, qrDataUrl, showTransport = true, mapImages } = input;
 
   // 并发拉每天的静态地图（先拉图再定画布高度：占位框与真图等高，布局不受成败影响）
   const dayPoints = snapshot.dayPlans.map((d) =>
@@ -234,7 +239,13 @@ export async function renderRoutePoster(input: {
       .map((p) => ({ lng: p.lng as number, lat: p.lat as number })),
   );
   const [maps, qrImg] = await Promise.all([
-    Promise.all(dayPoints.map(fetchDayMapBitmap)),
+    Promise.all(
+      dayPoints.map(async (pts, i) => {
+        const dataUrl = mapImages?.[i];
+        if (dataUrl) return await loadImage(dataUrl);
+        return await fetchDayMapBitmap(pts);
+      }),
+    ),
     loadImage(qrDataUrl),
   ]);
 

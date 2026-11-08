@@ -7,6 +7,7 @@ import { SharePosterCard, type SharePosterView } from '@/components/share/ShareP
 import { ShareReloadButton } from '@/components/share/ShareReloadButton';
 import { ShareViewClient } from '@/components/share/ShareViewClient';
 import { getQuotaProfile } from '@/lib/member-quota';
+import { buildSharePosterMapImages } from '@/lib/share-poster-map';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import type { RouteShareSnapshot } from '@/types';
@@ -118,12 +119,16 @@ export default async function SharePage({ params }: { params: { token: string } 
 
   // T-007 F-52 分享分级：非会员/游客只看海报图片（服务端裁剪，敏感字段不下发）
   if (viewerTier === 'free') {
+    // T-077 方案 A：服务端用 Key 池预生成每天静态地图（6h 进程缓存），只下发 PNG data URL；
+    // 失败/无坐标的天为 null，海报端画占位框，不阻断页面。会员/失效分支不调用。
+    const mapImages = await buildSharePosterMapImages(snapshot, params.token);
     return (
       <main className="min-h-screen bg-stone-100 pb-10">
         <SharePosterCard
           view={buildPosterView(snapshot)}
           loggedIn={loggedIn}
           productName={PRODUCT.NAME}
+          mapImages={mapImages}
         />
       </main>
     );

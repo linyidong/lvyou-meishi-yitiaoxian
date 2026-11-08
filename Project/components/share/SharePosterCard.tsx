@@ -35,10 +35,13 @@ export function SharePosterCard({
   view,
   loggedIn,
   productName,
+  mapImages,
 }: {
   view: SharePosterView;
   loggedIn: boolean;
   productName: string;
+  /** T-077：服务端预生成的每天静态地图 data URL（与 view.dayPlans 下标对应；null=该天占位框） */
+  mapImages?: (string | null)[];
 }) {
   const S = MESSAGES.SHARE;
   const [posterUrl, setPosterUrl] = useState('');
@@ -81,12 +84,14 @@ export function SharePosterCard({
           lodgingNights: null,
           lodgingLabel: '',
         };
-        // T-061：最小数据契约不含真实出行方式与坐标，关闭该栏（地图自然走占位框）
+        // T-061：最小数据契约不含真实出行方式与坐标，关闭该栏
+        // T-077：地图改用服务端预生成的 data URL（mapImages），匿名不再走 401 占位框
         const poster = await renderRoutePoster({
           snapshot,
           shareUrl,
           qrDataUrl,
           showTransport: false,
+          mapImages,
         });
         if (cancelled) return;
         objectUrl = URL.createObjectURL(poster);
@@ -100,7 +105,7 @@ export function SharePosterCard({
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [view]);
+  }, [view, mapImages]);
 
   function saveImage() {
     if (!blob) return;
