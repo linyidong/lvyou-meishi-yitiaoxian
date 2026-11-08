@@ -244,6 +244,40 @@ export const MESSAGES = {
     distance: '约 4.1 公里 · 55 分钟',
     legendAttraction: '景点',
     legendFood: '美食',
+    /** T-068 首页右侧示意区 3 屏自动轮播（第 1 屏复用上方 stations 等数据，不改写） */
+    carousel: {
+      /** 轮播容器无障碍标签 */
+      ariaLabel: '产品功能示意轮播',
+      /** 底部圆点按钮无障碍标签（N 从 1 开始） */
+      dotLabel: (n: number) => `第 ${n} 屏`,
+      /** 第 2 屏：结果页地图示意（纯 SVG，不调高德、不加载图片） */
+      mapSlide: {
+        tag: '路线地图',
+        /** 编号点位（x/y 为 viewBox 300×180 内坐标；type 决定 teal/amber 配色） */
+        points: [
+          { x: 55, y: 130, n: 1, type: PLACE_TYPE.ATTRACTION },
+          { x: 105, y: 60, n: 2, type: PLACE_TYPE.FOOD },
+          { x: 160, y: 105, n: 3, type: PLACE_TYPE.ATTRACTION },
+          { x: 215, y: 55, n: 4, type: PLACE_TYPE.FOOD },
+          { x: 260, y: 120, n: 5, type: PLACE_TYPE.ATTRACTION },
+        ],
+      },
+      /** 第 3 屏：收藏夹示意（PlaceGlyph 图标 + 名称 + 景点/美食标签） */
+      collectSlide: {
+        title: '我的收藏',
+        tag: '收藏夹',
+        places: [
+          { name: '宽窄巷子', type: PLACE_TYPE.ATTRACTION, iconKey: 'street' },
+          { name: '陈麻婆豆腐', type: PLACE_TYPE.FOOD, iconKey: 'hotpot' },
+          { name: '大熊猫基地', type: PLACE_TYPE.ATTRACTION, iconKey: 'tree' },
+          { name: '钟水饺', type: PLACE_TYPE.FOOD, iconKey: 'dumpling' },
+          { name: '人民公园', type: PLACE_TYPE.ATTRACTION, iconKey: 'park' },
+          { name: '春熙路', type: PLACE_TYPE.ATTRACTION, iconKey: 'shopping' },
+        ] as { name: string; type: (typeof PLACE_TYPE)[keyof typeof PLACE_TYPE]; iconKey: PlaceIconKey }[],
+        /** 第 3 屏底部说明：把「收藏 → 一条线」讲清楚，避免大屏下半留白 */
+        footnote: '收藏夹里的地点，按顺路排成一条线',
+      },
+    },
   },
   /** M101 U01 左侧渐变面板文案 */
   LOGIN_HERO: {

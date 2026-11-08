@@ -19,6 +19,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { MESSAGES } from '@/config/messages';
+import { PLACE_TYPE, PLACE_TYPE_LABEL } from '@/config/enums';
 import { ROUTES } from '@/config/routes';
 import { readDraft } from '@/lib/draft';
 import { PlaceGlyph } from '@/components/icons/PlaceGlyph';
@@ -79,6 +80,11 @@ const LABEL_POS = [
   { cx: 272, by: 82 },
 ] as const;
 
+/** T-068：首页右侧示意轮播（屏数 / 每屏停留毫秒） */
+const SLIDE_COUNT = 3;
+const CAROUSEL_INTERVAL_MS = 5000;
+const CAROUSEL = MESSAGES.SAMPLE_ROUTE.carousel;
+
 /** U02 首页（Slogan 首屏 + 草稿提示 + 导入收藏 + 四步说明 + 最近路线 + 差异说明） */
 export function HomeClient({
   isLoggedIn,
@@ -97,6 +103,38 @@ export function HomeClient({
     const d = readDraft();
     if (d) setLocalDraft({ city: d.city, count: d.places.length });
   }, [isLoggedIn]);
+
+  // T-068：右侧示意 3 屏轮播状态（当前屏 / 悬停与聚焦分开跟踪 / 系统减弱动效）
+  const [slide, setSlide] = useState(0);
+  const [carouselHovered, setCarouselHovered] = useState(false);
+  const [carouselFocused, setCarouselFocused] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(false);
+  // 悬停或键盘聚焦任一存在即暂停（避免「聚焦时鼠标移出」误恢复播放）
+  const carouselPaused = carouselHovered || carouselFocused;
+
+  useEffect(() => {
+    // prefers-reduced-motion: reduce 时不自动轮播（圆点仍可点击）
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const apply = () => setReducedMotion(mq.matches);
+    apply();
+    mq.addEventListener('change', apply);
+    return () => mq.removeEventListener('change', apply);
+  }, []);
+
+  useEffect(() => {
+    if (carouselPaused || reducedMotion) return;
+    const timer = window.setTimeout(
+      () => setSlide((s) => (s + 1) % SLIDE_COUNT),
+      CAROUSEL_INTERVAL_MS
+    );
+    return () => window.clearTimeout(timer);
+  }, [slide, carouselPaused, reducedMotion]);
+
+  /** 轮播屏淡入淡出类名（300ms ≤400ms；非当前屏只淡出不移除，保证卡片高度不跳动） */
+  const slideClass = (i: number) =>
+    `transition-opacity duration-300 motion-reduce:transition-none ${
+      slide === i ? 'opacity-100' : 'pointer-events-none opacity-0'
+    }`;
 
   const draftBar = draft
     ? { info: MESSAGES.HOME_DRAFT.infoUnfinished(draft.city ?? MESSAGES.UNSPECIFIED_CITY), href: draft.href }
@@ -172,7 +210,21 @@ export function HomeClient({
           </div>
         </div>
 
-        <div className="relative min-w-0 min-h-[320px] overflow-hidden rounded-3xl bg-teal-900 p-6 text-white lg:col-span-2">
+        {/* T-068：3 屏自动轮播（路线示意 / 路线地图 / 收藏夹）。
+            第 1 屏原样保留且在文档流中决定卡片高度；第 2/3 屏为绝对定位覆盖层，切换时卡片 offsetHeight 不变（无布局跳动）。 */}
+        <div
+          className="relative min-w-0 min-h-[320px] overflow-hidden rounded-3xl bg-teal-900 p-6 text-white lg:col-span-2"
+          role="group"
+          aria-roledescription="carousel"
+          aria-label={CAROUSEL.ariaLabel}
+          onMouseEnter={() => setCarouselHovered(true)}
+          onMouseLeave={() => setCarouselHovered(false)}
+          onFocus={() => setCarouselFocused(true)}
+          onBlur={(e) => {
+            // 焦点移出整张卡才解除聚焦暂停（圆点之间移动不解除）
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setCarouselFocused(false);
+          }}
+        >
           <div
             className="absolute inset-0 opacity-20"
             style={{
@@ -181,67 +233,179 @@ export function HomeClient({
               backgroundSize: '28px 28px',
             }}
           />
-          <div className="relative flex items-center justify-between">
-            <span className="text-sm font-semibold">{MESSAGES.SAMPLE_ROUTE.cityLine}</span>
-            <span className="rounded-lg bg-white/15 px-2 py-1 text-xs">{MESSAGES.SAMPLE_ROUTE.tag}</span>
+          {/* 第 1 屏：现有路线示意（DOM/视觉原样迁移，仅包进轮播淡入淡出结构） */}
+          <div className={slideClass(0)} aria-hidden={slide !== 0}>
+            <div className="relative flex items-center justify-between">
+              <span className="text-sm font-semibold">{MESSAGES.SAMPLE_ROUTE.cityLine}</span>
+              <span className="rounded-lg bg-white/15 px-2 py-1 text-xs">{MESSAGES.SAMPLE_ROUTE.tag}</span>
+            </div>
+            <svg className="relative mt-4 w-full" viewBox="0 0 300 180">
+              <polyline
+                fill="none"
+                points="40,120 90,70 150,95 210,50 260,110"
+                stroke="#fda4af"
+                strokeDasharray="8 6"
+                strokeLinecap="round"
+                strokeWidth="4"
+              />
+              <g fontWeight="700" textAnchor="middle">
+                {SAMPLE_POINTS.map((p, i) => {
+                  // T-047：地名直接标在点位旁（原底部清单删除），半透明深色底衬避免与虚线/网格重叠
+                  const name = MESSAGES.SAMPLE_ROUTE.stations[i];
+                  const label = LABEL_POS[i];
+                  const labelW = name.length * 11.5 + 8;
+                  return (
+                    <g key={p.n}>
+                      {/* T-037：圆 r 13→15、图标 18px；T-038：改为显式 size/x/y 渲染（去掉嵌套 viewport，
+                          lucide 与自绘分支统一 18×18，实测宽度不再受图标自身宽高比影响） */}
+                      <circle cx={p.x} cy={p.y} r={15} fill={p.fill} />
+                      <PlaceGlyph
+                        iconKey={MESSAGES.SAMPLE_ROUTE.homeStationIconKeys[i]}
+                        size={18}
+                        x={p.x - 9}
+                        y={p.y - 9}
+                        style={{ color: '#fff' }}
+                      />
+                      <circle cx={p.x + 11} cy={p.y + 11} r={6.5} fill="#fff" />
+                      <text fontSize="8.5" fill={p.fill} x={p.x + 11} y={p.y + 14}>
+                        {p.n}
+                      </text>
+                      <rect
+                        x={label.cx - labelW / 2}
+                        y={label.by - 14}
+                        width={labelW}
+                        height={18}
+                        rx={4}
+                        fill="rgba(13,60,55,0.6)"
+                      />
+                      <text fontSize="11.5" fontWeight="600" fill="#fff" x={label.cx} y={label.by}>
+                        {name}
+                      </text>
+                    </g>
+                  );
+                })}
+              </g>
+            </svg>
+            <div className="relative mt-4 flex flex-wrap items-center gap-3 text-xs">
+              <span className="flex items-center gap-1">
+                <span className="h-2.5 w-2.5 rounded-full bg-teal-400" />
+                {MESSAGES.SAMPLE_ROUTE.legendAttraction}
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
+                {MESSAGES.SAMPLE_ROUTE.legendFood}
+              </span>
+              <span className="ml-auto">{MESSAGES.SAMPLE_ROUTE.distance}</span>
+            </div>
           </div>
-          <svg className="relative mt-4 w-full" viewBox="0 0 300 180">
-            <polyline
-              fill="none"
-              points="40,120 90,70 150,95 210,50 260,110"
-              stroke="#fda4af"
-              strokeDasharray="8 6"
-              strokeLinecap="round"
-              strokeWidth="4"
-            />
-            <g fontWeight="700" textAnchor="middle">
-              {SAMPLE_POINTS.map((p, i) => {
-                // T-047：地名直接标在点位旁（原底部清单删除），半透明深色底衬避免与虚线/网格重叠
-                const name = MESSAGES.SAMPLE_ROUTE.stations[i];
-                const label = LABEL_POS[i];
-                const labelW = name.length * 11.5 + 8;
-                return (
+          {/* 第 2 屏：路线地图示意（纯 SVG/CSS，不调高德、不加载图片） */}
+          <div
+            className={`absolute inset-0 flex flex-col p-6 ${slideClass(1)}`}
+            aria-hidden={slide !== 1}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold">{MESSAGES.SAMPLE_ROUTE.cityLine}</span>
+              <span className="rounded-lg bg-white/15 px-2 py-1 text-xs">{CAROUSEL.mapSlide.tag}</span>
+            </div>
+            <svg className="mt-4 w-full" viewBox="0 0 300 180">
+              {/* 浅色地图底 + 道路细线 */}
+              <rect x="4" y="4" width="292" height="172" rx="10" fill="#f1f5f9" />
+              <g stroke="#cbd5e1" strokeWidth="2">
+                <line x1="4" y1="58" x2="296" y2="50" />
+                <line x1="4" y1="122" x2="296" y2="130" />
+                <line x1="82" y1="4" x2="74" y2="176" />
+                <line x1="184" y1="4" x2="196" y2="176" />
+                <line x1="244" y1="4" x2="240" y2="176" />
+              </g>
+              <g stroke="#e2e8f0" strokeWidth="1">
+                <line x1="4" y1="92" x2="296" y2="88" />
+                <line x1="132" y1="4" x2="128" y2="176" />
+              </g>
+              {/* 粉色虚线路线 */}
+              <polyline
+                fill="none"
+                points={CAROUSEL.mapSlide.points.map((p) => `${p.x},${p.y}`).join(' ')}
+                stroke="#fda4af"
+                strokeDasharray="8 6"
+                strokeLinecap="round"
+                strokeWidth="4"
+              />
+              {/* 编号点位（teal=景点 / amber=美食） */}
+              <g fontWeight="700" textAnchor="middle">
+                {CAROUSEL.mapSlide.points.map((p) => (
                   <g key={p.n}>
-                    {/* T-037：圆 r 13→15、图标 18px；T-038：改为显式 size/x/y 渲染（去掉嵌套 viewport，
-                        lucide 与自绘分支统一 18×18，实测宽度不再受图标自身宽高比影响） */}
-                    <circle cx={p.x} cy={p.y} r={15} fill={p.fill} />
-                    <PlaceGlyph
-                      iconKey={MESSAGES.SAMPLE_ROUTE.homeStationIconKeys[i]}
-                      size={18}
-                      x={p.x - 9}
-                      y={p.y - 9}
-                      style={{ color: '#fff' }}
+                    <circle
+                      cx={p.x}
+                      cy={p.y}
+                      r={11}
+                      fill={p.type === PLACE_TYPE.FOOD ? '#f59e0b' : '#14b8a6'}
+                      stroke="#fff"
+                      strokeWidth="2"
                     />
-                    <circle cx={p.x + 11} cy={p.y + 11} r={6.5} fill="#fff" />
-                    <text fontSize="8.5" fill={p.fill} x={p.x + 11} y={p.y + 14}>
+                    <text fontSize="10" fill="#fff" x={p.x} y={p.y + 3.5}>
                       {p.n}
                     </text>
-                    <rect
-                      x={label.cx - labelW / 2}
-                      y={label.by - 14}
-                      width={labelW}
-                      height={18}
-                      rx={4}
-                      fill="rgba(13,60,55,0.6)"
-                    />
-                    <text fontSize="11.5" fontWeight="600" fill="#fff" x={label.cx} y={label.by}>
-                      {name}
-                    </text>
                   </g>
+                ))}
+              </g>
+            </svg>
+            <div className="mt-auto flex justify-end pt-4 text-xs">{MESSAGES.SAMPLE_ROUTE.distance}</div>
+          </div>
+          {/* 第 3 屏：收藏夹示意（PlaceGlyph 图标 + 名称 + 景点/美食标签；无外链图片、无 emoji） */}
+          <div
+            className={`absolute inset-0 flex flex-col p-6 ${slideClass(2)}`}
+            aria-hidden={slide !== 2}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold">{CAROUSEL.collectSlide.title}</span>
+              <span className="rounded-lg bg-white/15 px-2 py-1 text-xs">{CAROUSEL.collectSlide.tag}</span>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              {CAROUSEL.collectSlide.places.map((pl) => {
+                const isFood = pl.type === PLACE_TYPE.FOOD;
+                return (
+                  <div
+                    key={pl.name}
+                    className="flex min-w-0 items-center gap-2 rounded-xl bg-white/10 p-2 sm:p-3"
+                  >
+                    <span
+                      className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg sm:h-8 sm:w-8 ${
+                        isFood ? 'bg-amber-400/20 text-amber-300' : 'bg-teal-400/20 text-teal-300'
+                      }`}
+                    >
+                      <PlaceGlyph iconKey={pl.iconKey} size={18} />
+                    </span>
+                    {/* 390 宽度下卡片内宽约 107px：名称按 12px 显示可完整放下，不再 truncate；类型文字在手机上隐藏（读屏仍可读） */}
+                    <span className="min-w-0 flex-1 text-xs font-medium leading-tight sm:truncate sm:text-sm">
+                      {pl.name}
+                    </span>
+                    <span
+                      className={`sr-only shrink-0 rounded-md px-1.5 py-0.5 text-[10px] sm:not-sr-only sm:ml-auto ${
+                        isFood ? 'bg-amber-400/20 text-amber-200' : 'bg-teal-400/20 text-teal-200'
+                      }`}
+                    >
+                      {PLACE_TYPE_LABEL[pl.type]}
+                    </span>
+                  </div>
                 );
               })}
-            </g>
-          </svg>
-          <div className="relative mt-4 flex flex-wrap items-center gap-3 text-xs">
-            <span className="flex items-center gap-1">
-              <span className="h-2.5 w-2.5 rounded-full bg-teal-400" />
-              {MESSAGES.SAMPLE_ROUTE.legendAttraction}
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
-              {MESSAGES.SAMPLE_ROUTE.legendFood}
-            </span>
-            <span className="ml-auto">{MESSAGES.SAMPLE_ROUTE.distance}</span>
+            </div>
+            <p className="mt-3 text-xs text-white/70">{CAROUSEL.collectSlide.footnote}</p>
+          </div>
+          {/* 底部圆点：button 可点击切换；当前屏 aria-current="true" */}
+          <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 items-center gap-2">
+            {Array.from({ length: SLIDE_COUNT }, (_, i) => (
+              <button
+                key={i}
+                type="button"
+                aria-label={CAROUSEL.dotLabel(i + 1)}
+                aria-current={slide === i ? true : undefined}
+                onClick={() => setSlide(i)}
+                className={`h-2.5 w-2.5 rounded-full transition-colors ${
+                  slide === i ? 'bg-white' : 'bg-white/40 hover:bg-white/70'
+                }`}
+              />
+            ))}
           </div>
         </div>
       </section>
