@@ -1610,7 +1610,7 @@ export function RouteResultClient({
               <Smartphone className="h-[18px] w-[18px] md:h-4 md:w-4" />
               {M.shotMode}
             </button>
-            <RouteShareButton routeId={routeId} canExport={canExport} />
+            {/* T-073：保存路线与导出长图互换位置（桌面 md:flex / 手机 grid-cols-2 均按新顺序） */}
             <button
               type="button"
               onClick={() => setSaved(true)}
@@ -1619,6 +1619,7 @@ export function RouteResultClient({
               <Save className="h-[18px] w-[18px] md:h-4 md:w-4" />
               {M.save}
             </button>
+            <RouteShareButton routeId={routeId} canExport={canExport} />
           </div>
         </div>
       )}

@@ -2224,6 +2224,9 @@ export const MESSAGES = {
     /** 长图弹层 */
     modalTitle: '路线长图 / 二维码分享',
     modalDesc: '长图已生成，可点击下载；扫码或复制链接可在手机浏览器打开网页版。',
+    /** T-073 弹窗票根头部徽章（产品名沿用 PRODUCT.NAME） */
+    ticketBadge: 'ROUTE PASS',
+    ticketBadgeSub: '路线分享',
     generating: '正在生成长图…',
     download: '下载长图',
     downloadName: '路线长图.png',
