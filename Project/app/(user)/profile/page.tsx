@@ -81,14 +81,14 @@ export default async function ProfilePage() {
   try {
     const { data: order, error } = await supabase
       .from('member_orders')
-      .select('plan,created_at')
+      .select('id,plan,created_at')
       .eq('user_id', user.id)
       .eq('status', ORDER_STATUS.PENDING)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
     if (!error && order) {
-      pendingOrder = { plan: order.plan as MemberPlan, createdAt: order.created_at };
+      pendingOrder = { id: order.id, plan: order.plan as MemberPlan, createdAt: order.created_at };
     }
   } catch {
     pendingOrder = null;

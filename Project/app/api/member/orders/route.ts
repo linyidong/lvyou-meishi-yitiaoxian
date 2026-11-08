@@ -70,6 +70,21 @@ export async function POST(request: NextRequest) {
   try {
     const admin = createAdminClient();
 
+    // T-084：同一用户同套餐同通道已有 pending 订单时直接回同一单，避免重复点击产生多笔待核销
+    const { data: existingPending } = await admin
+      .from('member_orders')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('status', 'pending')
+      .eq('plan', plan.key)
+      .eq('pay_channel', channel.key)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (existingPending?.id) {
+      return NextResponse.json({ ok: true, orderId: existingPending.id, alreadyPending: true });
+    }
+
     // T-054/R3：「先 count 后 insert」改为 guarded RPC 事务内原子占额
     // （pg_advisory_xact_lock + 计数 + 插入，迁移 033），并发请求不再能突破软上限；
     // 上限值（BUSINESS.MAX_PENDING_ORDERS）、错误码与文案与改造前一致。
@@ -104,7 +119,8 @@ export async function POST(request: NextRequest) {
       createdAt: fmtLocal(new Date()),
     });
 
-    return NextResponse.json({ ok: true, orderId: data.id });
+    // T-084：RPC 返回的是 order_id，不是 id；之前取错导致下单成功但前端拿不到 orderId，表现为「点了没反应」
+    return NextResponse.json({ ok: true, orderId: res.order_id });
   } catch {
     return NextResponse.json({ ok: false, message: M.errOrderFailed }, { status: 500 });
   }

@@ -29,6 +29,7 @@ function yuan(cents: number) {
 
 /** 待核销订单摘要（个人中心传入） */
 export interface PendingOrderInfo {
+  id: string;
   plan: MemberPlan;
   createdAt: string;
 }
@@ -88,9 +89,15 @@ export function MemberCard({
   function openUpgrade() {
     void trackEvent(EVENT_NAME.CLICK_UPGRADE, { from: 'profile' });
     setErrorText('');
-    setSubmittedId(null);
     setRejectReason(null);
-    setStage('form');
+    // T-084：已有待核销订单时直接进「等待核销」态，不再让用户重复提交
+    if (pendingOrder) {
+      setSubmittedId(pendingOrder.id);
+      setStage('waiting');
+    } else {
+      setSubmittedId(null);
+      setStage('form');
+    }
     setModalOpen(true);
   }
 
@@ -118,6 +125,12 @@ export function MemberCard({
 
   /** 阶段 3：提交付费订单（收款码人工核销） */
   async function submitOrder() {
+    if (pendingOrder) {
+      // T-084：服务端已有一笔待核销订单，直接展示等待态，避免重复下单
+      setSubmittedId(pendingOrder.id);
+      setStage('waiting');
+      return;
+    }
     setBusy(true);
     setErrorText('');
     try {
