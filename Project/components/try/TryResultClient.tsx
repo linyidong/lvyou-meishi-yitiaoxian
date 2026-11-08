@@ -22,6 +22,7 @@ import {
   CircleAlert,
   Footprints,
   LoaderCircle,
+  Lock,
   MapPinned,
   TriangleAlert,
   type LucideIcon,
@@ -257,7 +258,8 @@ export function TryResultClient({ loggedIn }: { loggedIn: boolean }) {
   const router = useRouter();
 
   const [draft, setDraft] = useState<TryDraft | null>(null);
-  const [mode, setMode] = useState<NavMode>(NAV_MODE.WALK);
+  /** T-066：游客结果页固定步行——mode 不再可切换，避免点击交通按钮触发 /api/try/order 消耗游客额度 */
+  const [mode] = useState<NavMode>(NAV_MODE.WALK);
   const [status, setStatus] = useState<'init' | 'loading' | 'ready' | 'error' | 'noDraft' | 'tooFew'>(
     'init',
   );
@@ -294,7 +296,7 @@ export function TryResultClient({ loggedIn }: { loggedIn: boolean }) {
       return;
     }
     setDraft(d);
-    setMode(d.transport);
+    // T-066：不再按草稿的 transport 恢复方式（旧草稿可能是 bike），游客一律按步行排序
   }, []);
 
   /** toast 自动消失，避免旧提示长时间挂在页面上 */
@@ -756,20 +758,47 @@ export function TryResultClient({ loggedIn }: { loggedIn: boolean }) {
         </div>
       ) : result ? (
         <>
-          {/* 出行方式切换 */}
+          {/* 出行方式（T-066：游客固定步行，四个按钮全部禁用，点击不再触发 /api/try/order 重排） */}
           <div className="mt-6 rounded-2xl border border-stone-200 bg-white p-4 md:p-5">
             <p className="text-sm font-semibold text-stone-900">{M.transportLabel}</p>
-            <p className="mt-1 text-xs text-stone-500">{M.transportHint}</p>
+            <p className="mt-1 text-xs text-stone-500">{M.transportGuestHint}</p>
             <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
               {NAV_MODE_VALUES.map((m) => {
                 const Icon = MODE_ICON[m];
+                const selected = mode === m;
                 return (
-                  <button key={m} type="button" onClick={() => setMode(m)} className={modeChipCls(mode === m)}>
+                  <button
+                    key={m}
+                    type="button"
+                    disabled
+                    aria-disabled="true"
+                    className={
+                      selected
+                        ? cn(modeChipCls(true), 'cursor-not-allowed')
+                        : // 游客锁定样式（与 /try/new 一致）：置灰底 + 灰字 + 不可点光标
+                          'flex h-11 items-center justify-center gap-1.5 rounded-xl border-2 border-stone-200 bg-stone-100 px-3 text-sm font-medium text-stone-400 cursor-not-allowed'
+                    }
+                  >
                     <Icon className="h-5 w-5" />
                     {NAV_MODE_LABEL[m]}
                   </button>
                 );
               })}
+            </div>
+            <p className="mt-2 text-xs text-stone-500">{MESSAGES.TRY.NEW.transportGuestLocked}</p>
+            {/* T-066：「手机高德导航」为会员功能，游客页仅展示锁定态按钮（无 onClick、不做 scheme 跳转） */}
+            <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-stone-100 pt-4">
+              <button
+                type="button"
+                disabled
+                aria-disabled="true"
+                title={R.amapNavLockedTitle}
+                className="flex h-11 items-center justify-center gap-1.5 rounded-xl border-2 border-stone-200 bg-stone-100 px-4 text-sm font-medium text-stone-400 cursor-not-allowed"
+              >
+                <Lock className="h-5 w-5" />
+                {R.amapNav}
+              </button>
+              <p className="text-xs text-stone-500">{R.amapNavLockedTitle}</p>
             </div>
           </div>
 

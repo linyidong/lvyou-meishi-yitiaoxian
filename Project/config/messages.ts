@@ -2312,6 +2312,8 @@ export const MESSAGES = {
       lodgingBadge: '住',
       transportLabel: '出行方式',
       transportHint: '切换出行方式后，会按该方式重新排序并重算每段里程与时间。',
+      /** T-066：游客结果页固定步行，不能再用「切换出行方式」的口径 */
+      transportGuestHint: '里程与时间按步行估算。',
       placesTotal: (count: number) => `共 ${count} 个地点`,
       duration: (minutes: number) =>
         minutes >= 60 ? `${Math.floor(minutes / 60)} 小时 ${minutes % 60} 分` : `${minutes} 分钟`,
