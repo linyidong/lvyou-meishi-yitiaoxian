@@ -1022,8 +1022,10 @@ export async function requestStaticMap(params: {
   markers?: { lng: number; lat: number; label?: string; color?: string }[];
   /** T-078：折线颜色（#RRGGBB 或 0xRRGGBB）；不传保持旧紫色 0x7C3AED */
   lineColor?: string;
+  /** T-079：文字标签（地名），最多 10 个；格式 content,font,bold,fontSize,fontColor,background:lng,lat */
+  labels?: { lng: number; lat: number; text: string }[];
 }): Promise<ArrayBuffer> {
-  const { points, width, height, zoom, markers, lineColor } = params;
+  const { points, width, height, zoom, markers, lineColor, labels } = params;
   const lats = points.map((p) => p.lat);
   const lngs = points.map((p) => p.lng);
   const center = `${((Math.min(...lngs) + Math.max(...lngs)) / 2).toFixed(6)},${(
@@ -1052,6 +1054,16 @@ export async function requestStaticMap(params: {
     // 路线折线：6px 宽主色线（组内点位用 ; 分隔）
     const lineHex = lineColor ? toAmapHex(lineColor) : '0x7C3AED';
     query.paths = `6,${lineHex},1,${lineHex},0.2:${locs.join(';')}`;
+  }
+  if (labels && labels.length > 0) {
+    // T-079：地点名称标签（白底深字，最多 10 个；逗号/冒号/竖线会被 API 当分隔符，先替换）
+    query.labels = labels
+      .slice(0, 10)
+      .map((l) => {
+        const text = l.text.replace(/[,:|]/g, ' ').slice(0, 15);
+        return `${text},0,1,12,0x44403C,0xFFFFFF:${l.lng},${l.lat}`;
+      })
+      .join('|');
   }
 
   return amapGetBinary('/v3/staticmap', query);
