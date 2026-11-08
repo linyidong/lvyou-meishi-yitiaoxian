@@ -5,19 +5,19 @@
 
 ## 1. 当前状态（一眼看懂）
 
-- 当前阶段：**部署上线（等 ICP 备案结果）**
-- 阶段状态：暂停（用户决定"先不动，等备案"）
-- 当前门禁：G1–G6 已通过；G7（上线）未开始
-- 当前任务：T-028（会员价格与配额调整 + 会员状态实时同步）已完成
-- 任务状态：已完成
-- 下一步：**等备案号** → 域名解析 + 启用 Nginx + 证书 + 部署（约 30 分钟）
-- 阻塞：ICP 备案审核中（订单 30179266293835414，2026-10-22 提交）
-- 最近更新：2026-10-23 23:36
+- 当前阶段：**阶段 8 验收与上线（部署待 ICP 备案通过）**
+- 阶段状态：**验收已完成；生产部署未开始**（等管局审核，不解析域名、不启用 Nginx）
+- 当前门禁：G1–G5 通过；G6 部分通过（代码/测试证据齐全，人工走查欠账）；G7 未通过
+- 当前任务：T-064（进度看板与文档校准）进行中；上一个已完成任务 T-063
+- 任务状态：进行中
+- 下一步：① 修主机名解析（路由 DHCP 保留 / 本机 hosts）② 用户集中走查 10 项 ③ 备份与回滚演练 ④ 备案通过后按 `deployment.md` §4.5 + §7 上线
+- 阻塞：**ICP 管局审核中**（订单 30179266293835414；2026-10-23 17:11:23 提交，工信部短信核验已完成；腾讯云预计 **2026-11-19** 完成，最迟 2026-11-20）
+- 最近更新：2026-11-08 15:40（T-064 校准）
 
 **状态行**（每次汇报第一行）：
 
 ```text
-【部署上线 · 等备案 · 任务：T-028 完成 · 下一步：等备案号后上线】
+【阶段 8 · G7 未通过 · 任务：T-064 进行中 · 下一步：修主机名 → 用户走查 → 等备案（预计 11-19）】
 ```
 
 ## 2. 阶段进度
@@ -31,10 +31,8 @@
 | 4 | 反向恢复项目文档 | **已完成** | 7 份文档（简报/架构/功能状态/数据模型/接口契约/决策/环境配置） | 2026-10-21 00:12 |
 | 5 | 需求访谈与 PRD | **已完成** | `项目需求文档PRD.md`（10 问 + F-50/51/52） | 2026-10-21 00:40 |
 | 6 | 目标架构与实施计划 | **已完成** | 三份计划 + P6B 只读理解（差异 D1–D5 已处理） | 2026-10-21 00:58 |
-| 7 | 逐任务开发 | **已完成（本轮范围）** | T-001 规范已写，等实施计划 | 2026-10-21 01:00 |
-| 6 | 目标架构与实施计划 | 未开始 | `target-architecture.md`、`implementation-plan.md`、`acceptance-test-plan.md` | —— |
-| 7 | 逐任务开发 | 未开始 | `tasks/T-00X.md`、commit | —— |
-| 8 | 验收、部署与上线 | **进行中** | 验收：8 条 E2E 全绿；部署：本期不做 | 2026-10-22 14:40 |
+| 7 | 逐任务开发 | **已完成** | 58 个任务号（T-001→T-063，含跳号）；`tasks/` 卡片 + 149 次提交；单测 113 / E2E 8 / 构建 exit 0 | 2026-10-29 20:34 |
+| 8 | 验收、部署与上线 | **进行中（验收完成、部署未开始）** | `acceptance-test-plan.md` 结果、`deployment.md`、`deploy/` 准备件；等 ICP 管局审核 | 2026-11-08 15:40 |
 | 9 | 运营维护与下一轮 | **已完成** | `operations.md` | 2026-10-22 15:05 |
 | 收尾 | 交接与项目总结 | **已完成** | `PROJECT_SUMMARY.md` | 2026-10-22 15:06 |
 
@@ -46,11 +44,14 @@
 | G2 | 阶段 2 → 3 | **通过** | `module-map.md`：入口 55/55 逐文件核对、4 条调用链、影响面样例（MCP+CLI）、四类标记齐全；Harness 抽查 5 处符号行号与 2 组 callers 全部一致 |
 | G3 | 阶段 3 → 4 | **通过** | 抽查 5 项全过：技术栈版本 vs lock、A5 无鉴权确认、limitsOf 14 调用方、tsc exit 0、无密钥泄漏；数据库侧由 Harness 直连只读补证（14 表 + RLS 实测） |
 | G4 | 阶段 5 → 6 | **通过** | 用户 2026-10-21 确认 PRD 范围与成功标准 |
-| G5 | 阶段 6 → 7 | 未通过 | 待用户批准架构/计划/验收计划 + Trae 只读理解报告 |
-| G6 | 每个任务 → 下一个 | **部分通过** | T-001 diff/typecheck/401/404 全过；登录态 200 待用户人工验收 |
-| G7 | 阶段 8 → 生产 | 未通过 | 待部署与回滚演练 |
+| G5 | 阶段 6 → 7 | **通过（补记 2026-11-08）** | 阶段 7 已实际执行完 T-001→T-063 且用户逐轮验收；原始「批准架构/计划」的对话未落到文档，按既成事实补记。后续同类批准须当场写进本表 |
+| G6 | 每个任务 → 下一个 | **部分通过** | 每任务都有 typecheck/单测/Playwright/接口实测证据（见 §4 与 `handover/阶段7-编码-交接摘要.md`）；**人工终验未集中留痕**——集中走查清单见 `acceptance-test-plan.md`，待用户逐项签字 |
+| G7 | 阶段 8 → 生产 | **未通过** | 待：ICP 通过 → DNS/Nginx/证书/部署 → 烟雾测试 9 条 → 备份与回滚演练 → 用户明确授权。2026-11-08 已完成本地生产构建 exit 0 |
 
 ## 4. 任务进度
+
+> 2026-11-08 校准：本表早期多行写「未 commit（待 Harness 验收后提交）」，实际这些任务**早已提交**（`git log` 有对应 `feat(T-0xx)` / `fix(T-0xx)` 提交，共 149 次提交、工作区干净、`main` 与 `origin/main` 同步）。commit 列以 git 为准，不再逐行回改历史文本。
+> 缺失的 12 个已实施任务（T-002 / T-004 / T-020 / T-033 / T-038 / T-040 / T-041 / T-042 / T-045 / T-046 / T-062 / T-063）已于本次补齐。
 
 | ID | 目标 | 状态 | 开始 | 完成 | commit | 验收证据 | 备注 |
 |---|---|---|---|---|---|---|---|
@@ -102,20 +103,41 @@
 | T-060 | 导入分享路线：链接/二维码双入口 → 先预览 → 再选择动作 | **实施完成（待 Harness 复核/用户走查）** | 2026-10-25 | 2026-10-25（本机 18:15） | 未 commit（待 Harness 验收后提交） | **实测**（job out/t060-verify.mjs + t060-evidence.json + t060-verify-places.mjs）：①双入口存在（tabs link/qr 均可见，t060-tabs.png）②上传含二维码 750×2000 长图（浏览器 canvas 模拟 route-poster，QR 180px 左下角）→ jsQR 识别成功进预览（t060-preview-qr.png，预览含标题/东山·2 天·16 个地点/前 8 地点/分享时间 2026-10-25）③**预览不占额度**：链接预览前后与二维码识别+预览前后，member 的 user_daily_usage(generate_route_month,2026-10-01)/routes/places 三值逐字段一致（unchanged=true）④**建成我的路线**：routes 0→1（新行 imported_from=YEY106bd_AlH 命中）、usage 0→1（t060-done-route.png）；**只收藏地点**：先把 route 导入产生的 16 个测试地点重置 is_collected=false（库默认 true 致首轮 collectedDelta=0，属 T-041 既有行为非本任务改动），再走二维码→收藏：collected 0→16、routes 不变、usage 不变（t060-evidence-places.json）⑤失败提示：纯色长图→「没识别到二维码…」（t060-fail-qr.png）、非法链接→「链接格式不正确…」（t060-fail-link.png）⑥390 视口 input/preview 弹窗右缘=374≤390 不溢出（t060-390-input/preview.png）；未登录 GET /api/shares/[token] 返回 401（接口代码保证，未单独截图）。**门禁**：typecheck exit 0；test:run **113 passed**；test:e2e **8 passed (13.5s)**（A8 改后重启 3000 dev 再跑再截图）。**数据卫生（§7.1 报备）**：写库仅测试账号 t060-verify-member 名下——清理前 {route_shares:1, member_routes:1, route_places:16, places:16, usage:1, users:1}，清理后全 0（t060-cleanup.mjs 打印复核），auth 测试用户已删；admin 源路线「东山 · 吃喝一条线」零改动。未改分享页/额度规则；除 jsqr 外零新增依赖；未 commit、未 build | **①新增 `Project/app/api/shares/[token]/route.ts`**：GET 预览接口（登录用户，只读 route_shares.snapshot，不写库、不累加 view_count、不占额度）；未登录 401、token 不存在 404、已撤销（revoked_at 非空）410、快照损坏 400；返回精简 snapshot {title, cityName, days, placeCount, places 前 8 {name,type}, exportedAt}。②**重写 `Project/components/share/ShareImportDialog.tsx`**（188→421 行）：step input|preview|done 两步流——input 双 tab（粘贴链接 / 上传长图），链接经 parseShareToken 解析、长图 `decodeShareQr`（≤7MB、png/jpg/webp，整图缩放长边≤1200→中心 60%→底部 40% 三次裁剪 + jsQR）识别；解析成功 GET 预览进 preview 步（标题/城市/天数/地点数/前 8 地点/分享时间 + 返回重新选择），动作按钮沿用 POST /api/shares/[token]/import mode=route\|places；9 个 data-testid 供 e2e。③**`config/messages.ts` SHARE 段**加 T-060 16 键（tabLink/tabQr/qrTabDesc/qrPick/qrBusy/qrTooLarge/qrBadType/qrFailed/previewBtn/previewBusy/previewTitle/previewPlacesShown/previewExported/previewBack/revoked/previewFailed），dialogDesc 改新流程文案。④**依赖**：`npm i jsqr`（1.4.0，唯一新增，纯前端解码不上传）。未动 POST import 逻辑与分享页 |
 | T-061 | 长图导出改版：机票风格 + 每天一张地图路线截图 | **实施完成（待 Harness 复核/用户走查）** | 2026-10-25 | 2026-10-25（本机 18:45） | 未 commit（待 Harness 验收后提交） | **实测**（job out/t061-verify.mjs / t061-qr-recheck.mjs / t061-poster.png / t061-poster-fallback.png / 4 张目检 clip）：①未登录 GET /api/amap/staticmap → **401**（curl + 登录态 fetch 双验）；bad-coords/bad-size(2000*360)/bad-zoom(20) → **400×3**；正常参数 → **200 image/png（14029B）** ②Playwright 登录 admin 导出「东山 · 吃喝一条线」（2 天×8 点全有坐标）→ 下载 **1080×3086** 长图：票头渐变+自绘 logo+ROUTE PASS+大标题、五列信息区（东山/2/16/骑行/2026-10-25）、每天胶囊+地图（东山岛紫色折线+8 红点与点位一致）+站点清单、撕票虚线+两侧圆孔、QR 240px+域名+条形码，目检全齐 ③**jsQR 回读**：QR 区裁剪解出 `http://localhost:3000/share/GTEucL6D0qaV`（整图扫描 null 系 jsQR 定位器对大图噪声的限制，非二维码缺陷；降级图整图可解出）④page.route 拦截 staticmap→502：长图仍成功导出（灰底虚线「地图暂不可用」占位框）且 QR 解出 share URL ⑤typecheck exit 0；test:run **113 passed**；test:e2e **8 passed (13.8s)**（A8 改后重启 dev 再截图）。**数据卫生（§7.1）**：零新增业务数据（share_token 重生成×2 为导出固有行为；amap_usage staticmap 记账为接口正常统计）；临时文件全在 job out/ | **①新增 `app/api/amap/staticmap/route.ts`**：GET 代理（coords ≤30 点、size ≤1024*1024、zoom 10-16 校验；401/400/502；成功 image/png + private 缓存头）。②**`lib/amap.ts`**：`amapGetBinary`（复用 Key 池/限速队列/recordAmapCall，Content-Type 判成败）+ `requestStaticMap`（包围盒中点为 location；paths 折线 + markers；实测修正 markers 格式：组内 `;` 分隔、label 留空，`|`/label=0 报 20003）+ `amapServiceName` 加 staticmap。③**重写 `lib/route-poster.ts`**（750→1080 宽登机牌风格，高度自适应）：并发 fetch→createImageBitmap 拉每天地图、失败画占位框不阻断；QR 生成 512/绘制 240 保持可解码；条形码为种子确定性自绘；未引任何绘图库。④**`SharePosterCard.tsx`** 传 `showTransport:false`（公开页契约无真实出行方式→显示「—」不虚构）。⑤**`messages.ts`** SHARE 加 9 键。未改路线页其它 UI、未改二维码内容、未 build |
 
+| T-002 | 城市数据一致性校验脚本（B9 撤销后的收口） | **已完成** | 2026-10-22 | 2026-10-22 | `ee2b6df` | `check:cities` 通过（当时 config 92 = 迁移 92 = 库内 92；2026-11-08 复跑 109=109=109） | 纯脚本，零业务代码；`package.json` 增 `check:cities` |
+| T-004 | 会员到期自动失效（pg_cron 每日 03:05） | **已完成** | 2026-10-22 | 2026-10-22 | `45efdaa` | 迁移 026 建 `expire-members`；`cron.job` 可见；`known-issues` B7 降级为「部分解决」 | 只改存储身份，不改配额读取口径 |
+| T-020 | R1 保存点位原子化 + R2 核销 CAS（迁移 027） | **已完成** | 2026-10-22 | 2026-10-22 | `d104a7d` | 单事务 RPC `replace_route_places` + 双口径唯一约束；`approve_member_order` CAS；故障注入实测原数据不被清空；并修复 RPC 匿名越权（撤 anon/authenticated） | 关闭 known-issues A6 / B10 / B11 |
+| T-033 | T-032 补漏：注册 tab 邮箱提示 | **已完成** | 2026-10-24 | 2026-10-24 | `8f286ff`（与 T-032 合并提交） | Playwright 两 tab 各命中 1 次；`grep -c emailHint`=2；typecheck 0 | 纯文案 |
+| T-038 | 图标收尾：关键词优先级 + 尺寸归一 + 宫殿/展馆区分 | **已完成** | 2026-10-24 | 2026-10-24 | `413e544`（T-036~038 合并） | 图标单测 8 条通过；「胡辣汤→碗」等优先级断言；首页/登录页/长图三处目检 | 纯展示；`iconKeyFor` 顺序调整 |
+| T-040 | 身份文案统一「正常用户」+ 单日地点 6→12 + 游客专属角标 | **已完成** | 2026-10-24 | 2026-10-24 | `c00f1f9` | typecheck 0；单测全过（当时 55 条）；`FREE_MAX_PLACES_PER_DAY=12` 与 `limitsOf` 一致；文案 grep 旧「免费版」=0 | 配额数字改动经用户拍板 |
+| T-041 | 分享导入：首页入口 + 双模式（建成路线 / 只收藏）+ 我的路线分区 | **已完成** | 2026-10-24 | 2026-10-24 | `059b25f`、`14fa84a` | 会员可点/非会员置灰；导入写 `imported_from`；只收藏不占路线额度；「会员分享路线」独立分区 | 首轮「只收藏」计数 0 源于库默认 `is_collected=true`（既有行为），T-060 专项复核 |
+| T-042 | AI 城市自动入库 + 19 个小众城市种子 | **已完成** | 2026-10-24 | 2026-10-24 | `9f8af99` | 识别城市不在内置表时直接显示并入库；district 匹配仅同名才采用（防「东山」错配黑龙江东山区）；`check:cities` 通过 | 城市表 92→109 |
+| T-045 | 图片识别支持粘贴图片（⌘/Ctrl+V） | **已完成** | 2026-10-24 | 2026-10-24 | `e271dab` | Playwright 实测粘贴→识别→回填；401/400/429 四态；`document.paste` 监听只在图片页生效 | 图片仍只在内存，不落盘 |
+| T-046 | 图片识别：桌面显示缩略图 + 手机隐藏粘贴按钮 | **已完成** | 2026-10-24 | 2026-10-24 | `796b238` | 桌面预览缩略图；402px 视口粘贴按钮 `hidden`；识别/回填逻辑零改动 | 纯 UI |
+| T-062 | Windows 独立运行 5 脚本 + 埋点改同源 `/api/events` | **已完成（Windows 未实机验证）** | 2026-10-25 | 2026-10-25 | `83f3a63` | `lib/events.ts` 改同源：登录 204 且事件行 15→16、未登录 204 不写、非法事件名忽略；Windows 脚本只做静态审查 | 首次使用先跑 `诊断.bat`；`.env.local` 需手工复制到 Windows |
+| T-063 | Windows 启动体验：自动选对 IP + 自动开浏览器 + 醒目手机地址 | **已完成（Windows 未实机验证）** | 2026-10-25 | 2026-10-25 | `599979a` | 新增 `windows/get-ip.ps1`（排除虚拟网卡、优先有默认网关、网段优先级、metric 排序）；`诊断.bat -All` 打印候选；地址复制到剪贴板 | 与 T-062 同一风险：cmd/PowerShell 行为未在 Windows 实机跑过 |
+| T-064 | 进度看板与文档校准 | **已完成** | 2026-11-08 | 2026-11-08 | 本提交 | progress 顶部/阶段/门禁/任务/阻塞/交接索引全量校准；补 12 行任务 + T-062/T-063 任务卡 + 阶段 8 交接摘要；同步 deployment/known-issues/README/AGENTS/open-questions/operations/setup-and-run | 只改文档，零业务代码 |
+| T-065 | 自检脚本支持环境变量覆盖 + 去硬编码 IP | **已完成** | 2026-11-08 | 2026-11-08 | 本提交 | `check:env` / `check:schema` / `check:cities` 均优先读 `process.env.NEXT_PUBLIC_SUPABASE_URL`；提示不再写死 `.11/.12`；实测：覆盖模式下 check:env 全绿、check:schema **65 项全过**、check:cities 库内一致 | 仅 dev 脚本；修复「主机名漂移时自检误报」 |
+
 ## 5. 阻塞与待确认
 
 | 阻塞/问题 | 影响任务 | 需要谁处理 | 状态 |
 |---|---|---|---|
-| ~~用户 3000 dev 进程连不上 Supabase~~ | ~~T-032~~ | T-034 期间按派单要求**重启 dev 后全部恢复**（/login /city 200、e2e 8 passed）——证实为 known-issues **A8 批量改动后热更新假故障**，非环境级网络问题（前次诊断结论有误，已在交接摘要更正） | **已解决（2026-10-24 14:05 重启验证）** |
-| A5：两个高德代理 API 无鉴权 | 影响成本与阶段 8 上线 | **已决策**：删死接口 + landmarks 加鉴权 | 排入阶段 7 |
-| `Project/public/750x750png` 无扩展名残留 | 无（不阻塞） | 用户决定 删/改名/保留 | 待确认 |
-| ~~本地提交未 push~~ | —— | 已全部推送（GitHub main 同步） | 已解决 |
-| 仓库无自动化测试框架 | 阶段 7–8 验收 | 用户决定是否引入（Q-005） | 待确认 |
-| B9 城市清单 104 vs 库内 92 | 出发城市/导入匹配 | 用户（Q-009） | 待确认 |
+| **ICP 备案管局审核中**（订单 30179266293835414；2026-10-23 17:11:23 提交，工信部短信核验已完成） | 阶段 8 上线 / T-064 | 福建省通信管理局（用户跟踪腾讯云控制台） | **阻塞中**：腾讯云预计 **2026-11-19** 完成，最迟 2026-11-20；通过前不解析域名、不启用 Nginx、不对外服务。通过后还需做**公安联网备案**（授权已完成，凭数据码到公安联网备案平台办理） |
+| **主机名 `desktop-vrd3hft` 解析失败**（2026-11-08 实测：`ping` 未知主机；Supabase 实际在 `192.168.1.10:8000`，REST 200） | 本地开发 / 走查 / E2E | 用户（路由器 DHCP 保留 + hosts 或静态 IP）；临时可用环境变量覆盖启动 | **待处理**：已用 `NEXT_PUBLIC_SUPABASE_URL=http://192.168.1.10:8000 npm run dev` 跑通验证；永久修法见 `deployment.md` 附录 |
+| ~~A5：两个高德代理 API 无鉴权~~ | ~~T-001~~ | 已修：删死接口 + landmarks 加鉴权 | **已解决（T-001，commit `ee0c4ea`）** |
+| ~~仓库无自动化测试框架~~ | ~~阶段 7–8~~ | 已建 vitest 113 + Playwright 8 | **已解决（T-019/T-024）** |
+| ~~B9 城市清单 104 vs 库内 92~~ | ~~出发城市/导入~~ | 误报，已撤销；现有 `check:cities` 脚本 | **已解决（2026-10-21）** |
+| ~~`Project/public/750x750png` 无扩展名残留~~ | 无 | 已重命名为 `logo-750.png` | **已解决（Q-003，2026-10-22）** |
+| ~~本地提交未 push~~ | —— | 已全部推送（`main...origin/main` 无差异） | **已解决** |
+| 页面性能（Lighthouse）无基线 | 上线后可观测性 | 备案通过后补 | 待确认（不阻塞） |
 
-> 需要产品决策的问题已写入 `open-questions.md`（Q-001…Q-008）。
+> 产品决策类问题见 `open-questions.md`（Q-002/Q-007/Q-008/Q-010/Q-011/Q-013/Q-014）。
 
 ## 6. 最近变更摘要
+
+- 2026-11-08 15:40：**T-064 进度看板校准 + 环境恢复 + 数据卫生**——① 顶部状态/阶段表/门禁/任务表/阻塞表/交接索引全量校准（补 12 个漏记任务、G5 补记通过、G6 降为部分通过）；② 修复运行环境：实测 Supabase 在 `192.168.1.10:8000`（REST 200），但主机名 `desktop-vrd3hft` 已无法解析，用环境变量覆盖启动 dev 并跑通；③ 基线：`typecheck` exit 0、单测 **113 passed**、`build` **exit 0**、E2E **8 passed (13.8s)**、`audit:mobile` 横向溢出 0（剩 2 条小字号/小按钮告警，见 known-issues C13）；④ 数据卫生：删除 5 个测试账号（`t051-*` / `t054-*`×3 / `e2e-*`，GoTrue Admin API 200），删除前快照存 `/tmp/t064-testdata-backup.json`，库内 users 8→3、routes/places/shares 零损失；⑤ 备案状态更新为「管局审核中，预计 2026-11-19」；⑥ 新增 T-062/T-063/T-064/T-065 任务卡与阶段 8 交接摘要
+
+- 2026-10-29 20:34：README 按作品仓库格式整理（6 张脱敏截图、架构图、已知限制）；Supabase 连接由 IP 改主机名；新增简历用截图脚本
 
 - 2026-10-25 19:00：新增 Windows 一键启动（windows/ 下 启动/停止/诊断/放行/快捷方式）+ 文档四件套（操作手册/技术栈/思维逻辑/面试题）+ 文档索引；部署文档更正"Windows 可独立跑应用"
 
@@ -213,49 +235,55 @@
 | 4 | `handover/阶段4-文档恢复-交接摘要.md` | 已写 |
 | 5 | `handover/阶段5-PRD-交接摘要.md` | 已写 |
 | 6 | `handover/阶段6-架构与计划-交接摘要.md` | 已写 |
-| 7 | `handover/阶段7-编码-交接摘要.md` | 已写（T-001 追加） |
-| 8 | `handover/阶段8-验收上线-交接摘要.md` | 未写 |
-| 9 | `handover/阶段9-运营维护-交接摘要.md` | 未写 |
-| 收尾 | `handover/收尾-项目总结-交接摘要.md` | 未写 |
+| 7 | `handover/阶段7-编码-交接摘要.md` | 已写（T-001→T-063 全部追加） |
+| 8 | `handover/阶段8-验收上线-交接摘要.md` | **已写（2026-11-08）**：验收证据 + 上线前清单 + 备案状态 |
+| 9 | `handover/阶段9-运营维护-交接摘要.md` | 已写 |
+| 收尾 | `handover/收尾-项目总结-交接摘要.md` | 已写 |
 
 ## 8. 更新检查
 
-- [x] 当前阶段与阶段进度表一致
-- [x] 当前门禁与门禁表一致
-- [x] 当前任务与任务表一致
-- [x] 下一步是具体动作（接 MCP → 派 P2），不是「继续开发」
-- [x] 阻塞写清了需要谁
-- [x] 没有把「待验证」写成「已完成」
+- [x] 当前阶段与阶段进度表一致（阶段 8 进行中）
+- [x] 当前门禁与门禁表一致（G1–G5 通过 / G6 部分 / G7 未通过）
+- [x] 当前任务与任务表一致（T-064 进行中）
+- [x] 下一步是具体动作（修主机名 → 用户走查 → 等备案）
+- [x] 阻塞写清了需要谁（管局审核归用户跟踪；主机名归用户/路由）
+- [x] 没有把「待验证」写成「已完成」（人工走查仍标未关闭）
 
-## 9. 下次会话从这里开始（2026-10-22 记录）
+## 9. 下次会话从这里开始（2026-11-08 更新）
 
-> 换会话/隔几天回来时，先读这一节，再读 `docs/progress.md` 顶部状态行。
+> 换会话/隔几天回来时，先读这一节，再读本文件顶部状态行。
 
-**当前卡点**：用户在办 ICP 备案（注册局信息已提交，等核验）。**备案通过前不部署**。
+**当前卡点**：ICP 管局审核中（订单 30179266293835414；2026-10-23 17:11:23 提交，短信核验已完成；腾讯云预计 **2026-11-19** 完成，最迟 2026-11-20）。**通过前不部署、不解析域名、不启用 Nginx**。
 
-**恢复步骤（按顺序）**
+**开工三步（不依赖备案）**
 
-1. `cd Project && npm run check:env` —— 确认 Supabase 与 dev server 可用（若 Supabase 报连接失败，先重试一次，多半是 Docker 冷启动）
-2. 确认用户已完成采购：
-   - 域名：腾讯云 `.com`，**实名信息与备案个人一致**，建议买 2–3 年
-   - 服务器：腾讯云轻量 **2C2G**、Ubuntu 22.04、**包年包月 ≥3 个月**（建议 1 年）
-   - **不要买**搭售品（图片处理/企业网盘/点播包）
-3. 确认备案状态（提交/初审/管局/已通过）；**未通过前不做 DNS 解析**
-4. 备案通过后，按 `docs/deployment.md` §4.5（融合方案）与 §7（部署步骤）执行：
-   隧道 → Nginx → 免费证书 → 数据迁移（pg_dump + 行数核对 + 迁移 026 重建 pg_cron）→ 冒烟测试 → 回滚演练
-5. 部署完成后更新：`progress.md`、`deployment.md` §12 发布记录、`handover/阶段8-验收上线-交接摘要.md`
+1. 解析检查：`ping desktop-vrd3hft` 应通。不通先修——路由器给 Windows 做 DHCP 保留（MAC `3c:a0:67:af:13:f7` → `192.168.1.10`），或本机 `/etc/hosts` 加一行 `192.168.1.10 desktop-vrd3hft`。临时绕过（不改 `.env.local`）：`NEXT_PUBLIC_SUPABASE_URL=http://192.168.1.10:8000 npm run dev`
+2. `cd Project && npm run check:env`（T-065 后支持环境变量覆盖；不再依赖写死 IP）
+3. 起 dev 后跑门禁：`npm run typecheck` → `npm run test:run` → `npm run test:e2e` → `npm run build`（**build 与 dev 不要同时写同一个 `.next`**）→ `npm run audit:mobile`
 
-**部署前可先做的准备工作（不依赖服务器）**：Dockerfile、Nginx 配置模板、frp 配置模板、备份脚本、部署清单一键化。
-
-### 2026-10-22 傍晚进展（部署准备）
+**验收基线（2026-11-08 本机实测）**
 
 | 项 | 结果 |
 |---|---|
-| 云服务器 | 腾讯云轻量 2C2G / 广州 / Ubuntu 22.04 / `139.199.191.102`（实例 `lhins-9cl625ah`） |
-| 初始化 | 时区 Asia/Shanghai、2G swap、ufw(22/80/443)、fail2ban 运行 |
-| Nginx | 已安装、`nginx -t` 通过、**禁用中**（备案后再启用） |
-| 隧道 | SSH 反向隧道联调通过：云机 `8080→家机Next`（200）、`8081→Supabase Kong`（401 正常） |
-| 域名 | `lyytx.com` 已注册，**命名审核中**；未做实名确认、**未解析** |
-| 备案 | 未提交（等域名实名） |
-| frp | 放弃（GitHub 下载超时），改用系统自带 SSH 隧道 |
-- 2026-10-24 12:40：T-029 完成 —— AGENTS.md「测试命令」改为真实的 6 条命令（41 单测 / 8 E2E / 移动端审计 / 环境自检 / 城市校验 / typecheck），Trae 改、Harness 验收（grep 过时表述 0、diff 仅 2 处）
+| typecheck | exit 0 |
+| 单测 | **113 passed / 13 文件** |
+| E2E | **8 passed (13.8s)**（需先 `npx playwright install chromium`；国内建议 `PLAYWRIGHT_DOWNLOAD_HOST=https://npmmirror.com/mirrors/playwright`） |
+| 生产构建 | **exit 0**（全 Route 表 + 静态页） |
+| 移动端审计 | 横向溢出 **0**；2 条告警（首页 SVG 字号 8.5/11.5px、Redmi 挑选页一个 37px 链接）→ known-issues C13 |
+| 数据库 | users 3 / routes 11 / places 1367 / cities 109 / route_shares 20 / member_orders **0** |
+
+**备案通过后（约 30 分钟配置 + 2–4 小时上线）**
+
+1. 拿到备案号 → 依「公安联网备案」提示，用数据码到公安联网备案平台完成备案；
+2. DNS：`@` 与 `www` A 记录 → `139.199.191.102`（`www` 301 到主域）；
+3. 云机启用 Nginx（`deploy/nginx-lyytx.conf`）+ certbot 证书 + HTTP→HTTPS；
+4. 家机：`deploy/tunnel.sh` 常驻（launchd）+ `next-app.service`（`next start`）；
+5. 高德控制台加 JS API 域名白名单；企微配可信域名/可信 IP；
+6. 跑 `deployment.md` §8 九条烟雾测试 → 页脚放备案号 → 更新 §12 发布记录；
+7. 备份与回滚演练（§9），演练完成才算 G7 通过。
+
+**待用户决策**：Q-007 企微自建应用、Q-008 `routes.transport` 取值、Q-010 A5 是否算本期、Q-011 走查关闭、Q-013 个体户/公司 + 经营许可、Q-014 App/PWA。
+
+**遗留风险**：主机名/DHCP 漂移、单机 Supabase 无主从、无 CI、`member_orders = 0`（付费未真实验证）、个人备案 + 收费的合规灰区、Windows 5 脚本未实机验证、3 个账号中仍含 1 个历史测试账号 `test2026-*`（保留，因名下挂着演示路线）。
+
+**数据卫生记录（2026-11-08）**：删除 `t051-*` / `t054-*`×3 / `e2e-*` 共 5 个测试账号（GoTrue Admin API，HTTP 200），删除前快照 `/tmp/t064-testdata-backup.json`；users 8→3，routes/places/route_shares 数量未变。`test2026-*`（2026-10-17 创建，名下 2 条演示路线）保留待用户决定。

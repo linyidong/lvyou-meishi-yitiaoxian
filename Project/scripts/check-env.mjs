@@ -8,6 +8,7 @@
  * 只读：不会改数据库、不会重启任何服务。失败时给出下一步该做什么。
  */
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
@@ -40,6 +41,18 @@ const ok = (name, detail) => results.push({ name, pass: true, detail });
 const bad = (name, detail, fix) => results.push({ name, pass: false, detail, fix });
 
 const env = loadEnv();
+/*
+ * 配置来源：与 Next 一致，process.env 优先于 .env.local。
+ * 用途：主机名/DHCP 漂移时，可不改 .env.local（密钥禁区）临时用
+ *   NEXT_PUBLIC_SUPABASE_URL=http://<ip>:8000 npm run check:env
+ * 排查时先看「配置来源」，别再去怀疑机器没开机。
+ */
+let envSource = '.env.local';
+if (!env.error && process.env.NEXT_PUBLIC_SUPABASE_URL) {
+  env.NEXT_PUBLIC_SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  envSource = 'process.env（覆盖 .env.local）';
+}
+
 if (env.error) {
   bad('读取 .env.local', env.error, '确认 Project/.env.local 存在（不要在仓库根，要在 Project/ 下）');
 } else {
@@ -47,9 +60,28 @@ if (env.error) {
   if (missing.length) {
     bad('环境变量', `缺少 ${missing.join(', ')}`, '补到 Project/.env.local 后重试');
   } else {
-    ok('环境变量', `${REQUIRED.length} 个必需变量齐全（值不打印）`);
+    ok('环境变量', `${REQUIRED.length} 个必需变量齐全（值不打印）；配置来源：${envSource}`);
   }
 }
+
+/** Supabase 主机名（用于失败提示，避免写死 IP） */
+const sbHost = (() => {
+  try {
+    return new URL(env.NEXT_PUBLIC_SUPABASE_URL).host;
+  } catch {
+    return '环境变量里的 Supabase 地址';
+  }
+})();
+
+/** 本机局域网 IPv4（用于提示手机/局域网访问地址） */
+const lanIp = (() => {
+  for (const list of Object.values(os.networkInterfaces())) {
+    for (const it of list || []) {
+      if (it.family === 'IPv4' && !it.internal) return it.address;
+    }
+  }
+  return '';
+})();
 
 if (env.NEXT_PUBLIC_SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY) {
   const url = `${env.NEXT_PUBLIC_SUPABASE_URL.replace(/\/$/, '')}/rest/v1/cities?select=id&limit=1`;
@@ -69,23 +101,23 @@ if (env.NEXT_PUBLIC_SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY) {
       bad(
         '自建 Supabase',
         `HTTP ${res.status}（${ms}ms）`,
-        '检查 192.168.1.11 上的 Docker 是否在跑；若刚重启容器，先热身一次 auth 接口再试（历史教训 L43）',
+        `检查 ${sbHost} 上的 Docker 是否在跑；若刚重启容器，先热身一次 auth 接口再试（历史教训 L43）`,
       );
     }
   } catch (e) {
     bad(
       '自建 Supabase',
       `连接失败：${e.name === 'TimeoutError' ? '8s 超时' : e.message}`,
-      '① 确认和 192.168.1.11 在同一局域网（ping 一下）；② 在 Windows 那台机器上确认 Supabase Docker 容器在运行；③ 若 TCP 通但无响应，按 L42 用业务接口探活、必要时重启容器',
+      `① 确认与 ${sbHost} 在同一局域网（先 ping 一下主机名；解析不了就换成 IP 试一次）；② 在跑 Supabase 的那台机器上确认 Docker 容器在运行；③ 若 TCP 通但无响应，按 L42 用业务接口探活、必要时重启容器；④ 主机名解析失败时，可临时用 NEXT_PUBLIC_SUPABASE_URL=http://<ip>:8000 覆盖（不改 .env.local）`,
     );
   }
 }
 
-/* dev server：本机与局域网各探一次 */
-for (const [label, url] of [
-  ['dev server（本机）', 'http://127.0.0.1:3000/'],
-  ['dev server（局域网）', 'http://192.168.1.12:3000/'],
-]) {
+/* dev server：本机必测；局域网有网卡时再测一次（IP 运行时推导，不写死） */
+const devTargets = [['dev server（本机）', 'http://127.0.0.1:3000/']];
+if (lanIp) devTargets.push([`dev server（局域网 ${lanIp}）`, `http://${lanIp}:3000/`]);
+
+for (const [label, url] of devTargets) {
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
     if (res.ok) ok(label, `HTTP ${res.status}`);

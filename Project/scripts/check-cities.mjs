@@ -88,7 +88,8 @@ function loadEnv() {
 
 async function readCitiesFromDb() {
   const env = loadEnv();
-  const base = (env.NEXT_PUBLIC_SUPABASE_URL || '').replace(/\/$/, '');
+  // 与 Next 一致：process.env 优先（主机名解析失败时可覆盖，不改 .env.local）
+  const base = (process.env.NEXT_PUBLIC_SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL || '').replace(/\/$/, '');
   const key = env.SUPABASE_SERVICE_ROLE_KEY;
   if (!base || !key) return { error: '缺少 NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY' };
   try {

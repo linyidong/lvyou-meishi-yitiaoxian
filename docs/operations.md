@@ -7,10 +7,10 @@
 | 项 | 当前（内测，本机） | 部署后（计划） |
 |---|---|---|
 | 应用 | Next.js dev（`npm run dev`，:3000） | 云服务器 `next start` + Nginx 反代 |
-| 数据库 | 自建 Supabase（Windows Docker，`desktop-vrd3hft:8000`；IP 会变，用主机名） | 云机 Docker 版裁剪 Supabase（或融合方案：数据留家机 + 云机入口） |
+| 数据库 | 自建 Supabase（Windows Docker；`.env.local` 写主机名 `desktop-vrd3hft:8000`，2026-11-08 主机名解析失效、实际在 `192.168.1.10:8000`，见 known-issues C12） | 融合方案：数据留家机 + 云机入口（已定） |
 | 定时任务 | `pg_cron` 每日 03:05 `expire-members` | 同（迁移 026 重建） |
 | 支付 | 已开（`BILLING_ENABLED=true`），人工核销 | 同，企业主体后接微信支付 |
-| 访问方式 | 局域网 `http://192.168.1.12:3000` | `https://<备案域名>` |
+| 访问方式 | 局域网 `http://<本机IP>:3000`（2026-11-08 为 `192.168.1.6`；IP 会漂，建议用主机名/路由 DHCP 保留） | `https://<备案域名>` |
 
 ## 2. 核心运行指标
 

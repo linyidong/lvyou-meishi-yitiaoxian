@@ -11,15 +11,15 @@
 
 | 项 | 现状 |
 |---|---|
-| 代码 | Next.js 14（App Router）+ React 18 + TypeScript strict + Tailwind：**25 个页面、35 个 API、48 个组件、31 个 lib 模块、28,618 行 TS/TSX** |
-| 提交 | **139 次功能提交**（2026-10-15 ~ 10-25，按 T-001~T-063 推进）+ 文档整理提交；提交信息按 `feat / fix / docs / test / chore` 分域 |
+| 代码 | Next.js 14（App Router）+ React 18 + TypeScript strict + Tailwind：**25 个页面、36 个 API、48 个组件、31 个 lib 模块、34,231 行 TS/TSX** |
+| 提交 | **149 次提交**（2026-10-15 ~ 10-29；`feat/fix/test/chore` 90 次 + `docs` 57 次），按 T-001~T-063 推进；一个任务一张卡 |
 | 测试 | **113 条单元测试（13 个文件）+ 8 条 Playwright E2E**，全绿；另有 4 个自检脚本（环境 / 库结构 / 城市一致性 / 地点水体体检） |
-| 文档 | **37 份 Markdown**：需求、架构、模块地图、数据模型、接口契约、ADR、并发审计、水体体检报告、部署、操作手册、技术栈、阶段交接 |
-| 任务 | **T-001 ~ T-063**，一个任务一张卡（`tasks/`），每张带可数验收判据与回滚方式 |
-| 数据 | **15 张表 / 32 份迁移 / 109 个城市 / 1,367 个地点**；`check:schema` 63 项对象体检全过 |
+| 文档 | **38 份 Markdown**（`docs/`）+ **55 张任务卡**（`tasks/`）：需求、架构、模块地图、数据模型、接口契约、ADR、并发审计、水体体检报告、部署、操作手册、技术栈、阶段交接 |
+| 任务 | **T-001 ~ T-065**（含 T-064 文档校准、T-065 自检脚本），一张卡一份可数验收判据与回滚方式 |
+| 数据 | **15 张表 / 32 份迁移 / 109 个城市 / 1,367 个地点**；`check:schema` 65 项对象体检全过 |
 | 并发 | 下单、建路线、分享导入均改为**事务内原子占额**；实测见下表 |
 | 使用者 | 内测阶段（作者 + 少量朋友），未公开运营 |
-| 发布 | 域名备案中；当前为局域网自建部署（Windows 跑 Supabase，Mac/Windows 跑应用） |
+| 发布 | **ICP 管局审核中**（2026-10-23 提交，预计 2026-11-19，最迟 11-20）；当前为局域网自建部署（Windows 跑 Supabase，Mac/Windows 跑应用） |
 | 安全 | 仓库不含任何真实 API Key；`.env.local` 从未入库；**收款码图片不入库**（本地放置） |
 
 ### 并发实测（不是推理，是真跑）
@@ -59,7 +59,7 @@
 | **分享导入闭环** | 分享生成 token + 快照；对方粘贴链接**或上传含二维码长图** → **先预览**（标题/城市/天数/前 8 个地点）→ 再选「建成我的路线（占额度）」或「只收藏（不占额度）」 |
 | **导出长图** | Canvas 画成**登机牌风格**：票头 logo、城市/天数/地点数/出行方式、**每天一张静态地图截图**、站点清单、撕票虚线、二维码、条形码 |
 | **后台可运维** | 设置页分块保存（AI 模型 / 业务开关 / 配额数字，**真实生效**）；概览显示高德与 OCR 用量；所有配额与开关都能改，不用改代码 |
-| **数据体检** | `check:schema` 63 项、`check:cities` 城市三处一致、`scan:water` 全库地点水域风险扫描（当前水体点 0） |
+| **数据体检** | `check:schema` 65 项、`check:cities` 城市三处一致、`scan:water` 全库地点水域风险扫描（当前水体点 0） |
 
 ---
 
@@ -83,7 +83,7 @@
    ▼
 Next.js 14（App Router）
    · 页面（Server Components）
-   · Route Handlers ×35（鉴权 / 配额 / 算路 / 分享）
+   · Route Handlers ×36（鉴权 / 配额 / 算路 / 分享 / 埋点）
    │
    ├── Cookie 会话 ──▶ 自建 Supabase
    │                    PostgreSQL 15 · GoTrue · PostgREST
@@ -99,14 +99,14 @@ Next.js 14（App Router）
 | 层 | 技术 |
 |---|---|
 | 前端 | Next.js 14.2（App Router）· React 18 · TypeScript strict · TailwindCSS 3 · lucide-react · Canvas 2D 出图 |
-| 服务端 | Next.js Route Handlers（35 个）· Node 运行时 · 手写参数校验 · Cookie 会话（`@supabase/ssr`） |
+| 服务端 | Next.js Route Handlers（36 个）· Node 运行时 · 手写参数校验 · Cookie 会话（`@supabase/ssr`） |
 | 数据 | 自建 Supabase：PostgreSQL 15 + GoTrue + PostgREST + RLS + pg_cron + 原子 RPC（32 份迁移） |
 | 地图与算路 | 高德 JS API（展示）· 高德 Web 服务（检索/距离矩阵/静态图）· 双 Key 池 + 落库缓存 |
 | AI | DeepSeek（文案提取，主/备可切换）· 腾讯云 OCR（图片识别，通用/高精度可切换） |
 | 质量 | vitest 113 条 · Playwright 8 条 · 移动端审计脚本 · 4 个自检脚本 |
 | 部署 | 局域网：Windows（Supabase Docker）+ 应用；公网方案：云机 Nginx + 反向隧道（备案后启用） |
 
-### API 分组（35 个）
+### API 分组（36 个）
 
 | 分组 | 代表接口 |
 |---|---|
@@ -185,7 +185,7 @@ Next.js 14（App Router）
 4. 自检：
    ```bash
    npm run check:env      # 环境 / Supabase / dev 探活
-   npm run check:schema   # 库结构 63 项
+   npm run check:schema   # 库结构 65 项
    npm run check:cities   # 城市三处一致
    ```
 
@@ -200,7 +200,7 @@ Next.js 14（App Router）
 | 单元测试 | **113 条 / 13 个文件**（`npm run test:run`）：排序、分享 token、配额、POI 打分、adcode 判定、模型兜底、设置校验、原子写路线 |
 | 端到端 | **8 条**（`npm run test:e2e`）：登录、排路线、保存、收藏、分享、导入 |
 | 移动端 | `npm run audit:mobile`：390px 视口横向溢出检查 |
-| 库结构 | `npm run check:schema`：15 表 / 10 函数 / 10 约束 / 17 关键列 / pg_cron / RLS，共 63 项 |
+| 库结构 | `npm run check:schema`：15 表 / 10 函数 / 10 约束 / 17 关键列 / pg_cron / RLS，共 65 项 |
 | 数据体检 | `npm run scan:water`：全库地点水域风险扫描（1,345 条评估，水体点 0） |
 
 **测试压在出过事的地方**（不是凑覆盖率）：
@@ -221,7 +221,7 @@ Next.js 14（App Router）
 | 限制 | 说明 |
 |---|---|
 | 未公开运营 | 内测阶段（作者 + 少量朋友），未验证真实付费转化 |
-| 备案未完成 | 域名备案审核中，当前只有局域网部署；公网访问依赖备案后的 Nginx + 隧道 |
+| 备案未完成 | 域名 ICP 管局审核中（预计 2026-11-19）；当前只有局域网部署，公网访问依赖备案后的 Nginx + 隧道 |
 | 单机数据库 | Supabase 跑在一台 Windows（Docker），无主从/自动故障转移；靠每日 `pg_dump` 备份 |
 | IP 会漂 | 局域网 DHCP 分配地址，已在配置里改用主机名；长期应做路由器地址保留或静态 IP |
 | AI 地名仍需人工确认 | 已做城市限定 + adcode 精确 + POI 打分 + 全库体检，但跨省同名景点仍可能错，不假装 100% 自动 |

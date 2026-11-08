@@ -16,9 +16,10 @@
 - **类型检查**：`cd Project && npm run typecheck`
 - **构建命令**：`cd Project && npm run build`
 - **Lint**：`cd Project && npm run lint`
-- **测试命令**：`cd Project && npm run test:run`（vitest 单测，41 条）；`npm run test:e2e`（Playwright 8 条，需 dev server 3000 在跑 + `Project/.env.test.local` 凭据，缺失时鉴权用例自动 skip）；`npm run audit:mobile`（真机尺寸移动端审计）；`npm run check:env`（环境 / Supabase / dev 探活）；`npm run check:cities`（城市数据三处一致性）；`npm run typecheck`（tsc --noEmit）。改动至少跑 `typecheck` + 相关测试；运行时行为仍需人工走一遍，并在汇报里写「未覆盖」而不是「通过」
+- **测试命令**：`cd Project && npm run test:run`（vitest 单测，**113 条 / 13 文件**）；`npm run test:e2e`（Playwright **8 条**，需 dev server 3000 在跑 + `Project/.env.test.local` 凭据，缺失时鉴权用例自动 skip；首次需 `npx playwright install chromium`，国内可用 `PLAYWRIGHT_DOWNLOAD_HOST=https://npmmirror.com/mirrors/playwright`）；`npm run audit:mobile`（真机尺寸移动端审计）；`npm run check:env`（环境 / Supabase / dev 探活，支持 `NEXT_PUBLIC_SUPABASE_URL` 覆盖）；`npm run check:cities`（城市数据三处一致性）；`npm run check:schema`（库结构 65 项）；`npm run typecheck`（tsc --noEmit）。改动至少跑 `typecheck` + 相关测试；运行时行为仍需人工走一遍，并在汇报里写「未覆盖」而不是「通过」。**`npm run build` 与 `npm run dev` 不要同时写同一个 `Project/.next`**（先 build 验收，再起 dev）
 - **数据库 / 外部服务**：自建 Supabase（地址见 `Project/.env.local`）、高德 Web 服务 Key 池（两个 Key）、高德 JS API、DeepSeek API、企业微信 Webhook
 - **禁止触碰**：`Project/.env.local`（密钥）、生产 Supabase 数据、`File-PRD/`（历史文档）、`node_modules/`、`.next/`、`Project/public/pay-qr.*`（含经营信息的收款码原图）
+- **连不上数据库先查主机名**：`.env.local` 的 Supabase 地址是主机名（如 `desktop-vrd3hft`），DHCP 换 IP 后可能解析失败；先 `ping <主机名>`，解析失败时用 `NEXT_PUBLIC_SUPABASE_URL=http://<ip>:8000 npm run dev` 临时覆盖（**不要改 `.env.local`**），详见 `docs/known-issues.md` C12
 - **当前进度与主文档**：**`docs/progress.md` 是唯一进度事实源**（阶段 / 门禁 / 任务 / 下一步 / 阻塞都看它）；审计报告 `docs/existing-project-audit.md`
 
 ### 本机分工（与手册 §1.1 的差异，已按实际能力调整）

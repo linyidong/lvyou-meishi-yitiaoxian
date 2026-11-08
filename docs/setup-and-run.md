@@ -82,7 +82,7 @@ npm run dev -- -H 0.0.0.0 -p 3000
 
 # ③ 浏览器打开
 #    本机：http://localhost:3000
-#    手机/局域网：http://192.168.1.12:3000
+#    手机/局域网：http://<本机IP>:3000（启动脚本会打印）
 ```
 
 `check:env` 会检查 4 项并给出失败时的处置建议：
@@ -90,11 +90,11 @@ npm run dev -- -H 0.0.0.0 -p 3000
 | 检查项 | 内容 | 失败时 |
 |---|---|---|
 | 环境变量 | `.env.local` 里 6 个必需变量是否齐全（只报名字，不打印值） | 补到 `Project/.env.local` |
-| 自建 Supabase | `GET /rest/v1/cities`（业务接口探活，不用 `/auth/v1/health`，见 L42） | 确认 192.168.1.11 的 Docker 在跑；刚重启容器先热身一次（L43） |
+| 自建 Supabase | `GET /rest/v1/cities`（业务接口探活，不用 `/auth/v1/health`，见 L42） | 确认跑 Supabase 那台机器的 Docker 在跑；主机名解析失败先用 IP 覆盖一次（known-issues C12）；刚重启容器先热身一次（L43） |
 | dev server 本机 | `http://127.0.0.1:3000/` | `npm run dev -- -H 0.0.0.0 -p 3000` |
-| dev server 局域网 | `http://192.168.1.12:3000/` | 同上；确认在同一 Wi-Fi |
+| dev server 局域网 | `http://<本机IP>:3000/`（脚本运行时探测） | 同上；确认在同一 Wi-Fi |
 
-> 自建 Supabase 跑在另一台机器（192.168.1.11）的 Docker 里，**它是否在线不取决于本项目**。
+> 自建 Supabase 跑在另一台机器（`.env.local` 里写的是主机名 `desktop-vrd3hft`，2026-11-08 实际在 `192.168.1.10`）的 Docker 里，**它是否在线不取决于本项目**。主机名解析失败时用 `NEXT_PUBLIC_SUPABASE_URL=http://<ip>:8000` 覆盖，不要改 `.env.local`。
 > 若整台机器重启，需要在那台 Windows 上把 Supabase 容器起来（`docker compose up -d`），再回到这里跑 `check:env`。
 
 ## 7. 每天收工（可选）
