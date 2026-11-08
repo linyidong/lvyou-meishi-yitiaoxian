@@ -12,16 +12,22 @@ import { cn } from '@/lib/utils';
 /** 顺序与原型 U02 顶部导航一致：首页 / 新建路线 / 我的路线 / 我的收藏 / 个人中心 */
 const NAV_ITEMS = [
   { href: ROUTES.HOME, label: MESSAGES.NAV_HOME },
-  { href: ROUTES.ROUTE_NEW, label: MESSAGES.NAV_NEW_ROUTE },
+  { href: ROUTES.CITY, label: MESSAGES.NAV_NEW_ROUTE },
   { href: ROUTES.MY_ROUTES, label: MESSAGES.NAV_MY_ROUTES },
   { href: ROUTES.COLLECTED, label: MESSAGES.NAV_COLLECTED },
   { href: ROUTES.PROFILE, label: MESSAGES.NAV_PROFILE },
 ];
 
-/** 当前项高亮：/route/new 与 /route/xxx 都算「新建路线」 */
+/** 当前项高亮：选城市 / 路线编辑 / 游客试用都算「新建路线」 */
 function isActive(pathname: string, href: string) {
   if (href === ROUTES.HOME) return pathname === ROUTES.HOME;
-  if (href === ROUTES.ROUTE_NEW) return pathname.startsWith('/route');
+  if (href === ROUTES.CITY) {
+    return (
+      pathname === ROUTES.CITY ||
+      pathname.startsWith('/route') ||
+      pathname.startsWith('/try')
+    );
+  }
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
@@ -30,10 +36,13 @@ export function Header({
   displayName,
   isAdmin = false,
   isMember = false,
+  showMemberBubble = false,
 }: {
   displayName?: string | null;
   isAdmin?: boolean;
   isMember?: boolean;
+  /** T-085：付费开通后 2 天内在「个人中心」旁显示金色气泡 */
+  showMemberBubble?: boolean;
 }) {
   const pathname = usePathname();
   /** 未登录 = 游客模式：工具栏（含 logo、首页）全部不可点击，只能操作当前页面内的功能 */
@@ -88,13 +97,18 @@ export function Header({
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  'rounded-lg px-3 py-2',
+                  'relative rounded-lg px-3 py-2',
                   active
                     ? 'bg-primary/5 font-semibold text-primary'
                     : 'text-stone-600 hover:bg-stone-100',
                 )}
               >
                 {item.label}
+                {item.href === ROUTES.PROFILE && showMemberBubble ? (
+                  <span className="pointer-events-none absolute -top-2 left-1/2 -translate-x-1/2 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] leading-none font-semibold whitespace-nowrap text-amber-600 shadow-sm">
+                    已开通会员
+                  </span>
+                ) : null}
               </Link>
             );
           })}

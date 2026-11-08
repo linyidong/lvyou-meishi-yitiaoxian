@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 /** 原型底部导航（仅移动端）：首页 / 新建 / 我的路线 / 我的收藏 / 我的 */
 const MOBILE_ITEMS = [
   { href: ROUTES.HOME, label: MESSAGES.NAV_HOME, icon: Home },
-  { href: ROUTES.ROUTE_NEW, label: MESSAGES.NAV_NEW_SHORT, icon: MapPinPlus },
+  { href: ROUTES.CITY, label: MESSAGES.NAV_NEW_SHORT, icon: MapPinPlus },
   { href: ROUTES.MY_ROUTES, label: MESSAGES.NAV_MY_ROUTES, icon: Route },
   { href: ROUTES.COLLECTED, label: MESSAGES.NAV_COLLECTED, icon: Heart },
   { href: ROUTES.PROFILE, label: MESSAGES.NAV_PROFILE_SHORT, icon: User },
@@ -19,7 +19,13 @@ const MOBILE_ITEMS = [
 /** 当前项高亮：与 Header 保持同一套规则 */
 function isActive(pathname: string, href: string) {
   if (href === ROUTES.HOME) return pathname === ROUTES.HOME;
-  if (href === ROUTES.ROUTE_NEW) return pathname.startsWith('/route');
+  if (href === ROUTES.CITY) {
+    return (
+      pathname === ROUTES.CITY ||
+      pathname.startsWith('/route') ||
+      pathname.startsWith('/try')
+    );
+  }
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 

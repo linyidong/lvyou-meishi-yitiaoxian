@@ -20,10 +20,11 @@ export default async function UserLayout({ children }: { children: React.ReactNo
   let displayName: string | null = null;
   let isAdmin = false;
   let isMember = false;
+  let showMemberBubble = false;
   if (user) {
     const { data: profile } = await supabase
       .from('users')
-      .select('username,email')
+      .select('username,email,member_since,member_source')
       .eq('id', user.id)
       .maybeSingle();
     displayName = profile?.username ?? profile?.email ?? user.email ?? null;
@@ -32,6 +33,11 @@ export default async function UserLayout({ children }: { children: React.ReactNo
     const { tier } = await getQuotaProfile(user.id);
     isAdmin = tier === 'admin';
     isMember = tier !== 'free';
+    // T-085：付费开通后 2 天内在「个人中心」旁显示金色气泡（管理员/免费/过期不显示）
+    if (!isAdmin && profile?.member_source === 'paid' && profile?.member_since) {
+      const age = Date.now() - new Date(profile.member_since).getTime();
+      showMemberBubble = age >= 0 && age < 2 * 24 * 60 * 60 * 1000;
+    }
   }
 
   return (
@@ -39,7 +45,12 @@ export default async function UserLayout({ children }: { children: React.ReactNo
       {/* T-028 会员状态实时同步：仅登录用户挂载（未登录不产生轮询请求） */}
       {user ? <MemberStatusSync /> : null}
       <div className="flex min-h-screen flex-col bg-stone-50 text-stone-800">
-        <Header displayName={displayName} isAdmin={isAdmin} isMember={isMember} />
+        <Header
+          displayName={displayName}
+          isAdmin={isAdmin}
+          isMember={isMember}
+          showMemberBubble={showMemberBubble}
+        />
         <main className="mx-auto w-full max-w-[1536px] flex-1 px-4 py-6 pb-24 md:px-6 md:py-10 md:pb-10">
           {children}
         </main>
