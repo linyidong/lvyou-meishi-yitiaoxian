@@ -1390,7 +1390,20 @@ export const MESSAGES = {
     usagePercent: (percent: number) => `占月配额 ${percent}%`,
     usageToday: (calls: number) => `今日 ${calls} 次`,
     usageServiceTitle: '各服务明细（本月）',
-    usageServiceRow: (service: string, calls: number) => `${service} · ${calls} 次`,
+    // T-076：保留英文 service 名，括号加中文标注（覆盖 lib/amap.ts amapServiceName 全部取值，未知回退「其他」）
+    usageServiceRow: (service: string, calls: number) => {
+      const zh: Record<string, string> = {
+        place_text: '关键词搜索',
+        distance: '距离矩阵',
+        direction_walking: '步行路径规划',
+        direction_driving: '驾车路径规划',
+        direction_transit: '公交路径规划',
+        direction_bicycling: '骑行路径规划',
+        staticmap: '静态地图',
+        other: '其他',
+      };
+      return `${service}（${zh[service] ?? '其他'}） · ${calls} 次`;
+    },
     usageServiceFailures: (failures: number) => `失败 ${failures}`,
     usageKeyTitle: (count: number) => `各账号 Key 用量（本月，共 ${count} 个 Key）`,
     usageKeyRow: (label: string, calls: number, percent: number) => `${label} · ${calls} 次（${percent}%）`,

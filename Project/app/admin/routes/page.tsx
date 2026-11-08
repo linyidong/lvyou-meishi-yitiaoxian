@@ -120,6 +120,7 @@ export default async function AdminRoutesPage() {
       currentPath={ROUTES.ADMIN_ROUTES}
       title={MESSAGES.ADMIN_SHELL.navRoutes}
       badge={MESSAGES.ADMIN_SHELL.badgeReadonly}
+      wide
     >
       <AdminRoutesClient routes={items} />
     </AdminShell>

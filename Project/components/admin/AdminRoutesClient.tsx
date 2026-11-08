@@ -174,20 +174,21 @@ export function AdminRoutesClient({ routes }: { routes: AdminRouteItem[] }) {
           })}
         </ul>
         <div className="hidden overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:block">
-          <table className="w-full min-w-[920px] text-sm">
+          {/* T-076：w-full 铺满内容区；min-w-[1180px] 保证窄屏（1280）横向滚动而不挤压列 */}
+          <table className="w-full min-w-[1180px] text-sm">
             <thead className="bg-slate-50 text-xs text-slate-500">
               <tr>
                 <th className="px-4 py-3 text-left font-medium">{M.thTitle}</th>
-                <th className="px-4 py-3 text-left font-medium">{M.thCity}</th>
-                <th className="px-4 py-3 text-left font-medium">{M.thOrigin}</th>
-                <th className="px-4 py-3 text-left font-medium">{M.thDays}</th>
-                <th className="px-4 py-3 text-left font-medium">{M.thPlaces}</th>
+                <th className="whitespace-nowrap px-4 py-3 text-left font-medium">{M.thCity}</th>
+                <th className="whitespace-nowrap px-4 py-3 text-left font-medium">{M.thOrigin}</th>
+                <th className="whitespace-nowrap px-4 py-3 text-left font-medium">{M.thDays}</th>
+                <th className="whitespace-nowrap px-4 py-3 text-left font-medium">{M.thPlaces}</th>
                 <th className="px-4 py-3 text-left font-medium">{M.thIntercity}</th>
-                <th className="px-4 py-3 text-left font-medium">{M.thCityTransport}</th>
+                <th className="whitespace-nowrap px-4 py-3 text-left font-medium">{M.thCityTransport}</th>
                 <th className="px-4 py-3 text-left font-medium">{M.thLodging}</th>
-                <th className="px-4 py-3 text-left font-medium">{M.thManual}</th>
-                <th className="px-4 py-3 text-left font-medium">{M.thOwner}</th>
-                <th className="px-4 py-3 text-left font-medium">{M.thUpdatedAt}</th>
+                <th className="whitespace-nowrap px-4 py-3 text-left font-medium">{M.thManual}</th>
+                <th className="whitespace-nowrap px-4 py-3 text-left font-medium">{M.thOwner}</th>
+                <th className="whitespace-nowrap px-4 py-3 text-left font-medium">{M.thUpdatedAt}</th>
                 <th className="px-4 py-3 text-left font-medium">{M.thDetail}</th>
               </tr>
             </thead>
@@ -196,11 +197,13 @@ export function AdminRoutesClient({ routes }: { routes: AdminRouteItem[] }) {
                 const over = r.placeCount > BUSINESS.MAX_PLACES_PER_ROUTE;
                 return (
                   <tr key={r.id}>
-                    <td className="px-4 py-3 font-medium">{r.title}</td>
-                    <td className="px-4 py-3">{r.cityName}</td>
-                    <td className="px-4 py-3">{r.originCity ?? '—'}</td>
-                    <td className="px-4 py-3">{r.days} 天</td>
-                    <td className="px-4 py-3">
+                    <td className="min-w-[180px] max-w-[280px] truncate px-4 py-3 font-medium" title={r.title}>
+                      {r.title}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3">{r.cityName}</td>
+                    <td className="whitespace-nowrap px-4 py-3">{r.originCity ?? '—'}</td>
+                    <td className="whitespace-nowrap px-4 py-3">{r.days} 天</td>
+                    <td className="whitespace-nowrap px-4 py-3">
                       <span
                         className={`rounded px-2 py-0.5 text-xs ${
                           over ? 'bg-red-50 text-red-700' : 'bg-slate-100 text-slate-600'
@@ -209,16 +212,16 @@ export function AdminRoutesClient({ routes }: { routes: AdminRouteItem[] }) {
                         {r.placeCount} / {BUSINESS.MAX_PLACES_PER_ROUTE}
                       </span>
                     </td>
-                    <td className="max-w-[180px] truncate px-4 py-3 text-slate-500">
+                    <td className="max-w-[240px] truncate px-4 py-3 text-slate-500" title={r.intercityLabel}>
                       {r.intercityLabel}
                     </td>
-                    <td className="px-4 py-3">{r.transportLabel}</td>
-                    <td className="max-w-[180px] truncate px-4 py-3 text-slate-500">
+                    <td className="whitespace-nowrap px-4 py-3">{r.transportLabel}</td>
+                    <td className="max-w-[240px] truncate px-4 py-3 text-slate-500" title={r.lodgingLabel}>
                       {r.lodgingLabel}
                     </td>
-                    <td className="px-4 py-3 text-slate-500">{M.manualNone}</td>
-                    <td className="px-4 py-3 text-slate-500">{r.userEmail}</td>
-                    <td className="px-4 py-3 text-slate-500">{fmtTime(r.createdAt)}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-slate-500">{M.manualNone}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-slate-500">{r.userEmail}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-slate-500">{fmtTime(r.createdAt)}</td>
                     <td className="px-4 py-3">
                       <button
                         type="button"

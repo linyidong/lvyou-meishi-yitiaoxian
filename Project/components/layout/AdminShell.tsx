@@ -30,6 +30,7 @@ export function AdminShell({
   showAdminName = false,
   updatedAt,
   refreshBanner,
+  wide = false,
   children,
 }: {
   currentPath: string;
@@ -47,6 +48,8 @@ export function AdminShell({
   updatedAt?: string;
   /** 手动刷新后短暂展示的成功横幅文案（A02 / A04） */
   refreshBanner?: string;
+  /** T-076：宽表格页（A06 路线列表）铺满窗口；其余后台页不传，仍限宽 1536px */
+  wide?: boolean;
   children: React.ReactNode;
 }) {
   const router = useRouter();
@@ -101,9 +104,14 @@ export function AdminShell({
   }, [overview, auto, router]);
 
   return (
-    // 页面宽度跟随窗口，最大 1536px（max-w-screen-2xl）
+    // 页面宽度跟随窗口：默认最大 1536px（max-w-screen-2xl）；wide 时铺满（T-076 路线列表）
     <div className="min-h-screen bg-slate-100 text-slate-800">
-      <div className="mx-auto flex min-h-screen w-full max-w-screen-2xl">
+      <div
+        className={cn(
+          'mx-auto flex min-h-screen w-full',
+          wide ? 'max-w-none' : 'max-w-screen-2xl',
+        )}
+      >
       <AdminSidebar currentPath={currentPath} pendingOrders={pendingOrders} />
 
       <div className="min-w-0 flex-1">
