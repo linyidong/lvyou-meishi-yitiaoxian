@@ -2154,6 +2154,7 @@ export const MESSAGES = {
     pendingTip: '你有一笔待核销的订单，管理员核销后自动开通会员。',
     pendingTipPlan: (plan: string, time: string) => `待核销订单：${plan} · 提交于 ${time}`,
     errPendingFull: '你已有待核销的订单，请先等待管理员核销后再提交',
+    alreadyMember: '你已经是会员，无需重复开通',
     errUseOrderFlow: '当前已启用付费开通，请通过会员收银台提交订单',
     errOrderFailed: '订单提交失败，请稍后重试',
     errInvalidPlan: '请选择有效的套餐',

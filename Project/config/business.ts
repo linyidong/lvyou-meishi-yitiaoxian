@@ -174,8 +174,8 @@ export const BUSINESS = {
     { key: 'wechat', label: '微信支付', image: '/pay-qr-wechat.png' },
     { key: 'alipay', label: '支付宝', image: '/pay-qr-alipay.png' },
   ],
-  /** 同一用户「待核销」订单上限，达到后不允许再提交 */
-  MAX_PENDING_ORDERS: 2,
+  /** 同一用户「待核销」订单上限：T-086 起严格 1 笔，重复点击复用同一单，不再新建 */
+  MAX_PENDING_ORDERS: 1,
   /** 管理端订单列表单次读取上限 */
   ADMIN_ORDER_LIMIT: 200,
   /** 管理端「待核销订单」红色角标的刷新间隔（秒） */

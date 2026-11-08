@@ -3,6 +3,7 @@ import { BUSINESS, billingOrderBlocked } from '@/config/business';
 import { MEMBER_PLAN_LABEL } from '@/config/enums';
 import { MESSAGES } from '@/config/messages';
 import { getAppSettings } from '@/lib/app-settings';
+import { getQuotaProfile } from '@/lib/member-quota';
 import { notifyNewMemberOrder } from '@/lib/order-notify';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
@@ -42,6 +43,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, message: M.paused }, { status: 403 });
   }
 
+  // T-086：已是会员（含管理员）不再允许创建开通订单，避免旧页面/重复点击产生多余 pending
+  const { tier } = await getQuotaProfile(user.id);
+  if (tier !== 'free') {
+    return NextResponse.json({ ok: false, message: M.alreadyMember }, { status: 400 });
+  }
+
   let body: { plan?: unknown; payNote?: unknown; payChannel?: unknown } = {};
   try {
     body = (await request.json()) as typeof body;
@@ -70,14 +77,12 @@ export async function POST(request: NextRequest) {
   try {
     const admin = createAdminClient();
 
-    // T-084：同一用户同套餐同通道已有 pending 订单时直接回同一单，避免重复点击产生多笔待核销
+    // T-086：同一用户只要有 pending 订单就直接复用，不再新建（严格一笔待核销）
     const { data: existingPending } = await admin
       .from('member_orders')
       .select('id')
       .eq('user_id', user.id)
       .eq('status', 'pending')
-      .eq('plan', plan.key)
-      .eq('pay_channel', channel.key)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -101,6 +106,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: false, message: M.errOrderFailed }, { status: 500 });
     }
     if (res.result === 'LIMIT') {
+      // T-086：并发/重复点击时 RPC 只允许 1 笔 pending；把已有订单号回给前端，直接进等待态
+      const { data: pending } = await admin
+        .from('member_orders')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (pending?.id) {
+        return NextResponse.json({ ok: true, orderId: pending.id, alreadyPending: true });
+      }
       return NextResponse.json({ ok: false, message: M.errPendingFull }, { status: 400 });
     }
     if (res.result !== 'OK' || !res.order_id) {
