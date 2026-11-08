@@ -20,8 +20,6 @@ const inputCls =
 const tabCls = (on: boolean) =>
   `flex-1 rounded-lg py-2.5 text-sm font-semibold ${on ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-500'}`;
 
-const EMAIL_RE = /^\S+@\S+\.\S+$/;
-
 /**
  * U01 登录 / 注册 与 A01 管理员登录共用表单。
  * mode=admin 时只有登录、登录后额外校验 role=admin，成功后进管理后台。
@@ -147,14 +145,14 @@ export function LoginClient({
    * 成功后回到登录视图并回填邮箱，让用户直接用新密码登录。
    */
   async function submitReset() {
-    const trimmedEmail = email.trim();
-    if (!trimmedEmail) {
-      setError(MESSAGES.AUTH_EMAIL_REQUIRED);
+    const account = email.trim();
+    if (!account) {
+      setError(MESSAGES.AUTH_ACCOUNT_REQUIRED);
       setNotice('');
       return;
     }
-    if (!EMAIL_RE.test(trimmedEmail)) {
-      setError(MESSAGES.AUTH_EMAIL_INVALID);
+    if (!isEmailLike(account) && !normalizeChinaPhone(account)) {
+      setError(MESSAGES.AUTH_ACCOUNT_INVALID);
       setNotice('');
       return;
     }
@@ -181,7 +179,7 @@ export function LoginClient({
       const res = await fetch('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: trimmedEmail, password: newPassword }),
+        body: JSON.stringify({ account, password: newPassword }),
       });
       const data = (await res.json()) as { ok: boolean; message?: string };
       if (!data.ok) {
@@ -463,8 +461,9 @@ export function LoginClient({
                 <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
                 <input
                   id="reset-email"
-                  type="email"
-                  autoComplete="email"
+                  type="text"
+                  inputMode="email"
+                  autoComplete="username"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder={MESSAGES.RESET_PASSWORD.emailPlaceholder}

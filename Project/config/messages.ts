@@ -389,10 +389,10 @@ export const MESSAGES = {
    */
   RESET_PASSWORD: {
     title: '重置密码',
-    desc: '输入注册邮箱和新密码即可重置。账号不变，会员权益保持不变。',
-    emailLabel: '注册邮箱',
-    emailPlaceholder: '例如 xiaoman@qq.com',
-    emailHint: '重置密码暂仅支持邮箱账号',
+    desc: '输入注册邮箱或手机号和新密码即可重置，无需邮箱/短信验证。账号不变，会员权益保持不变。',
+    emailLabel: '邮箱或手机号',
+    emailPlaceholder: '例如 xiaoman@qq.com 或 13800138000',
+    emailHint: '无需邮箱/短信验证，账号匹配即可重置',
     hint: '提示：换成新密码后用新密码登录即可，无需重新注册。',
     newPasswordLabel: '新密码',
     confirmLabel: '确认新密码',

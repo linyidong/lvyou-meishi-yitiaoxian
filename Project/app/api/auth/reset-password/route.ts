@@ -4,11 +4,12 @@ import { MESSAGES } from '@/config/messages';
 import { USER_ROLE } from '@/config/enums';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { notifyPasswordReset } from '@/lib/order-notify';
+import { isEmailLike, normalizeChinaPhone } from '@/lib/phone';
 
 /**
  * U01 忘记密码 · 自助重置（无邮件通道版）
  * POST /api/auth/reset-password
- * body: { email, password }
+ * body: { account, password }（account = 注册邮箱或手机号）
  *
  * 本项目的自建 Supabase 没有 SMTP，标准的「邮件重置链接」发不出去，
  * 因此这里采用「本人凭注册邮箱直接设新密码」的方式：
@@ -22,8 +23,6 @@ import { notifyPasswordReset } from '@/lib/order-notify';
  *    - 每次重置成功后外发提醒给管理员，便于发现异常并人工纠正。
  * 上线接入 SMTP 后，应改为「发重置邮件 + 点链接设置新密码」的标准流程。
  */
-
-const EMAIL_RE = /^\S+@\S+\.\S+$/;
 
 /** 进程内 IP 限流记录：key = IP，value = 窗口起点与窗口内次数 */
 const hits = new Map<string, { windowStart: number; count: number }>();
@@ -58,21 +57,28 @@ function fmtLocal(d: Date): string {
 }
 
 export async function POST(request: NextRequest) {
-  let body: { email?: unknown; password?: unknown } = {};
+  let body: { account?: unknown; email?: unknown; password?: unknown } = {};
   try {
     body = (await request.json()) as typeof body;
   } catch {
     return NextResponse.json({ ok: false, message: MESSAGES.INVALID_PARAMS }, { status: 400 });
   }
 
-  const email = typeof body.email === 'string' ? body.email.trim() : '';
+  const rawAccount =
+    typeof body.account === 'string'
+      ? body.account.trim()
+      : typeof body.email === 'string'
+        ? body.email.trim()
+        : '';
+  const phone = normalizeChinaPhone(rawAccount);
+  const email = phone ? '' : rawAccount.toLowerCase();
   const password = typeof body.password === 'string' ? body.password : '';
 
-  if (!email) {
-    return NextResponse.json({ ok: false, message: MESSAGES.AUTH_EMAIL_REQUIRED }, { status: 400 });
+  if (!rawAccount) {
+    return NextResponse.json({ ok: false, message: MESSAGES.AUTH_ACCOUNT_REQUIRED }, { status: 400 });
   }
-  if (!EMAIL_RE.test(email)) {
-    return NextResponse.json({ ok: false, message: MESSAGES.AUTH_EMAIL_INVALID }, { status: 400 });
+  if (!phone && !isEmailLike(email)) {
+    return NextResponse.json({ ok: false, message: MESSAGES.AUTH_ACCOUNT_INVALID }, { status: 400 });
   }
   if (!password) {
     return NextResponse.json({ ok: false, message: MESSAGES.AUTH_PASSWORD_REQUIRED }, { status: 400 });
@@ -87,16 +93,38 @@ export async function POST(request: NextRequest) {
 
   const admin = createAdminClient();
 
-  // 邮箱大小写不敏感匹配（前端可能输入大写），邮箱列在库中是唯一约束
-  const { data: profile, error: findError } = await admin
-    .from('users')
-    .select('id, role')
-    .ilike('email', email)
-    .maybeSingle();
-
-  if (findError) {
-    return NextResponse.json({ ok: false, message: MESSAGES.RESET_PASSWORD.errFailed }, { status: 500 });
+  let profile: { id: string; role: string } | null = null;
+  if (phone) {
+    // T-088：手机号账号没有 email，只能从 auth.users 按 phone（E.164）找；用户量小，分页兜底
+    for (let page = 1; page <= 10 && !profile; page += 1) {
+      const { data: listed, error: listError } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
+      if (listError) {
+        return NextResponse.json({ ok: false, message: MESSAGES.RESET_PASSWORD.errFailed }, { status: 500 });
+      }
+      const found = listed.users.find((u) => u.phone === phone);
+      if (found) {
+        const { data: row } = await admin
+          .from('users')
+          .select('id, role')
+          .eq('id', found.id)
+          .maybeSingle();
+        if (row) profile = row;
+      }
+      if (listed.users.length < 1000) break;
+    }
+  } else {
+    // 邮箱大小写不敏感匹配（前端可能输入大写），邮箱列在库中是唯一约束
+    const { data, error: findError } = await admin
+      .from('users')
+      .select('id, role')
+      .ilike('email', email)
+      .maybeSingle();
+    if (findError) {
+      return NextResponse.json({ ok: false, message: MESSAGES.RESET_PASSWORD.errFailed }, { status: 500 });
+    }
+    profile = data;
   }
+
   if (!profile) {
     return NextResponse.json({ ok: false, message: MESSAGES.RESET_PASSWORD.errNotRegistered }, { status: 404 });
   }
@@ -115,7 +143,7 @@ export async function POST(request: NextRequest) {
   }
 
   // 外发提醒（企业微信群机器人 / 企业微信应用），失败只记日志，不影响重置结果
-  await notifyPasswordReset({ email, at: fmtLocal(new Date()) });
+  await notifyPasswordReset({ email: rawAccount, at: fmtLocal(new Date()) });
 
   return NextResponse.json({ ok: true, message: MESSAGES.RESET_PASSWORD.okNotice });
 }
