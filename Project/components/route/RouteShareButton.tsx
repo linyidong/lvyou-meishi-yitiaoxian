@@ -75,8 +75,8 @@ export function RouteShareButton({
       setQr(qrDataUrl);
       setUrl(data.url);
       setBlob(poster);
+      // T-074：生成后先展示二维码/链接，由用户手动点「下载长图」，不再自动下载
       setPhase('done');
-      triggerDownload(poster);
     } catch {
       setError(S.failDesc);
       setPhase('error');
@@ -146,7 +146,7 @@ export function RouteShareButton({
            内容（二维码 / 链接 / 下载 / 复制 / 关闭）与业务逻辑保持原样，
            不塞长图里的城市 / 天数 / 地点等信息。 */
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/50 p-4">
-          <div className="max-h-[88vh] w-full max-w-sm overflow-y-auto rounded-2xl bg-[#fffdf8] text-stone-800 shadow-2xl">
+          <div className="max-h-[88vh] w-full max-w-sm overflow-x-hidden overflow-y-auto rounded-2xl bg-[#fffdf8] text-stone-800 shadow-2xl [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {/* 顶部渐变条 teal→amber→rose */}
             <div className="h-1.5 bg-gradient-to-r from-teal-500 via-amber-400 to-rose-400" />
             <div className="p-6">
