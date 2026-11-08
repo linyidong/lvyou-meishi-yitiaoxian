@@ -305,12 +305,28 @@ export const MESSAGES = {
           { name: '钟水饺', alt: '一盘钟水饺', src: '/showcase/photos/dumpling.jpg' },
         ],
       },
-      /** 第 6 屏：自定义「旅行长图」示意（纯 CSS 迷你登机牌，无图片资源） */
+      /** 第 6 屏：机票/登机牌风格「旅行长图」示意（T-070，纯 CSS，无图片资源；参考 T-061 route-poster） */
       exportSlide: {
         title: '一键导出，发给同行的人',
         tag: '导出长图',
+        caption: '登机牌风格 · 每天一张地图',
+        brand: '旅行美食一条线',
+        badgeTop: 'ROUTE PASS',
+        badgeSub: '路线登机牌',
         ticketTitle: '成都 · 吃喝一条线',
-        ticketMeta: '2 天 · 16 个地点',
+        /** 票面信息列（minor=390 下可隐藏的次要列；wide=值较长需加宽的列，如日期） */
+        infoCols: [
+          { label: '城市', value: '成都' },
+          { label: '天数', value: '2 天' },
+          { label: '地点', value: '16' },
+          { label: '交通', value: '步行', minor: true },
+          { label: '日期', value: '2026-11-08', wide: true },
+        ] as { label: string; value: string; minor?: boolean; wide?: boolean }[],
+        ticketNo: 'No. 2026-11-08',
+        qrHint: '扫码查看路线',
+        stampTop: '已出发',
+        stampSub: 'DEPARTED',
+        footer: 'TRAVEL FOOD LINE · CHENGDU',
       },
     },
   },

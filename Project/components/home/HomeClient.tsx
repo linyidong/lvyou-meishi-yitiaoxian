@@ -430,41 +430,138 @@ export function HomeClient({
               </div>
             );
           })}
-          {/* 第 6 屏：自定义「旅行长图」示意——纯 CSS 迷你登机牌（白卡微旋转、渐变条、虚线、条形码、QR 示意） */}
+          {/* 第 6 屏：机票/登机牌风格「旅行长图」（T-070，纯 CSS：点阵+柔光+航线背景、倾斜票根、撕票孔、条码/QR、印章） */}
           <div
             className={`absolute inset-0 flex flex-col p-6 ${slideClass(5)}`}
             data-slide="5"
             style={{ backgroundColor: CAROUSEL.slides[5].bg }}
             aria-hidden={slide !== 5}
           >
-            <div className="flex items-center justify-between gap-2">
+            {/* 背景装饰：细点阵 + teal/rose 两团柔光 */}
+            <div
+              className="pointer-events-none absolute inset-0"
+              style={{
+                backgroundImage:
+                  'radial-gradient(rgba(255,255,255,0.10) 1px, transparent 1px), radial-gradient(ellipse 60% 50% at 15% 15%, rgba(45,212,191,0.16), transparent 60%), radial-gradient(ellipse 55% 45% at 85% 80%, rgba(251,113,133,0.14), transparent 60%)',
+                backgroundSize: '18px 18px, 100% 100%, 100% 100%',
+              }}
+            />
+            {/* 极淡虚线航线 */}
+            <svg
+              className="pointer-events-none absolute inset-0 h-full w-full opacity-25"
+              viewBox="0 0 400 240"
+              preserveAspectRatio="none"
+              aria-hidden="true"
+            >
+              <path
+                d="M -10 205 Q 120 40 250 115 T 410 35"
+                fill="none"
+                stroke="#fff"
+                strokeWidth="1.5"
+                strokeDasharray="6 8"
+              />
+            </svg>
+            <div className="relative flex items-center justify-between gap-2">
               <span className="min-w-0 truncate text-sm font-semibold">{CAROUSEL.exportSlide.title}</span>
               <span className="shrink-0 rounded-lg bg-white/15 px-2 py-1 text-xs">{CAROUSEL.exportSlide.tag}</span>
             </div>
-            <div className="flex min-h-0 flex-1 items-center justify-center">
-              <div className="w-[210px] -rotate-3 rounded-xl bg-white p-3 shadow-2xl sm:w-[280px] sm:p-4">
-                <div className="h-1.5 rounded-full bg-gradient-to-r from-teal-500 via-amber-400 to-rose-400" />
-                <p className="mt-2 truncate text-sm font-bold text-stone-900">{CAROUSEL.exportSlide.ticketTitle}</p>
-                <p className="mt-0.5 text-xs text-stone-500">{CAROUSEL.exportSlide.ticketMeta}</p>
-                <div className="my-2.5 border-t border-dashed border-stone-300" />
-                <div className="flex items-end justify-between gap-3">
-                  {/* 条形码竖线组 */}
-                  <div className="flex h-6 items-end gap-[2px]">
-                    {[3, 1, 2, 1, 3, 2, 1, 2, 3, 1, 2, 1, 3, 1, 2, 2, 1, 3].map((w, bi) => (
-                      <span key={bi} className="h-6 bg-stone-800" style={{ width: w }} />
-                    ))}
-                  </div>
-                  {/* QR 示意方块（棋盘格模拟） */}
-                  <span
-                    className="block h-9 w-9 shrink-0 rounded-sm border-2 border-stone-800"
-                    style={{
-                      backgroundImage: 'repeating-conic-gradient(#1c1917 0 25%, #fff 0 50%)',
-                      backgroundSize: '6px 6px',
-                    }}
-                  />
+            {/* 票根：微旋转 -3deg、大阴影，撑满中部（1440 下占卡片面积 ≥55%） */}
+            <div className="relative mt-3 flex min-h-0 flex-1 items-stretch justify-center">
+              <div
+                data-ticket="1"
+                className="relative flex h-full w-[92%] max-w-[430px] -rotate-3 flex-col rounded-2xl bg-[#fffdf8] p-3 text-stone-800 shadow-2xl sm:p-4"
+              >
+                {/* 顶部渐变条 teal→amber→rose */}
+                <div className="h-1.5 shrink-0 rounded-full bg-gradient-to-r from-teal-500 via-amber-400 to-rose-400" />
+                {/* 票头：自绘小 logo + 产品名；右侧 ROUTE PASS 徽章 */}
+                <div className="mt-2 flex shrink-0 items-center justify-between gap-2">
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-gradient-to-br from-teal-500 to-teal-700">
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                        <polyline
+                          points="2,11 5,5 9,8 12,3"
+                          stroke="#fff"
+                          strokeWidth="1.6"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                        <circle cx="5" cy="5" r="1.4" fill="#fbbf24" />
+                        <circle cx="9" cy="8" r="1.4" fill="#fda4af" />
+                      </svg>
+                    </span>
+                    <span className="min-w-0 truncate text-[11px] font-bold text-stone-700 sm:text-xs">
+                      {CAROUSEL.exportSlide.brand}
+                    </span>
+                  </span>
+                  <span className="flex shrink-0 items-center gap-1 rounded-full border border-teal-600/40 px-2 py-0.5 text-[9px] font-bold tracking-wide text-teal-700">
+                    {CAROUSEL.exportSlide.badgeTop}
+                    <span className="hidden font-normal text-stone-500 sm:inline">
+                      / {CAROUSEL.exportSlide.badgeSub}
+                    </span>
+                  </span>
                 </div>
+                {/* 主标题 */}
+                <p className="mt-1.5 truncate text-base font-black leading-snug text-stone-900 sm:text-lg">
+                  {CAROUSEL.exportSlide.ticketTitle}
+                </p>
+                {/* 信息列：小标签+粗值+细竖线（390 隐藏次要列「交通」，保证日期等完整） */}
+                <div className="mt-2 flex shrink-0 items-stretch divide-x divide-stone-200">
+                  {CAROUSEL.exportSlide.infoCols.map((c) => (
+                    <div
+                      key={c.label}
+                      className={`min-w-0 px-1.5 first:pl-0 last:pr-0 ${c.wide ? 'flex-[1.5]' : 'flex-1'} ${c.minor ? 'hidden sm:block' : 'block'}`}
+                    >
+                      <p className="text-[8px] tracking-wide text-stone-400 sm:text-[9px]">{c.label}</p>
+                      <p className="whitespace-nowrap text-[10px] font-bold text-stone-800 sm:text-xs">{c.value}</p>
+                    </div>
+                  ))}
+                </div>
+                {/* 撕票虚线 + 左右半圆缺口（与背景同色圆模拟打孔） */}
+                <div className="relative mt-2.5 shrink-0">
+                  <div className="border-t-2 border-dashed border-stone-300" />
+                  <span className="absolute -left-[22px] top-1/2 h-5 w-5 -translate-y-1/2 rounded-full bg-[#1e1b4b] sm:-left-[26px]" />
+                  <span className="absolute -right-[22px] top-1/2 h-5 w-5 -translate-y-1/2 rounded-full bg-[#1e1b4b] sm:-right-[26px]" />
+                </div>
+                {/* 副票区：条形码+票号 / QR 示意+扫码提示 */}
+                <div className="flex min-h-0 flex-1 items-end justify-between gap-3 pt-2.5">
+                  <div className="flex min-w-0 flex-col gap-1.5">
+                    <div className="flex h-7 items-end gap-[2px]">
+                      {[3, 1, 2, 1, 3, 2, 1, 2, 3, 1, 2, 1, 3, 1, 2, 2, 1, 3, 2, 1].map((w, bi) => (
+                        <span key={bi} className="h-7 bg-stone-800" style={{ width: w }} />
+                      ))}
+                    </div>
+                    <p className="text-[9px] font-semibold tracking-wider text-stone-500 sm:text-[10px]">
+                      {CAROUSEL.exportSlide.ticketNo}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 flex-col items-center gap-1">
+                    <span
+                      className="block h-12 w-12 shrink-0 rounded-sm border-2 border-stone-800 sm:h-14 sm:w-14"
+                      style={{
+                        backgroundImage: 'repeating-conic-gradient(#1c1917 0 25%, #fff 0 50%)',
+                        backgroundSize: '7px 7px',
+                      }}
+                    />
+                    <p className="text-[8px] text-stone-500 sm:text-[9px]">{CAROUSEL.exportSlide.qrHint}</p>
+                  </div>
+                </div>
+                <p className="mt-1.5 hidden shrink-0 text-[8px] tracking-widest text-stone-400 sm:block">
+                  {CAROUSEL.exportSlide.footer}
+                </p>
+                {/* 斜置描边圆章「已出发 / DEPARTED」（80% 透明，压撕票线下方） */}
+                <span className="pointer-events-none absolute right-14 top-[58%] grid h-14 w-14 -rotate-12 place-items-center rounded-full border-2 border-rose-400/80 opacity-80 sm:h-16 sm:w-16">
+                  <span className="flex flex-col items-center leading-none">
+                    <span className="text-[10px] font-black text-rose-500/90 sm:text-xs">
+                      {CAROUSEL.exportSlide.stampTop}
+                    </span>
+                    <span className="mt-0.5 text-[6px] font-bold tracking-wider text-rose-500/90 sm:text-[7px]">
+                      {CAROUSEL.exportSlide.stampSub}
+                    </span>
+                  </span>
+                </span>
               </div>
             </div>
+            <p className="relative pt-2 text-center text-[10px] text-white/60">{CAROUSEL.exportSlide.caption}</p>
           </div>
           {/* 底部圆点：button 可点击切换；当前屏 aria-current="true"；浅色背景屏（第 2/4 屏）用深色圆点 */}
           <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 items-center gap-2">
