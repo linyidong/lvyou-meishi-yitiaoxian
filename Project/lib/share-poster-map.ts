@@ -1,4 +1,4 @@
-import { POSTER_MAP_H, POSTER_MAP_W } from '@/lib/route-poster';
+import { POSTER_MAP_H, POSTER_MAP_W, pickFitZoom } from '@/lib/route-poster';
 import { requestStaticMap } from '@/lib/amap';
 import { PLACE_TYPE } from '@/config/enums';
 import type { RouteShareSnapshot } from '@/types';
@@ -10,9 +10,9 @@ import type { RouteShareSnapshot } from '@/types';
  * 内部走高德 Web 服务 Key 池（lib/amap.requestStaticMap）并持有进程内缓存，
  * 下发给客户端的只有 PNG data URL，坐标/地址仍不下发。
  *
- * 缓存：key = `v6:${cacheKey}:${dayIndex}:${coordsHash}`，TTL 6 小时；
+ * 缓存：key = `v7:${cacheKey}:${dayIndex}:${coordsHash}`，TTL 6 小时；
  * 同一 token 重复打开命中缓存，不再消耗高德额度。
- * v6 前缀：T-079 起按包围盒自适应 zoom + 地名标签（交替上下避让；T-078 编号/配色；无填充），旧「红点紫线」缓存内容作废。
+ * v7 前缀：T-079 起按包围盒自适应 zoom + 地名标签（交替上下避让；T-078 编号/配色；无填充；T-081 共用 fit 口径），旧「红点紫线」缓存内容作废。
  * 失败结果也缓存（value=null，同样 6h TTL）：否则每次匿名打开都会重试失败调用，
  * 反复消耗 Key 池并拖慢 RSC；额度恢复后最多 6h 即自动重试。
  * 单天失败 catch → null + console.warn，由海报端画占位框，绝不抛出阻断页面。
@@ -33,32 +33,6 @@ const DAY_HEX = ['#e11d48', '#0d9488', '#d97706', '#4f46e5', '#0284c7'];
 const MARKER_ATTRACTION = '#14b8a6';
 const MARKER_FOOD = '#f59e0b';
 
-/**
- * T-079：按「点位包围盒 + 输出图片尺寸」算能放下的最大 zoom（10–16，四周留 18% 边距）。
- * 原来的 pickZoom 只看经纬跨度，宽图（984×552）会把小范围路线缩得过远，海报地图显得太空。
- */
-function pickFitZoom(
-  points: { lng: number; lat: number }[],
-  width: number,
-  height: number,
-): number {
-  if (points.length < 2) return 15;
-  const lats = points.map((p) => p.lat);
-  const lngs = points.map((p) => p.lng);
-  const centerLat = (Math.min(...lats) + Math.max(...lats)) / 2;
-  const cos = Math.cos((centerLat * Math.PI) / 180);
-  const widthM = (Math.max(...lngs) - Math.min(...lngs)) * 111320 * cos;
-  const heightM = (Math.max(...lats) - Math.min(...lats)) * 110540;
-  // 实测高德静态图在 984×552 下的可视范围比公式估计窄，留 42% 边距才能保证所有点入镜
-  const pad = 0.42;
-  for (let z = 16; z >= 10; z -= 1) {
-    const metersPerPx = (156543.03392 * cos) / Math.pow(2, z);
-    if (widthM <= width * pad * metersPerPx && heightM <= height * pad * metersPerPx) {
-      return z;
-    }
-  }
-  return 10;
-}
 
 /**
  * 按 snapshot 逐天生成静态地图 data URL；与 renderRoutePoster 的 dayPlans 下标一一对应。
@@ -113,7 +87,7 @@ export async function buildSharePosterMapImages(
           };
         });
 
-      const key = `v6:${cacheKey}:${i}:${coordsHash(points)}`;
+      const key = `v7:${cacheKey}:${i}:${coordsHash(points)}`;
       const hit = cache.get(key);
       if (hit && hit.expiresAt > now) return hit.value;
 

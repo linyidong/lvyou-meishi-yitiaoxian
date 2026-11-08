@@ -1,4 +1,4 @@
-import { PLACE_TYPE_LABEL, TRANSPORT_LABEL } from '@/config/enums';
+import { PLACE_TYPE, PLACE_TYPE_LABEL, TRANSPORT_LABEL } from '@/config/enums';
 import { MESSAGES } from '@/config/messages';
 import { PRODUCT } from '@/config/product';
 import type { RouteShareSnapshot } from '@/types';
@@ -20,6 +20,10 @@ const CONTENT_W = WIDTH - PAD * 2;
 /** 每天地图尺寸（≤ 高德静态图 1024*1024 上限） */
 const MAP_W = CONTENT_W;
 const MAP_H = 552;
+/** 每天路线颜色（与路线页 DAY_HEX 同口径） */
+const DAY_COLORS = ['#e11d48', '#0d9488', '#d97706', '#4f46e5', '#0284c7'] as const;
+const MARKER_SPOT = '#14b8a6';
+const MARKER_FOOD = '#f59e0b';
 /** T-077：服务端（lib/share-poster-map）生成免费海报静态地图时复用同一尺寸口径 */
 export const POSTER_MAP_W = MAP_W;
 export const POSTER_MAP_H = MAP_H;
@@ -197,22 +201,69 @@ export function pickZoom(points: { lng: number; lat: number }[]): number {
   return 10;
 }
 
+
+/** T-081：按点位包围盒 + 输出尺寸算 fit zoom（与分享海报同口径，10–16，留 18% 边距） */
+export function pickFitZoom(
+  points: { lng: number; lat: number }[],
+  width: number,
+  height: number,
+): number {
+  if (points.length < 2) return 15;
+  const lats = points.map((p) => p.lat);
+  const lngs = points.map((p) => p.lng);
+  const centerLat = (Math.min(...lats) + Math.max(...lats)) / 2;
+  const cos = Math.cos((centerLat * Math.PI) / 180);
+  const widthM = (Math.max(...lngs) - Math.min(...lngs)) * 111320 * cos;
+  const heightM = (Math.max(...lats) - Math.min(...lats)) * 110540;
+  const pad = 0.42;
+  for (let z = 16; z >= 10; z -= 1) {
+    const metersPerPx = (156543.03392 * cos) / Math.pow(2, z);
+    if (widthM <= width * pad * metersPerPx && heightM <= height * pad * metersPerPx) return z;
+  }
+  return 10;
+}
+
 /**
  * 经服务端代理拉当天静态地图；任何失败（未登录 / 无坐标 / 超时 / 上游错误）返回 null，
  * 由绘制端画占位框，绝不阻断导出。
  */
 async function fetchDayMapBitmap(
   points: { lng: number; lat: number }[],
+  opts?: {
+    markers?: { lng: number; lat: number; label?: string; color?: string }[];
+    labels?: { lng: number; lat: number; text: string }[];
+    lineColor?: string;
+    zoom?: number;
+  },
 ): Promise<ImageBitmap | null> {
   if (points.length === 0) return null;
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 12000);
   try {
-    const coords = encodeURIComponent(points.map((p) => `${p.lng},${p.lat}`).join(';'));
-    const res = await fetch(
-      `/api/amap/staticmap?coords=${coords}&size=${MAP_W}*${MAP_H}&zoom=${pickZoom(points)}`,
-      { signal: ctrl.signal },
-    );
+    const params = new URLSearchParams({
+      coords: points.map((p) => `${p.lng},${p.lat}`).join(';'),
+      size: `${MAP_W}*${MAP_H}`,
+      zoom: String(opts?.zoom ?? pickZoom(points)),
+    });
+    if (opts?.markers && opts.markers.length > 0) {
+      params.set(
+        'markers',
+        opts.markers
+          .map((m) => `${m.lng},${m.lat},${m.label ?? ''},${m.color ?? ''}`)
+          .join(';'),
+      );
+    }
+    if (opts?.labels && opts.labels.length > 0) {
+      params.set(
+        'labels',
+        opts.labels
+          .slice(0, 10)
+          .map((l) => `${l.lng},${l.lat},${l.text.replace(/[,;]/g, ' ').slice(0, 15)}`)
+          .join(';'),
+      );
+    }
+    if (opts?.lineColor) params.set('lineColor', opts.lineColor);
+    const res = await fetch(`/api/amap/staticmap?${params.toString()}`, { signal: ctrl.signal });
     if (!res.ok) return null;
     const blob = await res.blob();
     return await createImageBitmap(blob);
@@ -240,12 +291,48 @@ export async function renderRoutePoster(input: {
       .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng))
       .map((p) => ({ lng: p.lng as number, lat: p.lat as number })),
   );
+  // T-081：会员导出长图的地图也用与路线页一致的编号/配色/线色（不再统一红点紫线）
+  const dayMarkers = snapshot.dayPlans.map((d) =>
+    (d.places ?? []).flatMap((p, i) =>
+      Number.isFinite(p.lat) && Number.isFinite(p.lng)
+        ? [
+            {
+              lng: p.lng as number,
+              lat: p.lat as number,
+              label: i < 9 ? String(i + 1) : '',
+              color: p.type === PLACE_TYPE.FOOD ? MARKER_FOOD : MARKER_SPOT,
+            },
+          ]
+        : [],
+    ),
+  );
   const [maps, qrImg] = await Promise.all([
     Promise.all(
       dayPoints.map(async (pts, i) => {
         const dataUrl = mapImages?.[i];
         if (dataUrl) return await loadImage(dataUrl);
-        return await fetchDayMapBitmap(pts);
+        const zoom = pickFitZoom(pts, MAP_W, MAP_H);
+        const labels = (snapshot.dayPlans[i].places ?? [])
+          .flatMap((p, idx) => {
+            if (!Number.isFinite(p.lat) || !Number.isFinite(p.lng)) return [];
+            const metersPerPx =
+              (156543.03392 * Math.cos(((p.lat as number) * Math.PI) / 180)) / Math.pow(2, zoom);
+            const dir = idx % 2 === 0 ? 1 : -1;
+            return [
+              {
+                lng: p.lng as number,
+                lat: (p.lat as number) + (dir * 26 * metersPerPx) / 111320,
+                text: p.name,
+              },
+            ];
+          })
+          .slice(0, 10);
+        return await fetchDayMapBitmap(pts, {
+          markers: dayMarkers[i],
+          labels,
+          lineColor: DAY_COLORS[i % DAY_COLORS.length],
+          zoom,
+        });
       }),
     ),
     loadImage(qrDataUrl),
