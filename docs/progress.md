@@ -10,14 +10,14 @@
 - 当前门禁：G1–G5 通过；G6 部分通过（代码/测试证据齐全，人工走查欠账）；G7 未通过
 - 当前任务：无（T-064 文档校准、T-065 自检脚本已完成）；下一个任务等用户走查结果再立卡
 - 任务状态：无进行中
-- 下一步：① 修主机名解析（路由 DHCP 保留 / 本机 hosts）② 用户集中走查 10 项 ③ 备份与回滚演练 ④ 备案通过后按 `deployment.md` §4.5 + §7 上线
+- 下一步：① 用户集中走查 10 项 ② 备份与回滚演练 ③ 备案通过后按 `deployment.md` §4.5 + §7 上线（主机名问题已于 17:43 修复）
 - 阻塞：**ICP 管局审核中**（订单 30179266293835414；2026-10-23 17:11:23 提交，工信部短信核验已完成；腾讯云预计 **2026-11-19** 完成，最迟 2026-11-20）
-- 最近更新：2026-11-08 15:40（T-064 校准）
+- 最近更新：2026-11-08 17:50（C12 环境修复关闭）
 
 **状态行**（每次汇报第一行）：
 
 ```text
-【阶段 8 · G7 未通过 · 任务：无 · 下一步：修主机名 → 用户走查 → 等备案（预计 11-19）】
+【阶段 8 · G7 未通过 · 任务：无 · 下一步：用户走查 → 备份演练 → 等备案（预计 11-19）】
 ```
 
 ## 2. 阶段进度
@@ -123,7 +123,7 @@
 | 阻塞/问题 | 影响任务 | 需要谁处理 | 状态 |
 |---|---|---|---|
 | **ICP 备案管局审核中**（订单 30179266293835414；2026-10-23 17:11:23 提交，工信部短信核验已完成） | 阶段 8 上线 / T-064 | 福建省通信管理局（用户跟踪腾讯云控制台） | **阻塞中**：腾讯云预计 **2026-11-19** 完成，最迟 2026-11-20；通过前不解析域名、不启用 Nginx、不对外服务。通过后还需做**公安联网备案**（授权已完成，凭数据码到公安联网备案平台办理） |
-| **主机名 `desktop-vrd3hft` 解析失败**（2026-11-08 实测：`ping` 未知主机；Supabase 实际在 `192.168.1.10:8000`，REST 200） | 本地开发 / 走查 / E2E | 用户（路由器 DHCP 保留 + hosts 或静态 IP）；临时可用环境变量覆盖启动 | **待处理**：已用 `NEXT_PUBLIC_SUPABASE_URL=http://192.168.1.10:8000 npm run dev` 跑通验证；永久修法见 `deployment.md` 附录 |
+| ~~主机名 `desktop-vrd3hft` 解析失败~~ | ~~本地开发 / 走查 / E2E~~ | 用户按指引完成：E2633 保持桥接 + Windows 静态 `.10` + Mac hosts | **已解决（2026-11-08 17:43）**：`check:env` 无覆盖 4 项全绿、`check:schema` 65 项、E2E 8 passed；残余风险=`.10` 仍在光猫 DHCP 池内（建议 10086 做绑定/改池） |
 | ~~A5：两个高德代理 API 无鉴权~~ | ~~T-001~~ | 已修：删死接口 + landmarks 加鉴权 | **已解决（T-001，commit `ee0c4ea`）** |
 | ~~仓库无自动化测试框架~~ | ~~阶段 7–8~~ | 已建 vitest 113 + Playwright 8 | **已解决（T-019/T-024）** |
 | ~~B9 城市清单 104 vs 库内 92~~ | ~~出发城市/导入~~ | 误报，已撤销；现有 `check:cities` 脚本 | **已解决（2026-10-21）** |
@@ -134,6 +134,8 @@
 > 产品决策类问题见 `open-questions.md`（Q-002/Q-007/Q-008/Q-010/Q-011/Q-013/Q-014）。
 
 ## 6. 最近变更摘要
+
+- 2026-11-08 17:50：**C12 关闭（环境恢复）**——E2633 保持桥接（改自动IP/PPPoE 会双 NAT 断网，实测）；Windows WLAN 由 DHCP 改**静态 `192.168.1.10`**（`ipconfig` 确认 DHCP 已启用=否）；Mac `/etc/hosts` 固定 `desktop-vrd3hft → 192.168.1.10`。验证：`check:env`（无覆盖）4 项全绿、`check:schema` 65 项全过、`check:cities` 库内一致、`test:e2e` **8 passed (12.4s)**。注意 `ping` 丢包是 Windows 防火墙拦 ICMP，用 `nc -z host 8000` 判活
 
 - 2026-11-08 15:40：**T-064 进度看板校准 + 环境恢复 + 数据卫生**——① 顶部状态/阶段表/门禁/任务表/阻塞表/交接索引全量校准（补 12 个漏记任务、G5 补记通过、G6 降为部分通过）；② 修复运行环境：实测 Supabase 在 `192.168.1.10:8000`（REST 200），但主机名 `desktop-vrd3hft` 已无法解析，用环境变量覆盖启动 dev 并跑通；③ 基线：`typecheck` exit 0、单测 **113 passed**、`build` **exit 0**、E2E **8 passed (13.8s)**、`audit:mobile` 横向溢出 0（剩 2 条小字号/小按钮告警，见 known-issues C13）；④ 数据卫生：删除 5 个测试账号（`t051-*` / `t054-*`×3 / `e2e-*`，GoTrue Admin API 200），删除前快照存 `/tmp/t064-testdata-backup.json`，库内 users 8→3、routes/places/shares 零损失；⑤ 备案状态更新为「管局审核中，预计 2026-11-19」；⑥ 新增 T-062/T-063/T-064/T-065 任务卡与阶段 8 交接摘要
 
@@ -245,8 +247,8 @@
 - [x] 当前阶段与阶段进度表一致（阶段 8 进行中）
 - [x] 当前门禁与门禁表一致（G1–G5 通过 / G6 部分 / G7 未通过）
 - [x] 当前任务与任务表一致（无进行中任务；T-064/T-065 已完成）
-- [x] 下一步是具体动作（修主机名 → 用户走查 → 等备案）
-- [x] 阻塞写清了需要谁（管局审核归用户跟踪；主机名归用户/路由）
+- [x] 下一步是具体动作（用户走查 → 备份演练 → 等备案）
+- [x] 阻塞写清了需要谁（仅剩管局审核，归用户跟踪）
 - [x] 没有把「待验证」写成「已完成」（人工走查仍标未关闭）
 
 ## 9. 下次会话从这里开始（2026-11-08 更新）
@@ -257,7 +259,7 @@
 
 **开工三步（不依赖备案）**
 
-1. 解析检查：`ping desktop-vrd3hft` 应通。不通先修——路由器给 Windows 做 DHCP 保留（MAC `3c:a0:67:af:13:f7` → `192.168.1.10`），或本机 `/etc/hosts` 加一行 `192.168.1.10 desktop-vrd3hft`。临时绕过（不改 `.env.local`）：`NEXT_PUBLIC_SUPABASE_URL=http://192.168.1.10:8000 npm run dev`
+1. 解析检查：`ping desktop-vrd3hft` 能解析出 `192.168.1.10` 即可（**ping 丢包正常**，Windows 防火墙拦 ICMP）；用 `nc -z -G 2 desktop-vrd3hft 8000` 判活。已修配置：E2633 桥接 + Windows 静态 `.10` + Mac `/etc/hosts`（详见 `known-issues` C12 与 `deployment.md` 附录）
 2. `cd Project && npm run check:env`（T-065 后支持环境变量覆盖；不再依赖写死 IP）
 3. 起 dev 后跑门禁：`npm run typecheck` → `npm run test:run` → `npm run test:e2e` → `npm run build`（**build 与 dev 不要同时写同一个 `.next`**）→ `npm run audit:mobile`
 
@@ -267,7 +269,7 @@
 |---|---|
 | typecheck | exit 0 |
 | 单测 | **113 passed / 13 文件** |
-| E2E | **8 passed (13.8s)**（需先 `npx playwright install chromium`；国内建议 `PLAYWRIGHT_DOWNLOAD_HOST=https://npmmirror.com/mirrors/playwright`） |
+| E2E | **8 passed**（13.8s @15:41；12.4s @17:44 复跑）（需先 `npx playwright install chromium`；国内建议 `PLAYWRIGHT_DOWNLOAD_HOST=https://npmmirror.com/mirrors/playwright`） |
 | 生产构建 | **exit 0**（全 Route 表 + 静态页） |
 | 移动端审计 | 横向溢出 **0**；2 条告警（首页 SVG 字号 8.5/11.5px、Redmi 挑选页一个 37px 链接）→ known-issues C13 |
 | 数据库 | users 3 / routes 11 / places 1367 / cities 109 / route_shares 20 / member_orders **0** |

@@ -94,8 +94,38 @@ npm run dev -- -H 0.0.0.0 -p 3000
 | dev server 本机 | `http://127.0.0.1:3000/` | `npm run dev -- -H 0.0.0.0 -p 3000` |
 | dev server 局域网 | `http://<本机IP>:3000/`（脚本运行时探测） | 同上；确认在同一 Wi-Fi |
 
-> 自建 Supabase 跑在另一台机器（`.env.local` 里写的是主机名 `desktop-vrd3hft`，2026-11-08 实际在 `192.168.1.10`）的 Docker 里，**它是否在线不取决于本项目**。主机名解析失败时用 `NEXT_PUBLIC_SUPABASE_URL=http://<ip>:8000` 覆盖，不要改 `.env.local`。
+> 自建 Supabase 跑在另一台机器（`.env.local` 写主机名 `desktop-vrd3hft`，2026-11-08 起由 hosts 固定到 `192.168.1.10`）的 Docker 里，**它是否在线不取决于本项目**。主机名解析失败时用 `NEXT_PUBLIC_SUPABASE_URL=http://<ip>:8000` 覆盖，不要改 `.env.local`。
 > 若整台机器重启，需要在那台 Windows 上把 Supabase 容器起来（`docker compose up -d`），再回到这里跑 `check:env`。
+
+
+### 6.1 连不上 Supabase 的排查顺序（2026-11-08 实修记录）
+
+```bash
+ping -c 2 desktop-vrd3hft          # 能解析出 192.168.1.10 即可；丢包正常（防火墙拦 ICMP）
+nc -z -G 2 desktop-vrd3hft 8000    # TCP 通才算通
+cd Project && npm run check:env    # 看「配置来源」和 Supabase 那行
+```
+
+解析失败（`Unknown host`）时：
+
+1. 找 Windows 当前 IP：`arp -a | grep -i "3c:a0:67:af:13:f7"`
+2. Mac 加映射并刷新：
+   ```bash
+   echo "192.168.1.10 desktop-vrd3hft" | sudo tee -a /etc/hosts
+   sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder
+   ```
+3. 临时绕过（不改 `.env.local`）：`NEXT_PUBLIC_SUPABASE_URL=http://<ip>:8000 npm run dev`
+
+**本机拓扑（2026-11-08 定稿）**
+
+| 设备 | 角色 | 配置 |
+|---|---|---|
+| 光猫 `SK-D840N`（中国移动） | 拨号 + DHCP | `192.168.1.1`，池 `.2–.254` |
+| 中兴 `E2633` | **桥接 / AP** | `192.168.1.2`；**不要**改「自动IP/PPPoE」（双 NAT 断网）、不要用「无线中继」 |
+| Windows（Supabase） | 库 + Docker | WLAN，**静态 `192.168.1.10`**，网关/DNS `192.168.1.1` |
+| Mac（应用/开发） | Next dev | `/etc/hosts` 固定主机名；Mac 自身 IP 可 DHCP |
+
+**残余风险**：`.10` 仍在光猫 DHCP 池内，新增设备理论上可能冲突；彻底消除需移动超管做「静态地址绑定」或把池改 `.100–.254`（10086/装维）。
 
 ## 7. 每天收工（可选）
 
