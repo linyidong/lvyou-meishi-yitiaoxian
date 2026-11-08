@@ -330,7 +330,7 @@ export function AdminUsersClient({
               return (
                 <li key={u.id} className="px-4 py-3">
                   <div className="flex items-start justify-between gap-2">
-                    <p className="min-w-0 flex-1 truncate font-medium">{u.email ?? '—'}</p>
+                    <p className="min-w-0 flex-1 truncate font-medium">{u.email ?? u.username ?? '—'}</p>
                     <span
                       className={`shrink-0 rounded px-2 py-0.5 text-xs ${
                         u.role === USER_ROLE.ADMIN
@@ -438,7 +438,7 @@ export function AdminUsersClient({
                   const mstate = memberStateOf(u);
                   return (
                     <tr key={u.id}>
-                      <td className="px-4 py-3">{u.email ?? '—'}</td>
+                      <td className="px-4 py-3">{u.email ?? u.username ?? '—'}</td>
                       <td className="px-4 py-3">{u.username ?? '—'}</td>
                       <td className="px-4 py-3">
                         <span

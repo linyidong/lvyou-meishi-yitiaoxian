@@ -31,7 +31,9 @@ export default async function AdminUsersPage() {
       .limit(BUSINESS.MEMBER_LOG_LIMIT),
   ]);
 
-  const emailById = new Map((usersRes.data ?? []).map((u) => [u.id, u.email ?? '—']));
+  const emailById = new Map(
+    (usersRes.data ?? []).map((u) => [u.id, u.email ?? u.username ?? '—']),
+  );
 
   // 管理员账号置顶展示，其余用户按注册时间倒序（SQL 侧已按倒序返回，此处仅把管理员提前）
   const users: AdminUserItem[] = (usersRes.data ?? [])
