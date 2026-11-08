@@ -130,7 +130,7 @@
 | T-074 | 分享弹窗取消自动下载 + 隐藏滚动条 | **已完成（Harness 验收）** | 2026-11-08 | 2026-11-08 | `8f7cf8c` | 打开弹窗 download=0、点「下载长图」后=1；弹窗 scrollHeight=clientHeight=637、scrollbarWidth=none；390 无可见滚动条；typecheck 0 / 113 / E2E 8 (12.2s) | 用户 21:23 反馈 |
 | T-075 | 路线结果页列表序号与地图编号统一 1 基 | **已完成（Harness 验收）** | 2026-11-08 | 2026-11-08 | 待回填 | 根因：无 synthetic 住宿行时列表 0 基、地图 1 基；改为统一 1 基；实测 390 列表 1..6 = 地图 marker 1..6；typecheck 0 / 113 / E2E | 走查 03 发现 |
 | T-076 | 后台路线列表铺满自适应 + 高德服务中文标注 | **已完成（Harness 验收通过）** | 2026-11-08 | 2026-11-08 | `5d1cc00` | Trae 实施：AdminShell `wide` 仅路线页（`max-w-none`）、表格 `min-w-[1180px]` + 关键列 nowrap + 长文本 truncate/title；用量行 `${service}（中文） · N 次`（8 键映射）；独立验收：1920 表格右缘差 1px、城市 sw=cw 不折行、390 卡片/表格隐藏、`/admin/users` 仍 1536、用量 6 行中文正确；typecheck 0 / 113 / E2E 8 (15.4s) | 用户 21:55 反馈 |
-| T-077 | 免费分享海报服务端生成静态地图（缓存） | **已完成（Harness 验收通过）** | 2026-11-08 | 2026-11-08 | 待回填 | Trae 实施：新增 `lib/share-poster-map.ts`（RSC 用 Key 池生成每天静态图 → data URL，6h 进程缓存，失败缓存 null 降级）；`renderRoutePoster` 支持 `mapImages`；免费分支下发 data URL；独立验收：匿名海报真实地图（无「地图暂不可用」）、HTML `lat/lng/address` 计数 0、会员/失效不变；缓存复测两次打开 staticmap 计数 delta=0；typecheck 0 / 113 / E2E 8 (14.3s) | 走查 05 问题；验证消耗 staticmap 10→16（首次视图正常计费） |
+| T-077 | 免费分享海报服务端生成静态地图（缓存） | **已完成（Harness 验收通过）** | 2026-11-08 | 2026-11-08 | `745ed21` | Trae 实施：新增 `lib/share-poster-map.ts`（RSC 用 Key 池生成每天静态图 → data URL，6h 进程缓存，失败缓存 null 降级）；`renderRoutePoster` 支持 `mapImages`；免费分支下发 data URL；独立验收：匿名海报真实地图（无「地图暂不可用」）、HTML `lat/lng/address` 计数 0、会员/失效不变；缓存复测两次打开 staticmap 计数 delta=0；typecheck 0 / 113 / E2E 8 (14.3s) | 走查 05 问题；验证消耗 staticmap 10→16（首次视图正常计费） |
 ## 5. 阻塞与待确认
 
 | 阻塞/问题 | 影响任务 | 需要谁处理 | 状态 |
