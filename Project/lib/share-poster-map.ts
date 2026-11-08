@@ -10,9 +10,9 @@ import type { RouteShareSnapshot } from '@/types';
  * 内部走高德 Web 服务 Key 池（lib/amap.requestStaticMap）并持有进程内缓存，
  * 下发给客户端的只有 PNG data URL，坐标/地址仍不下发。
  *
- * 缓存：key = `v5:${cacheKey}:${dayIndex}:${coordsHash}`，TTL 6 小时；
+ * 缓存：key = `v6:${cacheKey}:${dayIndex}:${coordsHash}`，TTL 6 小时；
  * 同一 token 重复打开命中缓存，不再消耗高德额度。
- * v5 前缀：T-079 起按包围盒自适应 zoom + 地名标签（交替上下避让；T-078 编号/配色），旧「红点紫线」缓存内容作废。
+ * v6 前缀：T-079 起按包围盒自适应 zoom + 地名标签（交替上下避让；T-078 编号/配色；无填充），旧「红点紫线」缓存内容作废。
  * 失败结果也缓存（value=null，同样 6h TTL）：否则每次匿名打开都会重试失败调用，
  * 反复消耗 Key 池并拖慢 RSC；额度恢复后最多 6h 即自动重试。
  * 单天失败 catch → null + console.warn，由海报端画占位框，绝不抛出阻断页面。
@@ -113,7 +113,7 @@ export async function buildSharePosterMapImages(
           };
         });
 
-      const key = `v5:${cacheKey}:${i}:${coordsHash(points)}`;
+      const key = `v6:${cacheKey}:${i}:${coordsHash(points)}`;
       const hit = cache.get(key);
       if (hit && hit.expiresAt > now) return hit.value;
 

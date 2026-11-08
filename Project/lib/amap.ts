@@ -1053,7 +1053,8 @@ export async function requestStaticMap(params: {
   if (points.length >= 2) {
     // 路线折线：6px 宽主色线（组内点位用 ; 分隔）
     const lineHex = lineColor ? toAmapHex(lineColor) : '0x7C3AED';
-    query.paths = `6,${lineHex},1,${lineHex},0.2:${locs.join(';')}`;
+    // 第 4/5 个参数是填充色/透明度：置 0，避免静态图把折线围成半透明多边形（路线页无填充）
+    query.paths = `6,${lineHex},1,${lineHex},0:${locs.join(';')}`;
   }
   if (labels && labels.length > 0) {
     // T-079：地点名称标签（白底深字，最多 10 个；逗号/冒号/竖线会被 API 当分隔符，先替换）
