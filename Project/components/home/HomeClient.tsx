@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import {
   ArrowRight,
@@ -80,8 +81,8 @@ const LABEL_POS = [
   { cx: 272, by: 82 },
 ] as const;
 
-/** T-068：首页右侧示意轮播（屏数 / 每屏停留毫秒） */
-const SLIDE_COUNT = 3;
+/** T-068/T-069：首页右侧示意轮播（屏数 / 每屏停留毫秒） */
+const SLIDE_COUNT = 6;
 const CAROUSEL_INTERVAL_MS = 5000;
 const CAROUSEL = MESSAGES.SAMPLE_ROUTE.carousel;
 
@@ -210,8 +211,8 @@ export function HomeClient({
           </div>
         </div>
 
-        {/* T-068：3 屏自动轮播（路线示意 / 路线地图 / 收藏夹）。
-            第 1 屏原样保留且在文档流中决定卡片高度；第 2/3 屏为绝对定位覆盖层，切换时卡片 offsetHeight 不变（无布局跳动）。 */}
+        {/* T-068/T-069：6 屏自动轮播（路线示意 / 路线地图 / 收藏夹 / 景点 / 美食 / 旅行长图）。
+            第 1 屏原样保留且在文档流中决定卡片高度；其余屏为绝对定位覆盖层，切换时卡片 offsetHeight 不变（无布局跳动）。 */}
         <div
           className="relative min-w-0 min-h-[320px] overflow-hidden rounded-3xl bg-teal-900 p-6 text-white lg:col-span-2"
           role="group"
@@ -233,8 +234,8 @@ export function HomeClient({
               backgroundSize: '28px 28px',
             }}
           />
-          {/* 第 1 屏：现有路线示意（DOM/视觉原样迁移，仅包进轮播淡入淡出结构） */}
-          <div className={slideClass(0)} aria-hidden={slide !== 0}>
+          {/* 第 1 屏：现有路线示意（DOM/视觉原样迁移，仅包进轮播淡入淡出结构；透明背景透出卡片 teal-900） */}
+          <div className={slideClass(0)} data-slide="0" aria-hidden={slide !== 0}>
             <div className="relative flex items-center justify-between">
               <span className="text-sm font-semibold">{MESSAGES.SAMPLE_ROUTE.cityLine}</span>
               <span className="rounded-lg bg-white/15 px-2 py-1 text-xs">{MESSAGES.SAMPLE_ROUTE.tag}</span>
@@ -298,62 +299,37 @@ export function HomeClient({
               <span className="ml-auto">{MESSAGES.SAMPLE_ROUTE.distance}</span>
             </div>
           </div>
-          {/* 第 2 屏：路线地图示意（纯 SVG/CSS，不调高德、不加载图片） */}
+          {/* 第 2 屏：真实地图截图铺满（object-cover）+ 深色文字浮层；浅色底 #eef2f7（图片未覆盖区域兜底） */}
           <div
-            className={`absolute inset-0 flex flex-col p-6 ${slideClass(1)}`}
+            className={`absolute inset-0 ${slideClass(1)}`}
+            data-slide="1"
+            style={{ backgroundColor: CAROUSEL.slides[1].bg }}
             aria-hidden={slide !== 1}
           >
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold">{MESSAGES.SAMPLE_ROUTE.cityLine}</span>
-              <span className="rounded-lg bg-white/15 px-2 py-1 text-xs">{CAROUSEL.mapSlide.tag}</span>
+            <Image
+              src={CAROUSEL.mapSlide.img.src}
+              alt={CAROUSEL.mapSlide.img.alt}
+              fill
+              sizes="(max-width:1023px) 100vw, 40vw"
+              className="object-cover"
+            />
+            <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-4 md:p-6">
+              <span className="min-w-0 truncate rounded-full bg-white/85 px-3 py-1 text-sm font-semibold text-stone-800">
+                {CAROUSEL.mapSlide.title}
+              </span>
+              <span className="shrink-0 rounded-full bg-white/85 px-2.5 py-1 text-xs text-stone-700">
+                {CAROUSEL.mapSlide.tag}
+              </span>
             </div>
-            <svg className="mt-4 w-full" viewBox="0 0 300 180">
-              {/* 浅色地图底 + 道路细线 */}
-              <rect x="4" y="4" width="292" height="172" rx="10" fill="#f1f5f9" />
-              <g stroke="#cbd5e1" strokeWidth="2">
-                <line x1="4" y1="58" x2="296" y2="50" />
-                <line x1="4" y1="122" x2="296" y2="130" />
-                <line x1="82" y1="4" x2="74" y2="176" />
-                <line x1="184" y1="4" x2="196" y2="176" />
-                <line x1="244" y1="4" x2="240" y2="176" />
-              </g>
-              <g stroke="#e2e8f0" strokeWidth="1">
-                <line x1="4" y1="92" x2="296" y2="88" />
-                <line x1="132" y1="4" x2="128" y2="176" />
-              </g>
-              {/* 粉色虚线路线 */}
-              <polyline
-                fill="none"
-                points={CAROUSEL.mapSlide.points.map((p) => `${p.x},${p.y}`).join(' ')}
-                stroke="#fda4af"
-                strokeDasharray="8 6"
-                strokeLinecap="round"
-                strokeWidth="4"
-              />
-              {/* 编号点位（teal=景点 / amber=美食） */}
-              <g fontWeight="700" textAnchor="middle">
-                {CAROUSEL.mapSlide.points.map((p) => (
-                  <g key={p.n}>
-                    <circle
-                      cx={p.x}
-                      cy={p.y}
-                      r={11}
-                      fill={p.type === PLACE_TYPE.FOOD ? '#f59e0b' : '#14b8a6'}
-                      stroke="#fff"
-                      strokeWidth="2"
-                    />
-                    <text fontSize="10" fill="#fff" x={p.x} y={p.y + 3.5}>
-                      {p.n}
-                    </text>
-                  </g>
-                ))}
-              </g>
-            </svg>
-            <div className="mt-auto flex justify-end pt-4 text-xs">{MESSAGES.SAMPLE_ROUTE.distance}</div>
+            <span className="absolute bottom-2 right-3 rounded bg-white/75 px-1.5 py-0.5 text-[10px] text-stone-600">
+              {CAROUSEL.mapSlide.copyright}
+            </span>
           </div>
-          {/* 第 3 屏：收藏夹示意（PlaceGlyph 图标 + 名称 + 景点/美食标签；无外链图片、无 emoji） */}
+          {/* 第 3 屏：收藏夹示意（6 个地点卡 + 脚注；stone-900 深色背景，白字） */}
           <div
             className={`absolute inset-0 flex flex-col p-6 ${slideClass(2)}`}
+            data-slide="2"
+            style={{ backgroundColor: CAROUSEL.slides[2].bg }}
             aria-hidden={slide !== 2}
           >
             <div className="flex items-center justify-between">
@@ -392,7 +368,105 @@ export function HomeClient({
             </div>
             <p className="mt-3 text-xs text-white/70">{CAROUSEL.collectSlide.footnote}</p>
           </div>
-          {/* 底部圆点：button 可点击切换；当前屏 aria-current="true" */}
+          {/* 第 4/5 屏：景点 / 美食照片卡（本地照片，无外链；浅色背景屏用深色字） */}
+          {[CAROUSEL.attractionSlide, CAROUSEL.foodSlide].map((cfg, k) => {
+            const i = 3 + k;
+            const dark = CAROUSEL.slides[i].dotDark; // dotDark=true 即浅色背景屏（第 4 屏）→ 深色文字
+            return (
+              <div
+                key={cfg.tag}
+                className={`absolute inset-0 flex flex-col p-6 ${slideClass(i)}`}
+                data-slide={String(i)}
+                style={{ backgroundColor: CAROUSEL.slides[i].bg }}
+                aria-hidden={slide !== i}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className={`min-w-0 truncate text-sm font-semibold ${dark ? 'text-stone-800' : 'text-white'}`}>
+                    {cfg.title}
+                  </span>
+                  <span
+                    className={`shrink-0 rounded-lg px-2 py-1 text-xs ${dark ? 'bg-stone-900/10 text-stone-700' : 'bg-white/15 text-white'}`}
+                  >
+                    {cfg.tag}
+                  </span>
+                </div>
+                <div className="mt-4 grid min-h-0 flex-1 grid-cols-2 gap-3">
+                  {cfg.photos.map((ph) => (
+                    <div
+                      key={ph.name}
+                      className={`flex min-w-0 flex-col overflow-hidden rounded-xl ${dark ? 'bg-white/80' : 'bg-white/10'}`}
+                    >
+                      <div className="relative min-h-0 flex-1">
+                        <Image
+                          src={ph.src}
+                          alt={ph.alt}
+                          fill
+                          sizes="(max-width:1023px) 40vw, 22vw"
+                          className="object-cover"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2 px-2 py-1.5 sm:px-3 sm:py-2">
+                        <span
+                          className={`min-w-0 flex-1 truncate text-xs font-semibold leading-tight sm:text-sm ${
+                            dark ? 'text-stone-800' : 'text-white'
+                          }`}
+                        >
+                          {ph.name}
+                        </span>
+                        <span
+                          className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] ${
+                            dark ? 'bg-teal-100 text-teal-700' : 'bg-amber-400/20 text-amber-200'
+                          }`}
+                        >
+                          {cfg.tag}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className={`pt-3 text-right text-[10px] ${dark ? 'text-stone-500' : 'text-white/60'}`}>
+                  {cfg.credit}
+                </p>
+              </div>
+            );
+          })}
+          {/* 第 6 屏：自定义「旅行长图」示意——纯 CSS 迷你登机牌（白卡微旋转、渐变条、虚线、条形码、QR 示意） */}
+          <div
+            className={`absolute inset-0 flex flex-col p-6 ${slideClass(5)}`}
+            data-slide="5"
+            style={{ backgroundColor: CAROUSEL.slides[5].bg }}
+            aria-hidden={slide !== 5}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="min-w-0 truncate text-sm font-semibold">{CAROUSEL.exportSlide.title}</span>
+              <span className="shrink-0 rounded-lg bg-white/15 px-2 py-1 text-xs">{CAROUSEL.exportSlide.tag}</span>
+            </div>
+            <div className="flex min-h-0 flex-1 items-center justify-center">
+              <div className="w-[210px] -rotate-3 rounded-xl bg-white p-3 shadow-2xl sm:w-[280px] sm:p-4">
+                <div className="h-1.5 rounded-full bg-gradient-to-r from-teal-500 via-amber-400 to-rose-400" />
+                <p className="mt-2 truncate text-sm font-bold text-stone-900">{CAROUSEL.exportSlide.ticketTitle}</p>
+                <p className="mt-0.5 text-xs text-stone-500">{CAROUSEL.exportSlide.ticketMeta}</p>
+                <div className="my-2.5 border-t border-dashed border-stone-300" />
+                <div className="flex items-end justify-between gap-3">
+                  {/* 条形码竖线组 */}
+                  <div className="flex h-6 items-end gap-[2px]">
+                    {[3, 1, 2, 1, 3, 2, 1, 2, 3, 1, 2, 1, 3, 1, 2, 2, 1, 3].map((w, bi) => (
+                      <span key={bi} className="h-6 bg-stone-800" style={{ width: w }} />
+                    ))}
+                  </div>
+                  {/* QR 示意方块（棋盘格模拟） */}
+                  <span
+                    className="block h-9 w-9 shrink-0 rounded-sm border-2 border-stone-800"
+                    style={{
+                      backgroundImage: 'repeating-conic-gradient(#1c1917 0 25%, #fff 0 50%)',
+                      backgroundSize: '6px 6px',
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+          {/* 底部圆点：button 可点击切换；当前屏 aria-current="true"；浅色背景屏（第 2/4 屏）用深色圆点 */}
           <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 items-center gap-2">
             {Array.from({ length: SLIDE_COUNT }, (_, i) => (
               <button
@@ -402,7 +476,13 @@ export function HomeClient({
                 aria-current={slide === i ? true : undefined}
                 onClick={() => setSlide(i)}
                 className={`h-2.5 w-2.5 rounded-full transition-colors ${
-                  slide === i ? 'bg-white' : 'bg-white/40 hover:bg-white/70'
+                  CAROUSEL.slides[slide].dotDark
+                    ? slide === i
+                      ? 'bg-stone-900'
+                      : 'bg-stone-800/45 hover:bg-stone-800/70'
+                    : slide === i
+                      ? 'bg-white'
+                      : 'bg-white/40 hover:bg-white/70'
                 }`}
               />
             ))}

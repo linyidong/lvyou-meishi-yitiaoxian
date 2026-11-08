@@ -244,25 +244,33 @@ export const MESSAGES = {
     distance: '约 4.1 公里 · 55 分钟',
     legendAttraction: '景点',
     legendFood: '美食',
-    /** T-068 首页右侧示意区 3 屏自动轮播（第 1 屏复用上方 stations 等数据，不改写） */
+    /** T-068/T-069 首页右侧示意区 6 屏自动轮播（第 1 屏复用上方 stations 等数据，不改写） */
     carousel: {
       /** 轮播容器无障碍标签 */
       ariaLabel: '产品功能示意轮播',
       /** 底部圆点按钮无障碍标签（N 从 1 开始） */
       dotLabel: (n: number) => `第 ${n} 屏`,
-      /** 第 2 屏：结果页地图示意（纯 SVG，不调高德、不加载图片） */
+      /**
+       * T-069：6 屏容器背景色与圆点主题（与屏顺序一一对应，验收脚本读取 [data-slide] 的 computed backgroundColor）。
+       * 第 1 屏 bg 留空 = 透明，透出卡片本身的 teal-900（#134e4a），保证首屏视觉零改动；
+       * dotDark=true 为浅色背景屏（第 2/4 屏），圆点用深色保证可见。
+       */
+      slides: [
+        { bg: '', dotDark: false },
+        { bg: '#eef2f7', dotDark: true },
+        { bg: '#1c1917', dotDark: false },
+        { bg: '#fdf6ec', dotDark: true },
+        { bg: '#7c2d12', dotDark: false },
+        { bg: '#1e1b4b', dotDark: false },
+      ],
+      /** 第 2 屏：真实地图截图（本地 public/showcase/photos/，版权说明见 docs/image-credits.md） */
       mapSlide: {
+        title: '成都 · 第 1 天',
         tag: '路线地图',
-        /** 编号点位（x/y 为 viewBox 300×180 内坐标；type 决定 teal/amber 配色） */
-        points: [
-          { x: 55, y: 130, n: 1, type: PLACE_TYPE.ATTRACTION },
-          { x: 105, y: 60, n: 2, type: PLACE_TYPE.FOOD },
-          { x: 160, y: 105, n: 3, type: PLACE_TYPE.ATTRACTION },
-          { x: 215, y: 55, n: 4, type: PLACE_TYPE.FOOD },
-          { x: 260, y: 120, n: 5, type: PLACE_TYPE.ATTRACTION },
-        ],
+        copyright: '© 高德地图',
+        img: { src: '/showcase/photos/map-route.jpg', alt: '成都示例路线地图截图' },
       },
-      /** 第 3 屏：收藏夹示意（PlaceGlyph 图标 + 名称 + 景点/美食标签） */
+      /** 第 3 屏：收藏夹示意（PlaceGlyph 图标 + 名称 + 景点/美食标签 + 脚注） */
       collectSlide: {
         title: '我的收藏',
         tag: '收藏夹',
@@ -276,6 +284,33 @@ export const MESSAGES = {
         ] as { name: string; type: (typeof PLACE_TYPE)[keyof typeof PLACE_TYPE]; iconKey: PlaceIconKey }[],
         /** 第 3 屏底部说明：把「收藏 → 一条线」讲清楚，避免大屏下半留白 */
         footnote: '收藏夹里的地点，按顺路排成一条线',
+      },
+      /** 第 4 屏：景点照片卡（真实照片本地路径，无外链） */
+      attractionSlide: {
+        title: '成都景点示例',
+        tag: '景点',
+        credit: '图 / Wikimedia Commons',
+        photos: [
+          { name: '大熊猫基地', alt: '大熊猫在基地吃竹子', src: '/showcase/photos/panda.jpg' },
+          { name: '宽窄巷子', alt: '宽窄巷子老街街景', src: '/showcase/photos/kuanzhai.jpg' },
+        ],
+      },
+      /** 第 5 屏：美食照片卡（真实照片本地路径，无外链） */
+      foodSlide: {
+        title: '成都美食示例',
+        tag: '美食',
+        credit: '图 / Wikimedia Commons',
+        photos: [
+          { name: '四川火锅', alt: '四川红汤火锅', src: '/showcase/photos/hotpot.jpg' },
+          { name: '钟水饺', alt: '一盘钟水饺', src: '/showcase/photos/dumpling.jpg' },
+        ],
+      },
+      /** 第 6 屏：自定义「旅行长图」示意（纯 CSS 迷你登机牌，无图片资源） */
+      exportSlide: {
+        title: '一键导出，发给同行的人',
+        tag: '导出长图',
+        ticketTitle: '成都 · 吃喝一条线',
+        ticketMeta: '2 天 · 16 个地点',
       },
     },
   },
