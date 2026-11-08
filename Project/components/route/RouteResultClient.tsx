@@ -1961,12 +1961,12 @@ export function RouteResultClient({
                               place={place}
                               position={i + 1}
                               count={day.places.length}
-                              serial={synthetic ? i + 1 : i}
+                              serial={i + 1}
                               isStart={!synthetic && i === 0}
                               isLodging={lodgingMatchIds.has(place.id)}
                               canUp={synthetic ? true : i > 0}
                               canDown={i < day.places.length - 1}
-                              serials={day.places.map((_, index) => (synthetic ? index + 1 : index))}
+                              serials={day.places.map((_, index) => index + 1)}
                               startOptions={day.places.map((item) => ({
                                 name: item.name,
                                 isLodging: lodgingMatchIds.has(item.id),
