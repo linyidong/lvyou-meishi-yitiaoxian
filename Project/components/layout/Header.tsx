@@ -97,7 +97,7 @@ export function Header({
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  'relative rounded-lg px-3 py-2',
+                  'inline-flex items-center gap-1 rounded-lg px-3 py-2',
                   active
                     ? 'bg-primary/5 font-semibold text-primary'
                     : 'text-stone-600 hover:bg-stone-100',
@@ -105,7 +105,7 @@ export function Header({
               >
                 {item.label}
                 {item.href === ROUTES.PROFILE && showMemberBubble ? (
-                  <span className="pointer-events-none absolute -top-2 left-1/2 -translate-x-1/2 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] leading-none font-semibold whitespace-nowrap text-amber-600 shadow-sm">
+                  <span className="pointer-events-none ml-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] leading-none font-semibold whitespace-nowrap text-amber-600 shadow-sm">
                     已开通会员
                   </span>
                 ) : null}
