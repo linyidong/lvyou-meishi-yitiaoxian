@@ -23,6 +23,7 @@ import {
   BedDouble,
   Bike,
   Bus,
+  CameraOff,
   Car,
   CheckCircle2,
   ChevronDown,
@@ -1565,7 +1566,50 @@ export function RouteResultClient({
   return (
     <>
       {/* 工具条 */}
-      {shot ? null : (
+      {shot ? (
+        /* T-072 截图模式精简条：不可见占位保持与原工具条完全相同的布局，
+           「退出截图模式」按钮绝对定位在原「截图模式」按钮槽位（右缘对齐），桌面左侧显示截图提示 */
+        <div className="mb-4 flex flex-col justify-between gap-3 md:flex-row md:items-center">
+          <p className="hidden text-xs text-stone-500 sm:block">{M.shotTip}</p>
+          <div className="grid grid-cols-2 gap-2 md:flex">
+            <span
+              aria-hidden="true"
+              className="invisible flex h-10 items-center justify-center gap-1.5 rounded-xl border border-stone-300 bg-white px-4 text-sm"
+            >
+              <Pencil className="h-[18px] w-[18px] md:h-4 md:w-4" />
+              {M.adjust}
+            </span>
+            <span className="relative">
+              <span
+                aria-hidden="true"
+                className="invisible flex h-10 items-center justify-center gap-1.5 rounded-xl border border-stone-300 bg-white px-4 text-sm"
+              >
+                <Smartphone className="h-[18px] w-[18px] md:h-4 md:w-4" />
+                {M.shotMode}
+              </span>
+              <button
+                type="button"
+                onClick={() => setShot(false)}
+                className="absolute right-0 top-0 flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-stone-900 px-4 text-sm text-white"
+              >
+                <CameraOff className="h-[18px] w-[18px] md:h-4 md:w-4" />
+                {M.exitShotMode}
+              </button>
+            </span>
+            {/* 导出/保存占位：桌面（md:flex）需要它们撑住槽位；手机（grid 两列）原按钮在第二行，隐藏不影响对齐 */}
+            <span aria-hidden="true" className="invisible hidden md:flex">
+              <RouteShareButton routeId={routeId} canExport={canExport} />
+            </span>
+            <span
+              aria-hidden="true"
+              className="invisible hidden h-10 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-primary-from to-primary-to px-4 text-sm font-semibold text-white md:flex"
+            >
+              <Save className="h-[18px] w-[18px] md:h-4 md:w-4" />
+              {M.save}
+            </span>
+          </div>
+        </div>
+      ) : (
         <div className="mb-4 flex flex-col justify-between gap-3 md:flex-row md:items-center">
           <div className="flex items-center gap-3">
             <Link
@@ -2142,19 +2186,7 @@ export function RouteResultClient({
         </div>
       </section>
 
-      {/* 截图模式提示 */}
-      {shot ? (
-        <div className="mt-4 text-center">
-          <p className="text-sm text-stone-500">{M.shotTip}</p>
-          <button
-            type="button"
-            onClick={() => setShot(false)}
-            className="mt-3 h-10 rounded-lg bg-stone-900 px-5 text-sm text-white"
-          >
-            {M.exitShotMode}
-          </button>
-        </div>
-      ) : null}
+      {/* T-072：原「截图模式提示 + 退出按钮」底部大块已移除，退出入口改为工具条位置的精简条 */}
 
       {/* 游客点「手机高德导航」锁定态按钮 → 升级引导（跳现有个人中心会员入口 R10 /profile） */}
       <ConfirmDialog
