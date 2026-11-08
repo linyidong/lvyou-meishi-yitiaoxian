@@ -152,7 +152,30 @@ export function AdminPlacesClient({ rows }: { rows: AdminPlaceRow[] }) {
       </div>
 
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-        <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {/* T-082：手机端卡片视图（桌面仍用下方表格） */}
+        <ul className="divide-y divide-slate-100 md:hidden">
+          {paged.map((r) => (
+            <li key={r.id} className="px-4 py-3">
+              <div className="flex items-start justify-between gap-2">
+                <p className="min-w-0 flex-1 truncate font-medium">{r.name}</p>
+                <span className={`shrink-0 rounded px-2 py-0.5 text-xs ${typeCls[r.type]}`}>
+                  {PLACE_TYPE_LABEL[r.type]}
+                </span>
+              </div>
+              <p className="mt-1 truncate text-xs text-slate-500">
+                {r.cityName ?? '—'} · {r.source ? IMPORT_SOURCE_LABEL[r.source] : '—'}
+              </p>
+              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
+                <span className={`rounded px-2 py-0.5 ${geoCls[r.geoStatus]}`}>
+                  {GEO_STATUS_LABEL[r.geoStatus]}
+                </span>
+                <span className="min-w-0 truncate text-slate-400">{r.ownerEmail ?? '—'}</span>
+                <span className="ml-auto shrink-0 text-slate-400">{fmtTime(r.createdAt)}</span>
+              </div>
+            </li>
+          ))}
+        </ul>
+        <div className="hidden overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:block">
           <table className="w-full min-w-[860px] text-sm">
             <thead className="bg-slate-50 text-xs text-slate-500">
               <tr>
