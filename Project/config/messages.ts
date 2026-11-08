@@ -527,6 +527,16 @@ export const MESSAGES = {
     /** T-041 拆分两个模块：自建路线 / 由分享导入的路线（无数据时后者不显示） */
     sectionMine: '我的路线',
     sectionShared: '会员分享路线',
+    /** T-067 空路线（0 个地点）卡片缩略图占位 */
+    emptyThumbTitle: '没有任何地点的路线',
+    emptyThumbHint: '继续调整添加地点，或删除这条空路线',
+    /** T-067 硬删除（二次确认，删除后不可恢复） */
+    delete: '删除',
+    deleting: '删除中…',
+    deleteTitle: '确认删除这条路线？',
+    deleteDesc: (title: string) => `将删除路线「${title}」，删除后不可恢复。`,
+    deleteConfirm: '删除',
+    deleteFailed: '删除失败，请稍后重试',
   },
   /** M141 U04 选择城市：标题、三段说明、搜索占位、热门区标题与底部选择条（按原型原文，不复用 M51-M69） */
   CITY_HERO: {

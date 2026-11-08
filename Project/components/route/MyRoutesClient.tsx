@@ -8,6 +8,7 @@ import {
   Bike,
   Bus,
   Car,
+  CircleAlert,
   CloudOff,
   Footprints,
   Lock,
@@ -15,6 +16,8 @@ import {
   MapPin,
   MapPinPlus,
   Plus,
+  RouteOff,
+  Trash2,
   type LucideIcon,
 } from 'lucide-react';
 import { cityLabel } from '@/config/cities';
@@ -23,6 +26,7 @@ import { MESSAGES } from '@/config/messages';
 import { PRODUCT } from '@/config/product';
 import { ROUTES } from '@/config/routes';
 import { AmapMap, type AmapLine } from '@/components/map/AmapMap';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { cn } from '@/lib/utils';
 import type { Transport } from '@/types';
 
@@ -108,23 +112,65 @@ export function MyRoutesClient({
   const M = MESSAGES.MY_ROUTES;
   const router = useRouter();
   const [city, setCity] = useState<string>(M.all);
+  /** T-067 删除交互：待确认的路线 id / 正在删除的路线 id / 失败提示（不静默） */
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState('');
+  /** 已成功删除的 id：本地立即移除卡片，router.refresh() 兜底与服务端对齐 */
+  const [deletedIds, setDeletedIds] = useState<string[]>([]);
+
+  const visible = useMemo(() => routes.filter((r) => !deletedIds.includes(r.id)), [routes, deletedIds]);
 
   const cityTabs = useMemo(() => {
     const set = new Set<string>();
-    for (const r of routes) {
+    for (const r of visible) {
       if (r.cityName) set.add(r.cityName);
     }
     return [M.all, ...Array.from(set)];
-  }, [routes, M.all]);
+  }, [visible, M.all]);
+
+  /** T-067：删除某城市最后一条路线后，该 tab 会消失；用 activeCity 兜底回「全部」，避免列表空且无选中 tab */
+  const activeCity = cityTabs.includes(city) ? city : M.all;
 
   const filtered = useMemo(
-    () => (city === M.all ? routes : routes.filter((r) => r.cityName === city)),
-    [routes, city, M.all],
+    () => (activeCity === M.all ? visible : visible.filter((r) => r.cityName === activeCity)),
+    [visible, activeCity, M.all],
   );
 
   // T-041 拆两个模块：自建路线（importedFrom 为空）与由分享导入的路线（非空）
   const mine = useMemo(() => filtered.filter((r) => !r.importedFrom), [filtered]);
   const shared = useMemo(() => filtered.filter((r) => r.importedFrom), [filtered]);
+
+  /** T-067 待删除的路线（仅用于确认框展示名称） */
+  const confirmTarget = visible.find((r) => r.id === confirmId) ?? null;
+
+  /**
+   * T-067 二次确认后硬删除本人路线（DELETE /api/routes/[id]，数据库真删、级联清 route_places/route_shares）：
+   * 成功 → 本地立即移除卡片 + router.refresh() 兜底；失败 → 页面顶部可见错误提示，绝不静默。
+   */
+  async function confirmDelete() {
+    if (!confirmTarget || deletingId) return;
+    const id = confirmTarget.id;
+    setDeletingId(id);
+    setDeleteError('');
+    try {
+      const res = await fetch(`/api/routes/${id}`, { method: 'DELETE' });
+      const data = (await res.json().catch(() => null)) as { ok?: boolean; message?: string } | null;
+      if (!res.ok || !data?.ok) {
+        setConfirmId(null);
+        setDeleteError(data?.message ?? M.deleteFailed);
+        return;
+      }
+      setConfirmId(null);
+      setDeletedIds((prev) => [...prev, id]);
+      router.refresh();
+    } catch {
+      setConfirmId(null);
+      setDeleteError(M.deleteFailed);
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   const renderCard = (r: MyRouteItem) => {
     const TransportIcon = TRANSPORT_ICON[r.transport];
@@ -141,11 +187,20 @@ export function MyRoutesClient({
             backgroundSize: '16px 16px',
           }}
         >
-          <AmapMap
-            className="absolute inset-0"
-            points={r.points.map((p) => ({ lat: p.lat, lng: p.lng, food: p.food }))}
-            lines={toLines(r.points)}
-          />
+          {r.placeCount === 0 ? (
+            /* T-067 空路线缩略图：不再渲染高德空网格，改为明确空态（高度与有地图时一致） */
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-stone-50 px-3 text-center">
+              <RouteOff className="h-7 w-7 text-stone-400" />
+              <p className="text-sm font-semibold text-stone-600">{M.emptyThumbTitle}</p>
+              <p className="text-xs text-stone-500">{M.emptyThumbHint}</p>
+            </div>
+          ) : (
+            <AmapMap
+              className="absolute inset-0"
+              points={r.points.map((p) => ({ lat: p.lat, lng: p.lng, food: p.food }))}
+              lines={toLines(r.points)}
+            />
+          )}
           <span className="absolute left-3 top-3 rounded-lg bg-white/90 px-2 py-1 text-xs font-medium">
             {r.cityName ? cityLabel(r.cityName) : MESSAGES.UNSPECIFIED_CITY}
           </span>
@@ -185,6 +240,21 @@ export function MyRoutesClient({
               {M.edit}
             </Link>
           </div>
+          {/* T-067 删除入口：操作按钮下方右对齐，红色弱化描边，触控高度 40px */}
+          <div className="mt-2 flex justify-end">
+            <button
+              type="button"
+              onClick={() => {
+                setDeleteError('');
+                setConfirmId(r.id);
+              }}
+              disabled={deletingId === r.id}
+              className="flex h-10 items-center justify-center gap-1.5 rounded-lg border border-red-200 px-4 text-sm font-medium text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Trash2 className="h-4 w-4" />
+              {deletingId === r.id ? M.deleting : M.delete}
+            </button>
+          </div>
         </div>
       </article>
     );
@@ -196,7 +266,7 @@ export function MyRoutesClient({
         <div>
           <h1 className="text-2xl font-bold text-stone-900 md:text-3xl">{M.title}</h1>
           <p className="mt-1 text-sm text-stone-500">
-            {denied || error ? M.headDesc : M.subtitle(routes.length)}
+            {denied || error ? M.headDesc : M.subtitle(visible.length)}
           </p>
         </div>
         <Link
@@ -207,6 +277,17 @@ export function MyRoutesClient({
           {M.create}
         </Link>
       </div>
+
+      {/* T-067 删除失败提示：页面顶部可见横幅，不静默 */}
+      {deleteError ? (
+        <div
+          role="alert"
+          className="mt-4 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700"
+        >
+          <CircleAlert className="h-4 w-4 shrink-0" />
+          <span>{deleteError}</span>
+        </div>
+      ) : null}
 
       {error ? (
         <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 py-16 text-center">
@@ -247,7 +328,7 @@ export function MyRoutesClient({
                 onClick={() => setCity(tab)}
                 className={cn(
                   'h-9 shrink-0 rounded-full px-4 text-sm',
-                  city === tab
+                  activeCity === tab
                     ? 'bg-stone-900 text-white'
                     : 'border border-stone-200 bg-white text-stone-600',
                 )}
@@ -293,6 +374,16 @@ export function MyRoutesClient({
           ) : null}
         </>
       )}
+
+      {/* T-067 删除二次确认：取消不发请求；确认才调 DELETE */}
+      <ConfirmDialog
+        open={!!confirmTarget}
+        title={M.deleteTitle}
+        description={confirmTarget ? M.deleteDesc(confirmTarget.title) : undefined}
+        confirmText={M.deleteConfirm}
+        onConfirm={() => void confirmDelete()}
+        onCancel={() => setConfirmId(null)}
+      />
     </>
   );
 }
