@@ -16,7 +16,23 @@ if (Test-Path $Conf) {
 
 $Key   = "$env:USERPROFILE\.ssh\id_lyytx_deploy"
 $Host_ = 'ubuntu@139.199.191.102'
-$Dest  = if ($cfg['DEST']) { $cfg['DEST'] } elseif ($env:LYYTX_BACKUP_DEST) { $env:LYYTX_BACKUP_DEST } else { 'C:\lyytx-ops\offsite' }
+# 目标目录优先级：配置文件 DEST > 环境变量 > 自动挑一个非 C 盘（剩余 >1GB）> 退化到 C 盘
+if ($cfg['DEST']) {
+    $Dest = $cfg['DEST']
+} elseif ($env:LYYTX_BACKUP_DEST) {
+    $Dest = $env:LYYTX_BACKUP_DEST
+} else {
+    $drive = Get-PSDrive -PSProvider FileSystem -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -ne 'C' -and $_.Free -gt 1GB } |
+        Sort-Object Name |
+        Select-Object -First 1
+    if ($drive) {
+        $Dest = "$($drive.Name):\lyytx-offsite"
+    } else {
+        $Dest = 'C:\lyytx-ops\offsite'
+        Write-Warning "未找到可用的非 C 盘，本次退化到 C 盘（建议插移动硬盘或指定 DEST）"
+    }
+}
 $Keep  = if ($cfg['KEEP']) { [int]$cfg['KEEP'] } else { 30 }
 
 New-Item -ItemType Directory -Force $Dest | Out-Null

@@ -31,6 +31,13 @@ chmod 600 "$HOME/.cos.conf"
 
 NAME=$(basename "$FILE")
 coscmd upload "$FILE" "/$COS_PREFIX/$NAME" 2>&1 | tail -1
+
+# 周日额外存一份周档（保留更久，防「半个月前就被改坏」）
+DOW=$(date +%u)
+if [ "$DOW" = "7" ] || [ "${FORCE_WEEKLY:-0}" = "1" ]; then
+  coscmd upload "$FILE" "/${COS_PREFIX}-weekly/$NAME" 2>&1 | tail -1
+  echo "[$(date '+%F %T')] weekly copy ok: ${COS_PREFIX}-weekly/$NAME"
+fi
 SIZE=$(stat -c %s "$FILE")
 REMOTE_LINE=$(coscmd list "/$COS_PREFIX/" 2>/dev/null | grep "$NAME" || true)
 if [ -z "$REMOTE_LINE" ]; then echo "[warn] 上传后列表未找到 $NAME"; exit 1; fi

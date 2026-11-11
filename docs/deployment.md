@@ -619,12 +619,14 @@ nc -z -G 2 <候选IP> 8000        # 谁能开 8000/5432 就是 Supabase 所在�
 | 主库 | 云机 `/srv/supabase/volumes/db/data` | 实时 | — |
 | 本地 dump | 云机 `/srv/backup/lyytx-*.sql.gz` | 每日 04:00，保留 14 份 | 首份 606,483 字节 |
 | 对象存储 | 腾讯云 COS `lyytx-backup-1255587656/backup/`（广州，私有读写，已开版本控制） | 每日随备份上传 | 上传后 `coscmd list` 校验；下载回来 sha256 与本地一致 |
-| 家机副本 | Windows `C:\lyytx-ops\offsite`（可通过 `backup-pull.conf` 改到 D 盘/NAS） | 每日 04:30 + 开机补拉，保留 30 份 | 远端/本地字节数比对 |
+| 周档 | COS `lyytx-backup-1255587656/backup-weekly/` | 每周日多存一份（更耐「半个月前就坏」） | 与日档同源文件 |
+| 家机副本 | Windows **自动挑非 C 盘**（`D:/E:/F:` 中剩余 >1GB 的第一个，路径 `<盘>:\lyytx-offsite`）；可用 `backup-pull.conf` 的 `DEST` 指定 NAS/移动硬盘 | 每日 04:30 + 开机补拉，保留 30 份 | 远端/本地字节数比对 |
 
 - 传输工具：**COS 用腾讯云官方 `coscmd`**（rclone 1.53 的 `TencentCOS` 后端实测被 `AccessDenied`，官方工具正常）；
 - 凭据：`/srv/backup/.cos.env`（600），由 `setup-cos.sh` 读取；脚本不 source，改用 Python 解析，避免密钥特殊字符被 shell 解释；
 - 子账号 `deepseek`（UIN 100054986954）关联 `QcloudCOSDataFullControl`，**建议后续收紧为只限该桶**；
-- 缺口：COS 暂无生命周期清理（约 600KB/日，成本可忽略；可在桶设置里加「30 天删除」）。
+- COS 生命周期：可加「`backup/` 前缀 30 天删除」，**不要**套到 `backup-weekly/`（周档要留久）；当前未配，量小可忽略。
+- 恢复演练（2026-11-11）：从 COS 下载 → gzip 校验 → 恢复临时库 → 6 张表行数与生产一致 → 删库，全程约 10 秒。
 
 **监控（2026-11-11 上线）**
 
