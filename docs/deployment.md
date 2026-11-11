@@ -260,7 +260,7 @@
 
 - 环境变量：以 `docs/人工参数与环境配置.md` 的 18 个变量名为准；生产环境**必须补齐**当前缺的 9 个（高德私钥 3、Key 池第 3 槽、JS Key 第 2 槽、企微自建应用 4）
 - `.env.local` **不进 Git**；服务器上用 `chmod 600` 存放
-- 高德控制台：把新域名加入 **JS API 域名白名单**
+- 高德控制台：**已配置（2026-11-11）**——JS API Key `gaode-web-js` 白名单 `lyytx.com`、`www.lyytx.com`；`localhost` 被平台判为不合规，本地开发需另建 key 或接受地图不显示
 - 企业微信：备案通过后，把域名配为**可信域名**、服务器固定 IP 配为**可信 IP**，才能启用自建应用通道
 - Supabase：生产用**新的随机密码**，不复用当前 Windows 实例的密钥
 
@@ -626,7 +626,7 @@ nc -z -G 2 <候选IP> 8000        # 谁能开 8000/5432 就是 Supabase 所在�
 - 传输工具：**COS 用腾讯云官方 `coscmd`**（rclone 1.53 的 `TencentCOS` 后端实测被 `AccessDenied`，官方工具正常）；
 - 凭据：`/srv/backup/.cos.env`（600），由 `setup-cos.sh` 读取；脚本不 source，改用 Python 解析，避免密钥特殊字符被 shell 解释；
 - 子账号 `deepseek`（UIN 100054986954）关联 `QcloudCOSDataFullControl`，**建议后续收紧为只限该桶**；
-- COS 生命周期：可加「`backup/` 前缀 30 天删除」，**不要**套到 `backup-weekly/`（周档要留久）；当前未配，量小可忽略。
+- COS 生命周期：**已配置（2026-11-11，控制台）**——`purge-daily-backup`：前缀 `backup/`、当前版本 30 天删除、历史版本 7 天删除、碎片 3 天；`backup-weekly/` 不受影响。
 - 恢复演练（2026-11-11）：从 COS 下载 → gzip 校验 → 恢复临时库 → 6 张表行数与生产一致 → 删库，全程约 10 秒。
 
 **监控（2026-11-11 上线）**

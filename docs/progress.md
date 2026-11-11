@@ -168,6 +168,8 @@
 
 ## 6. 最近变更摘要
 
+- 2026-11-11 23:55：**高德白名单 + COS 生命周期（用户控制台配置）**——高德 JS API Key `gaode-web-js` 加域名白名单 `lyytx.com` / `www.lyytx.com`（`localhost` 被平台判为「不符合规范的域名」，已移除；本地开发的替代方案待定）；**线上复测**：游客链路结果页 `.amap-container` 出图，AMap 相关请求 **14 个全部 200**（SDK/style/log init），仅剩 1 条 `/api/heartbeat` 401（游客无会话，既有行为）。COS 生命周期规则 `purge-daily-backup`（前缀 `backup/`，当前版本 30 天删除、历史版本 7 天删除、碎片 3 天）已由用户在控制台配置，`backup-weekly/` 不受影响。**说明**：代码只集成高德（`NEXT_PUBLIC_AMAP_KEY(_2)`、`AMAP_WEB_SERVICE_KEY(_2)`、`AMAP_WEB_SERVICE_PRIVATE_KEY(_2)`），**未接腾讯地图**，临时申请的腾讯 key 当前无代码引用。
+
 - 2026-11-11 23:45：**本机依赖对齐 + 补齐 E2E**——本机 `npm ci` 后 `node_modules` 从 14.2.15 对齐到 **14.2.35**；停掉旧 dev 并以 `NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:8000` 重启（沿用端口转发绕 C14）。验证：`typecheck` **exit 0**、单测 **116 passed**、**E2E 8 passed (12.3s)** —— 补上昨晚升级时「E2E 未执行」的缺口。COS 生命周期尝试用 SDK 设置被 **AccessDenied**（子账号 `QcloudCOSDataFullControl` 不含 `PutBucketLifecycle`），改为控制台手动配置。
 
 - 2026-11-11 23:20：**Next 安全升级 14.2.15 → 14.2.35**（14.2.x 补丁版，不跨大版本）——本地只更新 `package.json` 与 `package-lock.json`（`npm install --package-lock-only`，不动本机 `node_modules`）；云机先整目录备份 `app.bak-20261111-231757`，再 rsync → `npm ci`（574 包 14s）→ `typecheck` **exit 0** → 单测 **116 passed** → `next build` **成功** → 重启。**运行时验证**：`Next.js 14.2.35`、`/login` 200、线上 `/` `/city` `/login` 200；Playwright 生产冒烟：游客 2 行 + 地图、保存跳登录、管理后台 10 行、0 JS 报错、页脚备案号。**已补齐**：本机 E2E 见 23:45 条目；`npm run lint` 未跑（既有 ImportCollectClient 告警非本次引入）。回滚：`app.bak-20261111-231757` + 旧 lock（`/tmp/package-lock.json.before-next-upgrade` 已留）。
