@@ -115,7 +115,13 @@ export function RouteNewClient({
   const [transport, setTransport] = useState<Transport>(TRANSPORT.WALK);
   const [trip, setTrip] = useState<TripSettingsValue>(EMPTY_TRIP_SETTINGS);
   const [submitting, setSubmitting] = useState(false);
-  const [errors, setErrors] = useState<{ city?: string; title?: string; origin?: string }>({});
+  const [errors, setErrors] = useState<{
+    city?: string;
+    title?: string;
+    origin?: string;
+    intercity?: string;
+    lodging?: string;
+  }>({});
   const [notice, setNotice] = useState('');
 
   const fullTitle = cityName ? `${cityName} · ${title.trim()}` : title.trim();
@@ -146,6 +152,9 @@ export function RouteNewClient({
     const nextErrors: typeof errors = {};
     if (!cityName) nextErrors.city = M.TRIP_CITY_REQUIRED;
     if (!title.trim()) nextErrors.title = M.ROUTE_TITLE_REQUIRED;
+    // 每一项都必须显式选择，避免用户跳过直接下一步
+    if (!trip.intercityMode) nextErrors.intercity = M.INTERCITY_REQUIRED;
+    if (!trip.lodgingDecided) nextErrors.lodging = M.LODGING_REQUIRED;
 
     const parsed = parseTripSettings(trip);
     if (!parsed.ok) nextErrors.origin = parsed.message;
@@ -206,16 +215,11 @@ export function RouteNewClient({
         </div>
       ) : null}
 
-      {/* 未选城市时的引导提示（未登录也可先体验流程） */}
-      {!cityName ? (
+      {/* 只有点了「下一步」且没选城市时才提示（不再预先显示黄色引导条） */}
+      {!cityName && errors.city ? (
         <div
           role="alert"
-          className={cn(
-            'mb-5 flex items-start gap-2 rounded-2xl px-4 py-3 text-sm',
-            errors.city
-              ? 'border border-red-300 bg-red-50 text-red-700'
-              : 'border border-amber-200 bg-amber-50 text-amber-800',
-          )}
+          className="mb-5 flex items-start gap-2 rounded-2xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700"
         >
           {errors.city ? (
             <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
@@ -308,6 +312,8 @@ export function RouteNewClient({
         destHint={destHint}
         days={days}
         originError={errors.origin}
+        intercityError={errors.intercity}
+        lodgingError={errors.lodging}
       />
 
       {/* 标题 / 天数 / 市内交通 */}

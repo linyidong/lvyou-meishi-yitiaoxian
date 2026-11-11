@@ -47,6 +47,8 @@ export interface TripSettingsValue {
   lodgingArea: string;
   lodgingName: string;
   lodgingNights: number | null;
+  /** 用户是否显式做过「住宿 / 暂不预订」的选择（null 无法区分「没选」和「暂不预订」） */
+  lodgingDecided?: boolean;
 }
 
 export const EMPTY_TRIP_SETTINGS: TripSettingsValue = {
@@ -56,6 +58,7 @@ export const EMPTY_TRIP_SETTINGS: TripSettingsValue = {
   lodgingArea: '',
   lodgingName: '',
   lodgingNights: null,
+  lodgingDecided: false,
 };
 
 /** 出行设置里的三块：出发城市 / 城际交通 / 终点城市住宿 */
@@ -126,6 +129,8 @@ export function TripSettingsFields({
   destHint,
   days,
   originError,
+  intercityError,
+  lodgingError,
   sections = ALL_SECTIONS,
 }: {
   value: TripSettingsValue;
@@ -140,6 +145,8 @@ export function TripSettingsFields({
   days: number;
   /** 提交时出发城市为空时展示的错误文案 */
   originError?: string;
+  intercityError?: string;
+  lodgingError?: string;
   /** 需要渲染的区块，默认三块全渲染；游客试用只渲染「出发城市」 */
   sections?: TripSettingsSection[];
 }) {
@@ -349,7 +356,7 @@ export function TripSettingsFields({
             <p className={LABEL_CLS}>
               <ArrowRight className="h-4 w-4 text-primary" />
               {M.intercityTitle}
-              <span className={BADGE_OPT}>{M.badgeOptional}</span>
+              <span className={BADGE_REQ}>{M.badgeRequired}</span>
             </p>
             <p className="mt-1 text-xs text-stone-500">
               {M.intercityDesc1}
@@ -376,6 +383,12 @@ export function TripSettingsFields({
           })}
         </div>
         <p className="mt-2 text-xs text-stone-500">{intercityHint}</p>
+        {intercityError ? (
+          <p className="mt-3 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{intercityError}</span>
+          </p>
+        ) : null}
       </div>
       ) : null}
 
@@ -390,7 +403,7 @@ export function TripSettingsFields({
             <p className={LABEL_CLS}>
               <House className="h-4 w-4 text-primary" />
               {M.lodgingTitle}
-              <span className={BADGE_OPT}>{M.badgeOptional}</span>
+              <span className={BADGE_REQ}>{M.badgeRequired}</span>
             </p>
             <p className="mt-1 text-xs text-stone-500">
               {M.lodgingDesc1}{' '}
@@ -409,6 +422,7 @@ export function TripSettingsFields({
                 onChange({
                   lodgingType: value.lodgingType ?? LODGING_TYPE.HOTEL,
                   lodgingNights: value.lodgingNights ?? BUSINESS.MIN_LODGING_NIGHTS,
+                  lodgingDecided: true,
                 })
               }
               className={chipCls(needLodging, 'h-11')}
@@ -419,7 +433,13 @@ export function TripSettingsFields({
             <button
               type="button"
               onClick={() =>
-                onChange({ lodgingType: null, lodgingArea: '', lodgingName: '', lodgingNights: null })
+                onChange({
+                  lodgingType: null,
+                  lodgingArea: '',
+                  lodgingName: '',
+                  lodgingNights: null,
+                  lodgingDecided: true,
+                })
               }
               className={chipCls(!needLodging, 'h-11')}
             >
@@ -534,6 +554,12 @@ export function TripSettingsFields({
         ) : (
           <p className="text-xs text-stone-400">{M.placeholder}</p>
         )}
+        {lodgingError ? (
+          <p className="mt-3 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{lodgingError}</span>
+          </p>
+        ) : null}
       </div>
       ) : null}
     </div>

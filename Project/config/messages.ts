@@ -36,6 +36,8 @@ export const MESSAGES = {
   ORIGIN_CITY_REQUIRED: '出发城市为必填项，请先选择或手动输入你这次出发的城市',
   /** M13 出行设置：旅行城市必填（U05） */
   TRIP_CITY_REQUIRED: '请先选择旅行城市，再继续设置路线',
+  INTERCITY_REQUIRED: '请选择城际交通（可选「暂不设置」）',
+  LODGING_REQUIRED: '请选择是否需要终点住宿（可选「暂不预订」）',
   /** M14 路线标题必填（U05） */
   ROUTE_TITLE_REQUIRED: '请填写路线标题',
   /** M15 提交参数不合法（服务端兜底） */
