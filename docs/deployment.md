@@ -612,7 +612,16 @@ nc -z -G 2 <候选IP> 8000        # 谁能开 8000/5432 就是 Supabase 所在�
 - 家机旧 Supabase 保持运行、数据未删；
 - 回滚 = Nginx `supabase_api` 改回 `8081` + 恢复家机隧道（`ssh -R 127.0.0.1:8081:desktop-vrd3hft:8000`） + 回退应用 `.env.local`（`/srv/lvyou/app/.env.local.bak-before-pg-migrate`）+ 重新 build。
 
-**备份现状与缺口**
+**备份（2026-11-11 已配双份异地）**
 
-- 已有：云机每日 04:00 dump，保留 14 份（本地盘）；
-- **缺口：与数据同盘**，云盘损坏会同时丢库与备份；需补一份异地（对象存储或另一台机器）。
+| 层 | 位置 | 频率/保留 | 验证 |
+|---|---|---|---|
+| 主库 | 云机 `/srv/supabase/volumes/db/data` | 实时 | — |
+| 本地 dump | 云机 `/srv/backup/lyytx-*.sql.gz` | 每日 04:00，保留 14 份 | 首份 606,483 字节 |
+| 对象存储 | 腾讯云 COS `lyytx-backup-1255587656/backup/`（广州，私有读写，已开版本控制） | 每日随备份上传 | 上传后 `coscmd list` 校验；下载回来 sha256 与本地一致 |
+| 家机副本 | Windows `C:\lyytx-ops\offsite`（可通过 `backup-pull.conf` 改到 D 盘/NAS） | 每日 04:30 + 开机补拉，保留 30 份 | 远端/本地字节数比对 |
+
+- 传输工具：**COS 用腾讯云官方 `coscmd`**（rclone 1.53 的 `TencentCOS` 后端实测被 `AccessDenied`，官方工具正常）；
+- 凭据：`/srv/backup/.cos.env`（600），由 `setup-cos.sh` 读取；脚本不 source，改用 Python 解析，避免密钥特殊字符被 shell 解释；
+- 子账号 `deepseek`（UIN 100054986954）关联 `QcloudCOSDataFullControl`，**建议后续收紧为只限该桶**；
+- 缺口：COS 暂无生命周期清理（约 600KB/日，成本可忽略；可在桶设置里加「30 天删除」）。

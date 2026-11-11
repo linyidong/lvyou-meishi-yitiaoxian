@@ -10,7 +10,7 @@
 - 当前门禁：G1–G5 通过；G6 部分通过（人工走查欠账）；**G7 仍未通过**——已上线且**备份/还原演练已做**，但回滚演练、监控拨测、用户明确授权尚未完成
 - 当前任务：无进行中；T-092（页脚 ICP 备案号）已完成待验收
 - 任务状态：无进行中
-- 下一步：① 回滚演练（DNS/代码，记录耗时）② 站点拨测 + 日志轮转 ③ **异地备份**（当前只有云机本机 14 份，云盘坏即全失）④ 公安联网备案（30 日内）⑤ 高德 JS API 域名白名单 ⑥ `next@14.2.15` 安全公告评估 ⑦ 7 天后关停家机旧 Supabase 并把本机 dev 指向新库
+- 下一步：① 回滚演练（DNS/代码，记录耗时）② 站点拨测 + 日志轮转 ③ Windows 拉取计划任务（脚本与权限已就绪，等用户执行）④ 公安联网备案（30 日内）⑤ 高德 JS API 域名白名单 ⑥ `next@14.2.15` 安全公告评估 ⑦ 7 天后关停家机旧 Supabase 并把本机 dev 指向新库
 - 阻塞：**无**（备案、DNS、443、证书、全云数据库迁移全部完成；站点与数据均在云机）
 - 最近更新：2026-11-11 20:45（ICP 通过记录 + T-092 页脚备案号）
 
@@ -167,6 +167,8 @@
 > 产品决策类问题见 `open-questions.md`（Q-002/Q-007/Q-008/Q-010/Q-011/Q-013/Q-014）。
 
 ## 6. 最近变更摘要
+
+- 2026-11-11 22:56：**异地备份（双份）落地**——COS 桶 `lyytx-backup-1255587656`（广州，私有，版本控制开）由子账号 `deepseek` 写入；**rclone 1.53 的 TencentCOS 后端实测不通（AccessDenied）**，改用腾讯云官方 `coscmd`，全链路验证通过：`backup.sh` → dump 606,483 字节 → 上传 → `coscmd list` 可见 → 下载回来 **sha256 与本地一致**。每日 04:00 自动执行并上传。另备 Windows 拉取脚本（`deploy/windows-backup-pull.ps1`，每日 04:30 + 开机补拉，保留 30 份，支持 `DEST` 改盘）。**踩坑**：① 控制台 SecretId 中间打码，必须用复制按钮；② 密钥值被 `<...>` 占位符带入；③ rclone 的 COS 兼容性。
 
 - 2026-11-11 21:50：**方案 C 全云迁移完成**——云机装 Docker（腾讯云镜像加速）+ Supabase（postgres 15.8.1.135 / gotrue v2.196.0 / postgrest v12.2.3 / kong 2.8.1，仅 Kong 暴露 8000）→ Windows 导出 2.4MB dump（curl 一次性 HTTPS 通道上传）→ 临时库演练核对 → 正式库恢复 → 修 `auth` 属主与 public 授权 → 重建 `expire-members` 定时任务 → 应用换新 anon/service key 并重建 → Nginx `/rest` `/auth` 从 8081 隧道改到 8000 → 停隧道。**验证**：行数一致、测试账号登录 200、游客全链路 2 行 + 地图、管理后台 10 行、页脚备案号、`/rest` 匿名 401。**踩坑**：① `docker exec -t` 使 dump 出现 CRLF，`\.` 结束符失效导致 COPY 数据被当 SQL 执行（改用 `-i`/去 CR）；② pg_cron 只能建在名为 `postgres` 的库；③ 恢复后需补 public 授权与 `auth` schema 属主，否则 PostgREST/GoTrue 报 permission denied；④ Kong 配置 chmod 600 后容器内非 root 读不到。**备份**：每日 04:00 pg_dump 到 `/srv/backup`，保留 14 份，首份 593KB。**遗留**：备份与数据同盘（需异地）、家机旧 Supabase 保留 7 天做回滚、本机 dev 仍连旧库。
 
@@ -380,7 +382,7 @@
 | 数据库（方案 C） | ✅ 云机 Docker Supabase（postgres/kong/auth/rest），Kong 端口 8000，`key-auth` 已启用（无 apikey→401） |
 | 数据迁移 | ✅ dump 2,441,716 字节导入；演练库先验收，再迁正式库；**旧新行数完全一致**（users 6 / routes 10 / places 1372 / cities 109 / member_orders 6 / route_shares 41 / auth.users 6 / policies 28）；迁移窗口零丢失 |
 | 登录验证 | ✅ 测试账号经新库 `POST /auth/v1/token` 返回 200 + access_token（密码哈希完整恢复） |
-| 每日备份 | ✅ `/srv/backup/backup.sh` + `lyytx-backup.timer`（每日 04:00，保留 14 份）；首次已生成 593KB gz |
+| 每日备份 | ✅ `/srv/backup/backup.sh` + `lyytx-backup.timer`（每日 04:00，本地 14 份 + COS 上传）；COS 往返 sha256 校验通过 |
 | 隧道 | ✅ 已停用（Mac 上 8081 与 18000 两条都已关），生产不再依赖隧道 |
 
 **上线步骤（方案 B，约 2–4 小时）**
