@@ -356,6 +356,7 @@ docker exec -i <postgres_container> psql -U postgres -d postgres < backup_YYYYMM
 | 2026-10-29 | `4bdde6b` | 用户 | Supabase 地址由 IP 改主机名（DHCP 换 IP 导致连不上） |
 | 2026-11-08 | 工作区 `b9600c4` | Harness | **本地生产构建 exit 0**；单测 113 / E2E 8 / 移动端审计溢出 0；**未部署**（等备案） |
 | 2026-11-11 21:00 | 工作区 `19f0515` | Harness | **上线** `https://lyytx.com`（HTTP→HTTPS，证书到 2027-02-09）；方案 B：云机 Node 22 + `next build` + `lvyou.service` + Nginx + 隧道 8081；游客全链路/管理员/匿名 401 冒烟通过；**备份与回滚演练未做** |
+| 2026-11-11 21:50 | 工作区 `19f0515` | Harness | **切换方案 C（全云）**：云机 Docker Supabase（Kong 8000 + key-auth）+ 数据迁移（行数一致、登录验证通过）；Nginx `/rest` `/auth` 改指本机 8000，隧道停用；每日备份定时器上线 |
 | 待定 | —— | —— | 备案通过后按 §4.5 融合方案上线 |
 
 ## 13. 待用户确认（决定成本与工期）
@@ -412,7 +413,9 @@ docker exec -i <postgres_container> psql -U postgres -d postgres < backup_YYYYMM
 
 **frp 未使用**：云机从 GitHub 下载 frp release 超时，改用系统自带 SSH 反向隧道（零第三方二进制）。
 
-### 4.8 设备依赖矩阵与演进路径（2026-10-22 用户提问后补充）
+### 4.8 设备依赖矩阵与演进路径（2026-10-22 用户提问后补充；2026-11-11 已执行 C）
+
+> **2026-11-11 21:50 状态：已从 B 切到 C**——App 与 Supabase 都在云机，家机不再是生产依赖。见 §4.13。
 
 **关键事实（2026-10-25 已变更）**：早期方案是"应用跑 Mac、数据库跑 Windows、云机入口"，所以"只开 Windows、Mac 关机"不成立。
 现已支持**应用也跑在 Windows**（`windows/启动项目.bat` 一键：检查 Supabase → 构建/启动 Next → 打开浏览器），
@@ -572,3 +575,44 @@ nc -z -G 2 <候选IP> 8000        # 谁能开 8000/5432 就是 Supabase 所在�
 **判活注意**：Windows 防火墙默认拦 ICMP，`ping` 100% 丢包不代表不通；用 `nc -z host 8000` 或 `check:env`。
 
 **残余风险**：`.10` 仍在 DHCP 池内；建议移动超管做静态绑定，或把池改成 `.100–.254`。
+
+
+### 4.13 全云形态（方案 C，2026-11-11 执行完毕）
+
+**拓扑**
+
+```text
+用户 ──443──▶ 云机 Nginx（lyytx.com / www，TLS/HSTS/HTTP2）
+                ├── /            → 127.0.0.1:3000（lvyou.service，next start）
+                └── /rest /auth  → 127.0.0.1:8000（Kong → PostgREST / GoTrue）
+                                      └── 127.0.0.1:5432（supabase/postgres 15.8.1.135，仅本机）
+```
+
+**组件与位置**
+
+| 组件 | 位置 | 版本/说明 |
+|---|---|---|
+| Next 应用 | `/srv/lvyou/app` + `lvyou.service` | Node v22.23.4，`next start -H 127.0.0.1 -p 3000` |
+| Supabase | `/srv/supabase`（docker-compose） | postgres 15.8.1.135 / gotrue v2.196.0 / postgrest v12.2.3 / kong 2.8.1 |
+| 端口 | 仅 Kong 8000 与 DB 5432 绑 `127.0.0.1` | 公网只开 22（限 IP）/80/443 |
+| 定时任务 | `lyytx-backup.timer` 04:00 | `pg_dump` → `/srv/backup`，保留 14 份 |
+| pg_cron | 每日 03:05 `expire-members` | 只能建在名为 `postgres` 的库 |
+
+**迁移顺序（已执行）**
+
+1. Windows `pg_dump` → 一次性 HTTPS 上传通道 → `/srv/backup`（**不要用 `docker exec -t`，会带 CRLF 破坏 COPY**）；
+2. 云机临时库演练：恢复 + 行数核对，确认无误后删库；
+3. 正式库重建（`DROP DATABASE postgres WITH (FORCE)` → 建库 → 预建 `extensions`/`vault` schema 与 `pg_cron`/`pg_net`）→ 恢复（去掉 cron COPY 段，事后用 `cron.schedule` 重建）；
+4. 修 `auth` schema 属主与 public 授权；
+5. 应用换新 `ANON_KEY`/`SERVICE_ROLE_KEY`（JWT 密钥已换，所有用户需重新登录）→ `npm run build` → 启动；
+6. Nginx `supabase_api` 从 `8081` 改 `8000` → reload；停隧道。
+
+**回滚（7 天内有效）**
+
+- 家机旧 Supabase 保持运行、数据未删；
+- 回滚 = Nginx `supabase_api` 改回 `8081` + 恢复家机隧道（`ssh -R 127.0.0.1:8081:desktop-vrd3hft:8000`） + 回退应用 `.env.local`（`/srv/lvyou/app/.env.local.bak-before-pg-migrate`）+ 重新 build。
+
+**备份现状与缺口**
+
+- 已有：云机每日 04:00 dump，保留 14 份（本地盘）；
+- **缺口：与数据同盘**，云盘损坏会同时丢库与备份；需补一份异地（对象存储或另一台机器）。

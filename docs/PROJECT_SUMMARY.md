@@ -108,7 +108,7 @@
 
 ## 10. 部署与维护
 
-方案见 `docs/deployment.md`（融合方案：云机占备案+固定 IP，家机跑应用，每日异地备份）；维护见 `docs/operations.md`。当前**未部署**。
+方案见 `docs/deployment.md` §4.13（**全云，2026-11-11 已上线**：云机跑 Next + Docker Supabase，每日 04:00 pg_dump 保留 14 份）；维护见 `docs/operations.md`。
 
 ## 11. 已知限制与下一步
 
