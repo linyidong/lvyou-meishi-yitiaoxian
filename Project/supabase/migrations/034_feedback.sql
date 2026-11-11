@@ -31,6 +31,8 @@ create policy feedback_select_own on public.feedback
   using (auth.uid() = user_id);
 
 grant select, insert on public.feedback to authenticated;
+-- 后台意见箱用 service_role 读取与更新（RLS 绕过，但仍需表权限）
+grant select, insert, update, delete on public.feedback to service_role;
 
 -- 回滚：
 -- drop policy if exists feedback_select_own on public.feedback;
