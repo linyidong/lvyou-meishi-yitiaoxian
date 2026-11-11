@@ -167,6 +167,8 @@
 
 ## 6. 最近变更摘要
 
+- 2026-11-11 21:15：**生产安全基线**——Nginx 开 **HTTP/2**（`listen 443 ssl http2`）+ 响应头 HSTS(1 年)/`X-Content-Type-Options`/`Referrer-Policy`/`X-Frame-Options`；Next 改为只监听 `127.0.0.1:3000`（`lvyou.service` 加 `-H 127.0.0.1`），不再对全网卡暴露；sshd `PermitRootLogin prohibit-password`（root 仅密钥）、`PasswordAuthentication no`、fail2ban 活跃、ufw 仅 22/80/443。验证：`HTTP/2 200`、HSTS 等 4 个响应头齐全、HTTP→HTTPS 301、`/` `/city` `/login` 200、`/rest/v1/` 401、3000 仅 127.0.0.1 监听。**待办**（Win-Trae 网关 192.168.1.10:8798 未启动，暂无法远程）：每日 pg_dump + 还原演练 + 隧道迁 Windows。
+
 - 2026-11-11 21:00：**正式上线 https://lyytx.com**——DNS（`@`/`www`）生效、443 放行、Nginx 启用、certbot 签发双域名证书（到期 2027-02-09，自动续期）并强制 HTTP→HTTPS。**冒烟结果**：首页 200（TLS 0.05s / 总 0.14s）、`www` 200、`/city` `/try/new` `/login` 200、`/routes` `/admin` `/profile` 307 到登录、`/rest/v1/` 401（隧道通）；Playwright 生产环境实跑游客全链路（选城市→设路线→勾 2 点→结果页：路线 2 行 + 一键复位 + 高德 `.amap-container` 出图）→「保存路线」跳 `/login?redirect=` ✓；管理员登录 `/admin` 概览正常、`/admin/routes` 表格 10 行、0 报错；匿名 API `landmarks`/`routes`/`member/orders` POST 均 **401**。**未执行**：测试下单→核销（会写生产数据，需授权）、`pg_cron` 查询（需家机 DB）、分享页（未取 token）。**过程偏差**：上线早于 G7 的备份/回滚演练，需立即补。
 
 - 2026-11-11 20:50：**方案 B 云机落地（进行中）**——云机装 Node v22.23.4（清华镜像）→ rsync 源码 4.7MB 到 `/srv/lvyou/app`（**GitHub 从本机与云机均超时，`git clone` 不可用**）→ `npm ci` 574 包 15s（npmmirror）→ `next build` **exit 0** → `lvyou.service`（`next start -p 3000`）active，`/login` 200（0.26s）、内存 324MB；家机起 `ssh -R 127.0.0.1:8081:desktop-vrd3hft:8000`，云机 `curl /rest/v1/` = **401**（隧道通）；Nginx 配置改为方案 B（80-only，`/`→3000、`/rest|/auth`→8081、502 维护页），`nginx -t` OK 但**保持 inactive**。**卡点**：DNS 无记录（服务端 `ENOTFOUND lyytx.com`，读库降级）、443 未在腾讯云防火墙放行。**注意**：`npm` 报 `next@14.2.15` 有安全公告，待单独评估升级（不混入本次部署）。
@@ -371,6 +373,7 @@
 | DNS | ✅ `@` 与 `www` → `139.199.191.102`（DNSPod，TTL 600），本机与云机均解析正确 |
 | 443 / 证书 | ✅ 腾讯云防火墙已放行；certbot 签发 `lyytx.com` + `www.lyytx.com`（到期 2027-02-09，`certbot.timer` 自动续期）；HTTP→HTTPS 301 |
 | HTTPS 冒烟 | ✅ `https://lyytx.com/` 200（TLS 0.05s，总 0.14s）、`www` 200、`/rest/v1/` 401（隧道通） |
+| 安全基线 | ✅ HTTP/2、HSTS、`nosniff`、`Referrer-Policy`、`X-Frame-Options`；3000 仅本机监听；sshd 禁密码登录 + root 仅密钥；fail2ban 活跃 |
 
 **上线步骤（方案 B，约 2–4 小时）**
 
