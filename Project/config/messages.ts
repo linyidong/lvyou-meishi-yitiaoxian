@@ -1033,6 +1033,18 @@ export const MESSAGES = {
     lodgingValue: (type: string, area: string | null, nights: number | null) =>
       `${type}${area ? ` · ${area}` : ''}${nights ? ` · ${nights} 晚` : ''}`,
     settingsNote: '出发城市、城际交通与住宿未接入真实票务或住宿服务。',
+    /** 原地修改出行设置（弹窗） */
+    settingsEditTitle: '修改出行设置',
+    settingsOriginLabel: '出发城市',
+    settingsOriginPlaceholder: '例如：成都',
+    settingsIntercityLabel: '城际交通（去程）',
+    settingsLodgingLabel: '终点住宿',
+    settingsLodgingPlaceholder: '例如：春熙路附近民宿',
+    settingsCancel: '取消',
+    settingsConfirm: '确定',
+    settingsSaved: '出行设置已保存',
+    settingsOriginRequired: '请填写出发城市',
+    settingsSaveFailed: '保存失败，请稍后重试',
     routeMeta: (city: string, daysPart: string, count: number, mode: string) =>
       `${city} · ${daysPart} · ${count} 个地点 · ${mode}`,
     daysPartMany: (days: number) => `${days} 天（按天分组）`,

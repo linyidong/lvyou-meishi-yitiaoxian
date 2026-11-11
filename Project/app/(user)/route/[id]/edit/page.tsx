@@ -24,7 +24,7 @@ export default async function RouteEditPage({ params }: { params: { id: string }
 
   const { data: route } = await supabase
     .from('routes')
-    .select('id,title,days,transport,city_id,origin_city,intercity_mode,lodging_type,lodging_area,lodging_nights')
+    .select('id,title,days,transport,city_id,origin_city,intercity_mode,lodging_type,lodging_area,lodging_name,lodging_nights')
     .eq('id', params.id)
     .eq('user_id', user.id)
     .maybeSingle();
@@ -88,7 +88,8 @@ export default async function RouteEditPage({ params }: { params: { id: string }
           intercityMode={route.intercity_mode as IntercityMode | null}
           lodgingType={route.lodging_type as LodgingType | null}
           lodgingArea={route.lodging_area}
-          lodgingNights={route.lodging_nights}
+          lodgingName={route.lodging_name}
+        lodgingNights={route.lodging_nights}
           places={places}
         />
       </div>

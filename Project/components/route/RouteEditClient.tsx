@@ -27,6 +27,7 @@ import { BUSINESS } from '@/config/business';
 import {
   INTERCITY_MODE,
   INTERCITY_MODE_LABEL,
+  LODGING_TYPE,
   LODGING_TYPE_LABEL,
   PLACE_TYPE,
   PLACE_TYPE_LABEL,
@@ -98,6 +99,7 @@ export function RouteEditClient({
   intercityMode,
   lodgingType,
   lodgingArea,
+  lodgingName,
   lodgingNights,
   places,
 }: {
@@ -110,6 +112,7 @@ export function RouteEditClient({
   intercityMode: IntercityMode | null;
   lodgingType: LodgingType | null;
   lodgingArea: string | null;
+  lodgingName: string | null;
   lodgingNights: number | null;
   places: RouteEditPlace[];
 }) {
@@ -129,6 +132,13 @@ export function RouteEditClient({
   const [regenOpen, setRegenOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
+  /** 出行设置：本页可原地修改（不跳页），保存走 PATCH /api/routes/[id] */
+  const [origin, setOrigin] = useState(originCity ?? '');
+  const [intercity, setIntercity] = useState<IntercityMode | null>(intercityMode);
+  const [lodging, setLodging] = useState(lodgingName ?? '');
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [settingsError, setSettingsError] = useState('');
 
   const byId = useMemo(() => {
     const map = new Map<string, RouteEditPlace>();
@@ -194,6 +204,45 @@ export function RouteEditClient({
     showToast(M.regenDone, 'ok');
   }
 
+  /** 保存出行设置：原地 PATCH，不跳页；住宿用自由输入的名称（类型记为「其他」，晚数 1） */
+  async function saveSettings() {
+    const originTrim = origin.trim();
+    if (!originTrim) {
+      setSettingsError(M.settingsOriginRequired);
+      return;
+    }
+    setSettingsSaving(true);
+    setSettingsError('');
+    const lodgingTrim = lodging.trim();
+    try {
+      const res = await fetch(`/api/routes/${routeId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          originCity: originTrim,
+          intercityMode: intercity ?? null,
+          lodgingType: lodgingTrim ? LODGING_TYPE.OTHER : null,
+          lodgingName: lodgingTrim || null,
+          lodgingArea: null,
+          lodgingNights: lodgingTrim ? 1 : null,
+        }),
+      });
+      const data = (await res.json()) as { ok?: boolean; message?: string };
+      if (!res.ok || !data.ok) {
+        setSettingsError(data.message ?? M.settingsSaveFailed);
+        return;
+      }
+      setOrigin(originTrim);
+      setLodging(lodgingTrim);
+      setSettingsOpen(false);
+      showToast(M.settingsSaved, 'ok');
+    } catch {
+      setSettingsError(M.settingsSaveFailed);
+    } finally {
+      setSettingsSaving(false);
+    }
+  }
+
   async function save() {
     setSaving(true);
     try {
@@ -239,20 +288,22 @@ export function RouteEditClient({
   const totalKm = dayKms.reduce((a, b) => a + b, 0);
 
   const intercityText = (() => {
-    if (intercityMode && intercityMode !== INTERCITY_MODE.NONE) {
+    if (intercity && intercity !== INTERCITY_MODE.NONE) {
       return M.intercityRoute(
-        INTERCITY_MODE_LABEL[intercityMode],
-        originCity ?? M.originLabel,
+        INTERCITY_MODE_LABEL[intercity],
+        origin || M.originLabel,
         city,
       );
     }
-    if (originCity && city && originCity === city) return M.intercitySame;
+    if (origin && city && origin === city) return M.intercitySame;
     return M.intercityNone;
   })();
 
-  const lodgingText = lodgingType
-    ? M.lodgingValue(LODGING_TYPE_LABEL[lodgingType], lodgingArea, lodgingNights)
-    : M.lodgingNone;
+  const lodgingText = lodging
+    ? lodging
+    : lodgingType
+      ? M.lodgingValue(LODGING_TYPE_LABEL[lodgingType], lodgingArea, lodgingNights)
+      : M.lodgingNone;
 
   // 无权限由服务端拦截；这里只剩空态（未生成顺序）
   if (places.length === 0) {
@@ -291,13 +342,17 @@ export function RouteEditClient({
             <TrainFront className="h-4 w-4 text-primary" />
             {M.settingsTitle}
           </h2>
-          <Link
-            href={ROUTES.ROUTE_NEW}
-            className="h-8 px-3 rounded-lg border border-stone-300 bg-white text-xs flex items-center gap-1"
+          <button
+            type="button"
+            onClick={() => {
+              setSettingsError('');
+              setSettingsOpen(true);
+            }}
+            className="h-8 px-3 rounded-lg border border-stone-300 bg-white text-xs flex items-center gap-1 hover:bg-stone-50"
           >
             <SquarePen className="h-3.5 w-3.5" />
             {M.editSettings}
-          </Link>
+          </button>
         </div>
         <div className="mt-3 grid sm:grid-cols-3 gap-3">
           <div className="rounded-xl bg-stone-50 p-3">
@@ -305,7 +360,7 @@ export function RouteEditClient({
               <MapPin className="h-3.5 w-3.5 text-primary" />
               {M.originLabel}
             </p>
-            <p className="mt-1 text-sm font-semibold text-stone-900">{originCity ?? M.originNone}</p>
+            <p className="mt-1 text-sm font-semibold text-stone-900">{origin || M.originNone}</p>
           </div>
           <div className="rounded-xl bg-stone-50 p-3">
             <p className="text-xs text-stone-500 flex items-center gap-1">
@@ -528,6 +583,70 @@ export function RouteEditClient({
                 className="h-11 rounded-xl bg-gradient-to-r from-primary-from to-primary-to text-white text-sm font-semibold flex items-center justify-center gap-1"
               >
                 {M.regenConfirm}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {settingsOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6">
+            <h3 className="text-lg font-semibold text-stone-900">{M.settingsEditTitle}</h3>
+            <div className="mt-4 space-y-4">
+              <label className="block">
+                <span className="text-sm font-semibold text-stone-900">{M.settingsOriginLabel}</span>
+                <input
+                  value={origin}
+                  onChange={(e) => setOrigin(e.target.value)}
+                  placeholder={M.settingsOriginPlaceholder}
+                  className="mt-1 h-11 w-full rounded-xl border border-stone-300 bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                />
+              </label>
+              <label className="block">
+                <span className="text-sm font-semibold text-stone-900">{M.settingsIntercityLabel}</span>
+                <select
+                  value={intercity ?? ''}
+                  onChange={(e) => setIntercity((e.target.value || null) as IntercityMode | null)}
+                  className="mt-1 h-11 w-full rounded-xl border border-stone-300 bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                >
+                  <option value="">{M.intercityNone}</option>
+                  {Object.values(INTERCITY_MODE)
+                    .filter((m) => m !== INTERCITY_MODE.NONE)
+                    .map((m) => (
+                      <option key={m} value={m}>
+                        {INTERCITY_MODE_LABEL[m]}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-sm font-semibold text-stone-900">{M.settingsLodgingLabel}</span>
+                <input
+                  value={lodging}
+                  onChange={(e) => setLodging(e.target.value)}
+                  placeholder={M.settingsLodgingPlaceholder}
+                  className="mt-1 h-11 w-full rounded-xl border border-stone-300 bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                />
+              </label>
+            </div>
+            {settingsError ? <p className="mt-3 text-sm text-red-600">{settingsError}</p> : null}
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setSettingsOpen(false)}
+                className="h-11 rounded-xl border border-stone-300 text-sm"
+              >
+                {M.settingsCancel}
+              </button>
+              <button
+                type="button"
+                onClick={saveSettings}
+                disabled={settingsSaving}
+                className="h-11 rounded-xl bg-gradient-to-r from-primary-from to-primary-to text-white text-sm font-semibold flex items-center justify-center gap-1 disabled:opacity-60"
+              >
+                {settingsSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                {M.settingsConfirm}
               </button>
             </div>
           </div>
