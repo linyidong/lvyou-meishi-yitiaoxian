@@ -625,3 +625,17 @@ nc -z -G 2 <候选IP> 8000        # 谁能开 8000/5432 就是 Supabase 所在�
 - 凭据：`/srv/backup/.cos.env`（600），由 `setup-cos.sh` 读取；脚本不 source，改用 Python 解析，避免密钥特殊字符被 shell 解释；
 - 子账号 `deepseek`（UIN 100054986954）关联 `QcloudCOSDataFullControl`，**建议后续收紧为只限该桶**；
 - 缺口：COS 暂无生命周期清理（约 600KB/日，成本可忽略；可在桶设置里加「30 天删除」）。
+
+**监控（2026-11-11 上线）**
+
+| 项 | 实现 |
+|---|---|
+| 定时 | `lyytx-health.timer` 每小时整点（`Persistent=true`） |
+| 检查 | 磁盘 `/` >80%、内存 >85%、`https://lyytx.com/` 非 200、4 个 Supabase 容器未运行、`lvyou.service` 非 active |
+| 推送 | 企业微信群机器人（复用 `ORDER_NOTIFY_WECOM_WEBHOOK`）；**用 Python 发送**，curl 拼 URL 会被 env 隐藏字符破坏（exit 6） |
+| 去重 | 同一条告警 30 分钟内不重复推送（`/srv/backup/.health-state`） |
+| 日志 | `/srv/backup/health.log`（正常也记一行，便于复盘） |
+| 手动测试 | `sudo /srv/backup/healthcheck.sh --test`（发一条测试消息） |
+
+**Docker 日志上限**：`/etc/docker/daemon.json` 设 `json-file` + `max-size=10m` + `max-file=3`。
+注意：日志配置在**容器创建时固化**，改完必须 `docker-compose down && up -d` 重建容器才生效（`docker inspect` 的 `LogConfig.Config` 可验证）。

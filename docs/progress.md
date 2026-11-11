@@ -168,6 +168,8 @@
 
 ## 6. 最近变更摘要
 
+- 2026-11-11 23:05：**日志/镜像/监控三项收尾**——Docker 日志设 `max-size=10m/max-file=3`（重建容器后 `LogConfig.Config` 已确认生效）；`docker image prune -af` 回收 20KB；新增 `lyytx-health.timer`（每小时检查磁盘>80%/内存>85%/站点非200/容器未运行/服务非 active），异常见推企业微信群机器人，同告警 30 分钟去重，日志写 `/srv/backup/health.log`。**踩坑**：curl 拼 webhook 时被 env 隐藏字符破坏（exit 6），改用 Python `urlopen` 发送，返回 `{"errcode":0}`；journald 上限设 200MB（当前 176MB）。实测：`disk=32% mem=35% site=200`，测试消息已送达。
+
 - 2026-11-11 22:56：**异地备份（双份）落地**——COS 桶 `lyytx-backup-1255587656`（广州，私有，版本控制开）由子账号 `deepseek` 写入；**rclone 1.53 的 TencentCOS 后端实测不通（AccessDenied）**，改用腾讯云官方 `coscmd`，全链路验证通过：`backup.sh` → dump 606,483 字节 → 上传 → `coscmd list` 可见 → 下载回来 **sha256 与本地一致**。每日 04:00 自动执行并上传。另备 Windows 拉取脚本（`deploy/windows-backup-pull.ps1`，每日 04:30 + 开机补拉，保留 30 份，支持 `DEST` 改盘）。**踩坑**：① 控制台 SecretId 中间打码，必须用复制按钮；② 密钥值被 `<...>` 占位符带入；③ rclone 的 COS 兼容性。
 
 - 2026-11-11 21:50：**方案 C 全云迁移完成**——云机装 Docker（腾讯云镜像加速）+ Supabase（postgres 15.8.1.135 / gotrue v2.196.0 / postgrest v12.2.3 / kong 2.8.1，仅 Kong 暴露 8000）→ Windows 导出 2.4MB dump（curl 一次性 HTTPS 通道上传）→ 临时库演练核对 → 正式库恢复 → 修 `auth` 属主与 public 授权 → 重建 `expire-members` 定时任务 → 应用换新 anon/service key 并重建 → Nginx `/rest` `/auth` 从 8081 隧道改到 8000 → 停隧道。**验证**：行数一致、测试账号登录 200、游客全链路 2 行 + 地图、管理后台 10 行、页脚备案号、`/rest` 匿名 401。**踩坑**：① `docker exec -t` 使 dump 出现 CRLF，`\.` 结束符失效导致 COPY 数据被当 SQL 执行（改用 `-i`/去 CR）；② pg_cron 只能建在名为 `postgres` 的库；③ 恢复后需补 public 授权与 `auth` schema 属主，否则 PostgREST/GoTrue 报 permission denied；④ Kong 配置 chmod 600 后容器内非 root 读不到。**备份**：每日 04:00 pg_dump 到 `/srv/backup`，保留 14 份，首份 593KB。**遗留**：备份与数据同盘（需异地）、家机旧 Supabase 保留 7 天做回滚、本机 dev 仍连旧库。
@@ -403,10 +405,10 @@
 
 **待用户决策**：Q-007 企微自建应用、Q-008 `routes.transport` 取值、Q-010 A5 是否算本期、Q-011 走查关闭、Q-013 个体户/公司 + 经营许可、Q-014 App/PWA。
 
-**遗留风险**：备份与数据同盘（云盘坏则全失，需异地一份）；单机无高可用；`next@14.2.15` 有 npm 安全公告（升级需单独任务）；家机旧 Supabase 仍在运行（7 天内可回滚，之后关停）；本机 dev 仍连旧库，关停前需改 `Project/.env.local`；主机名/DHCP 漂移仅影响本地开发路径、单机 Supabase 无主从、无 CI、`member_orders = 0`（付费未真实验证）、个人备案 + 收费的合规灰区、Windows 5 脚本未实机验证、3 个账号中仍含 1 个历史测试账号 `test2026-*`（保留，因名下挂着演示路线）。
+**遗留风险**：单机无高可用（已有本地+COS+Windows 三份备份）；COS 无生命周期清理（量小可忽略）；Kong 占 200MB 内存；`next@14.2.15` 有 npm 安全公告（升级需单独任务）；家机旧 Supabase 仍在运行（7 天内可回滚，之后关停）；本机 dev 仍连旧库，关停前需改 `Project/.env.local`；主机名/DHCP 漂移仅影响本地开发路径、单机 Supabase 无主从、无 CI、`member_orders = 0`（付费未真实验证）、个人备案 + 收费的合规灰区、Windows 5 脚本未实机验证、3 个账号中仍含 1 个历史测试账号 `test2026-*`（保留，因名下挂着演示路线）。
 
 **待用户决策**：Q-007 企微自建应用、Q-008 `routes.transport` 取值、Q-010 A5 是否算本期、Q-011 走查关闭、Q-013 个体户/公司 + 经营许可、Q-014 App/PWA。
 
-**遗留风险**：备份与数据同盘（云盘坏则全失，需异地一份）；单机无高可用；`next@14.2.15` 有 npm 安全公告（升级需单独任务）；家机旧 Supabase 仍在运行（7 天内可回滚，之后关停）；本机 dev 仍连旧库，关停前需改 `Project/.env.local`；主机名/DHCP 漂移仅影响本地开发路径、单机 Supabase 无主从、无 CI、`member_orders = 0`（付费未真实验证）、个人备案 + 收费的合规灰区、Windows 5 脚本未实机验证、3 个账号中仍含 1 个历史测试账号 `test2026-*`（保留，因名下挂着演示路线）。
+**遗留风险**：单机无高可用（已有本地+COS+Windows 三份备份）；COS 无生命周期清理（量小可忽略）；Kong 占 200MB 内存；`next@14.2.15` 有 npm 安全公告（升级需单独任务）；家机旧 Supabase 仍在运行（7 天内可回滚，之后关停）；本机 dev 仍连旧库，关停前需改 `Project/.env.local`；主机名/DHCP 漂移仅影响本地开发路径、单机 Supabase 无主从、无 CI、`member_orders = 0`（付费未真实验证）、个人备案 + 收费的合规灰区、Windows 5 脚本未实机验证、3 个账号中仍含 1 个历史测试账号 `test2026-*`（保留，因名下挂着演示路线）。
 
 **数据卫生记录（2026-11-08）**：删除 `t051-*` / `t054-*`×3 / `e2e-*` 共 5 个测试账号（GoTrue Admin API，HTTP 200），删除前快照 `/tmp/t064-testdata-backup.json`；users 8→3，routes/places/route_shares 数量未变。`test2026-*`（2026-10-17 创建，名下 2 条演示路线）保留待用户决定。
