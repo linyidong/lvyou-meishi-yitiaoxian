@@ -207,6 +207,8 @@ export const MESSAGES = {
   NAV_COLLECTED: '收藏夹',
   /** M75 顶部导航：个人中心 */
   NAV_PROFILE: '个人中心',
+  /** T-098 顶部导航：功能建议 */
+  NAV_FEEDBACK: '功能建议',
   /** M76 底部导航（移动端）：新建 */
   NAV_NEW_SHORT: '新建',
   /** M77 底部导航（移动端）：我的 */
@@ -1329,6 +1331,8 @@ export const MESSAGES = {
     navOrders: '会员订单',
     navSettings: '设置',
     navTechStack: '技术栈',
+    /** T-098 意见箱 */
+    navFeedback: '意见箱',
     readOnlyNote: '后台不提供编辑 / 删除 / 踢出',
     logout: '退出后台',
     browsingAs: '运营管理员',
@@ -2497,6 +2501,47 @@ export const MESSAGES = {
       resetBtn: '一键复位',
       resetDone: '已恢复系统推荐顺序',
     },
+  },
+  /** T-098 功能建议（用户端） */
+  FEEDBACK: {
+    title: '功能建议',
+    desc: '选一下你希望改进的页面和功能，再具体说说怎么改。建议会直接进后台意见箱。',
+    pageLabel: '哪个页面',
+    pagePlaceholder: '请选择页面',
+    featureLabel: '哪个功能',
+    featurePlaceholder: '请先选择页面',
+    contentLabel: '你的建议',
+    contentPlaceholder: '例如：我的路线里希望能按天数筛选（5–1000 字）',
+    submit: '提交建议',
+    submitting: '提交中…',
+    ok: '已收到，感谢你的建议',
+    fail: '提交失败，请稍后重试',
+    required: '请选择页面和功能，并填写建议',
+    tooShort: '建议至少 5 个字',
+    tooLong: '建议最多 1000 个字',
+    myRecent: '我最近提交的建议',
+    emptyMine: '还没有提交过建议',
+    statusLabel: '状态',
+  },
+
+  /** T-098 意见箱（后台） */
+  ADMIN_FEEDBACK: {
+    title: '意见箱',
+    desc: '按「页面 · 功能」查看用户建议；同一功能的建议会排在一起。',
+    empty: '还没有收到建议',
+    loadFailed: '加载失败，请刷新重试',
+    allPages: '全部页面',
+    allStatus: '全部状态',
+    statusNew: '未读',
+    statusRead: '已读',
+    statusDone: '已处理',
+    markRead: '标记已读',
+    markDone: '标记已处理',
+    notePlaceholder: '处理备注（可选）',
+    save: '保存备注',
+    saved: '已保存',
+    userUnknown: '用户已注销',
+    replyHint: '备注仅后台可见，不会发给用户',
   },
 } as const;
 

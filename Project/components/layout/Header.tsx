@@ -16,6 +16,7 @@ const NAV_ITEMS = [
   { href: ROUTES.MY_ROUTES, label: MESSAGES.NAV_MY_ROUTES },
   { href: ROUTES.COLLECTED, label: MESSAGES.NAV_COLLECTED },
   { href: ROUTES.PROFILE, label: MESSAGES.NAV_PROFILE },
+  { href: ROUTES.FEEDBACK, label: MESSAGES.NAV_FEEDBACK },
 ];
 
 /** 当前项高亮：选城市 / 路线编辑 / 游客试用都算「新建路线」 */

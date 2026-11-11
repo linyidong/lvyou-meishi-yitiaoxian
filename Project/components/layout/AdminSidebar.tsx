@@ -8,6 +8,7 @@ import {
   Eye,
   LayoutDashboard,
   Layers,
+  MessagesSquare,
   LogOut,
   MapPinned,
   ReceiptText,
@@ -42,6 +43,7 @@ export const ADMIN_NAV: NavItem[] = [
   { href: ROUTES.ADMIN_SETTINGS, label: MESSAGES.ADMIN_SHELL.navSettings, icon: Settings },
   // T-050：技术栈（用户要求放在「设置」下方）
   { href: ROUTES.ADMIN_TECH_STACK, label: MESSAGES.ADMIN_SHELL.navTechStack, icon: Layers },
+  { href: ROUTES.ADMIN_FEEDBACK, label: MESSAGES.ADMIN_SHELL.navFeedback, icon: MessagesSquare },
 ];
 
 /**

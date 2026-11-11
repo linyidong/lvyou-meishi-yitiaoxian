@@ -24,6 +24,8 @@ export const ROUTES = {
   ROUTE_DETAIL: (id: string) => `/route/${id}`,
   /** R10 个人中心 */
   PROFILE: '/profile',
+  /** R26 功能建议（登录用户） */
+  FEEDBACK: '/feedback',
   /** R11 管理员登录 */
   ADMIN_LOGIN: '/admin/login',
   /** R12 管理员概览 */
@@ -50,6 +52,8 @@ export const ROUTES = {
   TRY_PICK: '/try/pick',
   /** R23 游客试用 · 路线结果（免登录） */
   TRY_RESULT: '/try/result',
+  /** R27 管理员意见箱（T-098） */
+  ADMIN_FEEDBACK: '/admin/feedback',
   /** R24 管理员全局设置（T-049） */
   ADMIN_SETTINGS: '/admin/settings',
   /** R25 管理员技术栈说明（T-049） */
@@ -57,7 +61,13 @@ export const ROUTES = {
 } as const;
 
 /** 需登录才能访问的前缀（middleware.ts 使用） */
-export const PROTECTED_ROUTES = [ROUTES.MY_ROUTES, '/route', ROUTES.PROFILE, ROUTES.COLLECTED];
+export const PROTECTED_ROUTES = [
+  ROUTES.MY_ROUTES,
+  '/route',
+  ROUTES.PROFILE,
+  ROUTES.COLLECTED,
+  ROUTES.FEEDBACK,
+];
 
 /**
  * 额外免登录前缀（middleware.ts 放行）：游客试用链路 /try/*，
@@ -76,4 +86,5 @@ export const ADMIN_ROUTES = [
   ROUTES.ADMIN_ORDERS,
   ROUTES.ADMIN_SETTINGS,
   ROUTES.ADMIN_TECH_STACK,
+  ROUTES.ADMIN_FEEDBACK,
 ];
