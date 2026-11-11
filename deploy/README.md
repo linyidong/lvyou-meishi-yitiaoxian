@@ -1,6 +1,6 @@
-# 部署配置（融合方案：云机入口 + 家机应用）
+# 部署配置（2026-11-11 起：方案 B · App 上云 + 数据库留家机）
 
-> 对应 `docs/deployment.md` §4.5。**本目录是准备件，尚未执行部署。**
+> 对应 `docs/deployment.md` §4.8（方案 B，2026-11-11 用户选定）。**2026-11-11 已开始在云机落地**：Node 22 + 源码 rsync + `npm ci` + `next build` + `lvyou.service`（`next start -p 3000`）；Nginx 配置就绪但**未启用**（等 DNS 与证书）。
 
 架构：
 

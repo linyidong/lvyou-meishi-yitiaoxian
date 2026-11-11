@@ -6,6 +6,7 @@ import { ROUTES } from '@/config/routes';
 import { SharePosterCard, type SharePosterView } from '@/components/share/SharePosterCard';
 import { ShareReloadButton } from '@/components/share/ShareReloadButton';
 import { ShareViewClient } from '@/components/share/ShareViewClient';
+import { SiteFooter } from '@/components/layout/SiteFooter';
 import { getQuotaProfile } from '@/lib/member-quota';
 import { buildSharePosterMapImages } from '@/lib/share-poster-map';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -130,6 +131,8 @@ export default async function SharePage({ params }: { params: { token: string } 
           productName={PRODUCT.NAME}
           mapImages={mapImages}
         />
+        {/* T-092 公开分享页同样展示备案号（外链可达页面） */}
+        <SiteFooter />
       </main>
     );
   }
@@ -144,6 +147,8 @@ export default async function SharePage({ params }: { params: { token: string } 
         viewerTier={viewerTier}
         productName={PRODUCT.NAME}
       />
+      {/* T-092 公开分享页同样展示备案号（外链可达页面） */}
+      <SiteFooter />
     </main>
   );
 }

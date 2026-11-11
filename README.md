@@ -13,7 +13,7 @@
 |---|---|
 | 代码 | Next.js 14（App Router）+ React 18 + TypeScript strict + Tailwind：**25 个页面、36 个 API、48 个组件、31 个 lib 模块、34,231 行 TS/TSX** |
 | 提交 | **149 次提交**（2026-10-15 ~ 10-29；`feat/fix/test/chore` 90 次 + `docs` 57 次），按 T-001~T-063 推进；一个任务一张卡 |
-| 测试 | **113 条单元测试（13 个文件）+ 8 条 Playwright E2E**，全绿；另有 4 个自检脚本（环境 / 库结构 / 城市一致性 / 地点水体体检） |
+| 测试 | **116 条单元测试（14 个文件）+ 8 条 Playwright E2E**，全绿；另有 4 个自检脚本（环境 / 库结构 / 城市一致性 / 地点水体体检） |
 | 文档 | **38 份 Markdown**（`docs/`）+ **55 张任务卡**（`tasks/`）：需求、架构、模块地图、数据模型、接口契约、ADR、并发审计、水体体检报告、部署、操作手册、技术栈、阶段交接 |
 | 任务 | **T-001 ~ T-065**（含 T-064 文档校准、T-065 自检脚本），一张卡一份可数验收判据与回滚方式 |
 | 数据 | **15 张表 / 32 份迁移 / 109 个城市 / 1,367 个地点**；`check:schema` 65 项对象体检全过 |
@@ -103,7 +103,7 @@ Next.js 14（App Router）
 | 数据 | 自建 Supabase：PostgreSQL 15 + GoTrue + PostgREST + RLS + pg_cron + 原子 RPC（32 份迁移） |
 | 地图与算路 | 高德 JS API（展示）· 高德 Web 服务（检索/距离矩阵/静态图）· 双 Key 池 + 落库缓存 |
 | AI | DeepSeek（文案提取，主/备可切换）· 腾讯云 OCR（图片识别，通用/高精度可切换） |
-| 质量 | vitest 113 条 · Playwright 8 条 · 移动端审计脚本 · 4 个自检脚本 |
+| 质量 | vitest 116 条 · Playwright 8 条 · 移动端审计脚本 · 4 个自检脚本 |
 | 部署 | 局域网：Windows（Supabase Docker）+ 应用；公网方案：云机 Nginx + 反向隧道（备案后启用） |
 
 ### API 分组（36 个）
@@ -197,7 +197,7 @@ Next.js 14（App Router）
 
 | 项 | 内容 |
 |---|---|
-| 单元测试 | **113 条 / 13 个文件**（`npm run test:run`）：排序、分享 token、配额、POI 打分、adcode 判定、模型兜底、设置校验、原子写路线 |
+| 单元测试 | **116 条 / 14 个文件**（`npm run test:run`）：排序、分享 token、配额、POI 打分、adcode 判定、模型兜底、设置校验、原子写路线 |
 | 端到端 | **8 条**（`npm run test:e2e`）：登录、排路线、保存、收藏、分享、导入 |
 | 移动端 | `npm run audit:mobile`：390px 视口横向溢出检查 |
 | 库结构 | `npm run check:schema`：15 表 / 10 函数 / 10 约束 / 17 关键列 / pg_cron / RLS，共 65 项 |
@@ -237,7 +237,7 @@ Next.js 14（App Router）
 1. **先审计**：接手半成品代码，先读现有实现并记录事实（`docs/existing-project-audit.md`、`architecture.md`、`module-map.md`）。
 2. **列问题**：确认缺陷与风险登记在 `docs/known-issues.md`（A/B/C/S 分级，含复现与证据）。
 3. **按任务做**：`tasks/T-0xx.md` 一份任务卡，写清目标 / 不做什么 / 验收标准 / 测试方案 / 回滚 / 风险等级。
-4. **写测试**：单测 113 + E2E 8，重点压在权限、并发、地名归属、设置校验。
+4. **写测试**：单测 116 + E2E 8，重点压在权限、并发、地名归属、设置校验。
 5. **补自检**：`check:env` / `check:schema` / `check:cities` / `scan:water`，把"上线前该绿的"变成命令。
 6. **出文档**：操作手册、技术栈、思维逻辑、部署、并发审计、水体体检报告、阶段交接摘要。
 

@@ -21,7 +21,7 @@
 ```bash
 cd Project
 npm run dev        # 开发
-npm run test:run   # 113 条单测
+npm run test:run   # 116 条单测
 npm run test:e2e   # 8 条 E2E
 npm run check:env  # 环境探活
 ```
