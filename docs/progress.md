@@ -168,7 +168,9 @@
 
 ## 6. 最近变更摘要
 
-- 2026-11-11 23:20：**Next 安全升级 14.2.15 → 14.2.35**（14.2.x 补丁版，不跨大版本）——本地只更新 `package.json` 与 `package-lock.json`（`npm install --package-lock-only`，不动本机 `node_modules`）；云机先整目录备份 `app.bak-20261111-231757`，再 rsync → `npm ci`（574 包 14s）→ `typecheck` **exit 0** → 单测 **116 passed** → `next build` **成功** → 重启。**运行时验证**：`Next.js 14.2.35`、`/login` 200、线上 `/` `/city` `/login` 200；Playwright 生产冒烟：游客 2 行 + 地图、保存跳登录、管理后台 10 行、0 JS 报错、页脚备案号。**未执行**：本机 E2E（dev 与 build 争用 `.next`，且本机未装 14.2.35）；`npm run lint` 未跑（既有 ImportCollectClient 告警非本次引入）。回滚：`app.bak-20261111-231757` + 旧 lock（`/tmp/package-lock.json.before-next-upgrade` 已留）。
+- 2026-11-11 23:45：**本机依赖对齐 + 补齐 E2E**——本机 `npm ci` 后 `node_modules` 从 14.2.15 对齐到 **14.2.35**；停掉旧 dev 并以 `NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:8000` 重启（沿用端口转发绕 C14）。验证：`typecheck` **exit 0**、单测 **116 passed**、**E2E 8 passed (12.3s)** —— 补上昨晚升级时「E2E 未执行」的缺口。COS 生命周期尝试用 SDK 设置被 **AccessDenied**（子账号 `QcloudCOSDataFullControl` 不含 `PutBucketLifecycle`），改为控制台手动配置。
+
+- 2026-11-11 23:20：**Next 安全升级 14.2.15 → 14.2.35**（14.2.x 补丁版，不跨大版本）——本地只更新 `package.json` 与 `package-lock.json`（`npm install --package-lock-only`，不动本机 `node_modules`）；云机先整目录备份 `app.bak-20261111-231757`，再 rsync → `npm ci`（574 包 14s）→ `typecheck` **exit 0** → 单测 **116 passed** → `next build` **成功** → 重启。**运行时验证**：`Next.js 14.2.35`、`/login` 200、线上 `/` `/city` `/login` 200；Playwright 生产冒烟：游客 2 行 + 地图、保存跳登录、管理后台 10 行、0 JS 报错、页脚备案号。**已补齐**：本机 E2E 见 23:45 条目；`npm run lint` 未跑（既有 ImportCollectClient 告警非本次引入）。回滚：`app.bak-20261111-231757` + 旧 lock（`/tmp/package-lock.json.before-next-upgrade` 已留）。
 
 - 2026-11-11 23:12：**备份收尾**——① 用 COS 上的备份额做了**真实恢复演练**：下载 → gzip 校验 → 恢复临时库 → users 6/routes 10/places 1372/cities 109/member_orders 6/route_shares 41 与生产完全一致 → 删库（约 10 秒）；② 新增**周档**：每周日额外上传到 `backup-weekly/`（防「14 天内就被改坏」）；③ Windows 拉取脚本改为**自动选非 C 盘**（D/E/F 中剩余 >1GB 的第一个，目录 `<盘>:\lyytx-offsite`），找不到才退化 C 盘并告警。
 
