@@ -633,6 +633,8 @@ nc -z -G 2 <候选IP> 8000        # 谁能开 8000/5432 就是 Supabase 所在�
 | 定时 | `lyytx-health.timer` 每小时整点（`Persistent=true`） |
 | 检查 | 磁盘 `/` >80%、内存 >85%、`https://lyytx.com/` 非 200、4 个 Supabase 容器未运行、`lvyou.service` 非 active |
 | 推送 | 企业微信群机器人（复用 `ORDER_NOTIFY_WECOM_WEBHOOK`）；**用 Python 发送**，curl 拼 URL 会被 env 隐藏字符破坏（exit 6） |
+| 文案 | 标题固定为「【警告】磁盘>80% / 内存>85% / 站点 502」，正文列出本次实际触发项、时间与主机 |
+| 频率 | **正常不推送**；同一组异常 24 小时内只推一次；恢复正常后自动清状态，再次出问题立即推送 |
 | 去重 | 同一条告警 30 分钟内不重复推送（`/srv/backup/.health-state`） |
 | 日志 | `/srv/backup/health.log`（正常也记一行，便于复盘） |
 | 手动测试 | `sudo /srv/backup/healthcheck.sh --test`（发一条测试消息） |

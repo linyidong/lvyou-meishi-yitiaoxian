@@ -168,6 +168,8 @@
 
 ## 6. 最近变更摘要
 
+- 2026-11-11 23:08：**告警文案与频率调整（用户要求）**——标题改为「【警告】磁盘>80% / 内存>85% / 站点 502」，正文列触发项/时间/主机；正常巡检**不推送**，同一组异常 **24 小时内只推一次**，恢复后清状态、复发立即推。实测：测试消息 `errcode 0`；模拟故障两次 → 第一次 ALERT、第二次 `suppressed (24h)`；顺手修掉站点码 `000` 被重复拼接成 `000000` 的小 bug。
+
 - 2026-11-11 23:05：**日志/镜像/监控三项收尾**——Docker 日志设 `max-size=10m/max-file=3`（重建容器后 `LogConfig.Config` 已确认生效）；`docker image prune -af` 回收 20KB；新增 `lyytx-health.timer`（每小时检查磁盘>80%/内存>85%/站点非200/容器未运行/服务非 active），异常见推企业微信群机器人，同告警 30 分钟去重，日志写 `/srv/backup/health.log`。**踩坑**：curl 拼 webhook 时被 env 隐藏字符破坏（exit 6），改用 Python `urlopen` 发送，返回 `{"errcode":0}`；journald 上限设 200MB（当前 176MB）。实测：`disk=32% mem=35% site=200`，测试消息已送达。
 
 - 2026-11-11 22:56：**异地备份（双份）落地**——COS 桶 `lyytx-backup-1255587656`（广州，私有，版本控制开）由子账号 `deepseek` 写入；**rclone 1.53 的 TencentCOS 后端实测不通（AccessDenied）**，改用腾讯云官方 `coscmd`，全链路验证通过：`backup.sh` → dump 606,483 字节 → 上传 → `coscmd list` 可见 → 下载回来 **sha256 与本地一致**。每日 04:00 自动执行并上传。另备 Windows 拉取脚本（`deploy/windows-backup-pull.ps1`，每日 04:30 + 开机补拉，保留 30 份，支持 `DEST` 改盘）。**踩坑**：① 控制台 SecretId 中间打码，必须用复制按钮；② 密钥值被 `<...>` 占位符带入；③ rclone 的 COS 兼容性。
