@@ -6,6 +6,7 @@ WEBHOOK=$(grep -m1 '^ORDER_NOTIFY_WECOM_WEBHOOK=' /srv/lvyou/app/.env.local 2>/d
 STATE=/srv/backup/.health-state
 LOG=/srv/backup/health.log
 TITLE='【警告】磁盘>80% / 内存>85% / 站点 502'
+RECOVER_TITLE='【恢复】磁盘<80% / 内存<85% / 故障恢复'
 log(){ echo "[$(date '+%F %T')] $*" >> "$LOG"; }
 
 send(){
@@ -30,9 +31,18 @@ PY
 
 if [ "${1:-}" = "--test" ]; then
   send "$TITLE
-当前触发：测试消息（非真实告警）
+当前触发：
+· 磁盘使用 82%（阈值 80%）
 时间：$(date '+%F %T')
-主机：139.199.191.102"
+主机：139.199.191.102（测试消息）"
+  exit 0
+fi
+
+if [ "${1:-}" = "--test-recover" ]; then
+  send "$RECOVER_TITLE
+当前状态：磁盘 32% / 内存 35% / 站点 200
+恢复时间：$(date '+%F %T')
+主机：139.199.191.102（测试消息）"
   exit 0
 fi
 
@@ -52,8 +62,15 @@ st=$(systemctl is-active lvyou 2>/dev/null || echo inactive)
 [ "$st" != "active" ] && fails+=("lvyou.service 状态 ${st}")
 
 if [ ${#fails[@]} -eq 0 ]; then
-  # 恢复正常：清掉状态，下次再出问题会立即告警
-  [ -f "$STATE" ] && rm -f "$STATE" && log "recovered"
+  # 从异常恢复：发一条恢复通知，并清状态（下次再出问题立即告警）
+  if [ -f "$STATE" ]; then
+    rm -f "$STATE"
+    send "$RECOVER_TITLE
+当前状态：磁盘 ${disk}% / 内存 ${mem}% / 站点 ${code}
+恢复时间：$(date '+%F %T')
+主机：139.199.191.102"
+    log "recovered: disk=${disk}% mem=${mem}% site=${code}"
+  fi
   log "ok disk=${disk}% mem=${mem}% site=${code}"
   exit 0
 fi
