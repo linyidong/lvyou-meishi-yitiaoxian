@@ -11,7 +11,7 @@
 - **代码根**：`Project/`（Next.js 应用）；正式文档 `docs/`；`File-PRD/` 是历史文档，**只读参考，不改不删**
 - **项目用途**：选城市 → 设置行程 → 挑地点 → 自动排路线 → 看地图与分段里程 → 保存为个人路线。支持游客免登录试用、会员分层配额、路线分享
 - **目标用户**：自助旅行者（游客试用 → 注册 → 会员付费）
-- **技术栈**：Next.js 14.2.15（App Router）+ React 18.3.1 + TypeScript（strict）+ TailwindCSS；自建 Supabase（Postgres / Auth / PostgREST）；高德地图（JS API + Web 服务）；DeepSeek（文案提取）；企业微信 Webhook（订单提醒）
+- **技术栈**：Next.js 14.2.35（App Router）+ React 18.3.1 + TypeScript（strict）+ TailwindCSS；自建 Supabase（Postgres / Auth / PostgREST）；高德地图（JS API + Web 服务）；DeepSeek（文案提取）；企业微信 Webhook（订单提醒）
 - **启动命令**：`cd Project && npm run dev`（端口 3000，依赖 `Project/.env.local`）
 - **类型检查**：`cd Project && npm run typecheck`
 - **构建命令**：`cd Project && npm run build`

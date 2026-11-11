@@ -8,7 +8,7 @@
 
 | 组件 | 形态 | 证据 |
 |---|---|---|
-| Web 应用 | Next.js 14.2.15（App Router）单体，React 18.3.1 + TypeScript 5.9.3 strict + TailwindCSS 3.4.19；`npm run dev` 端口 3000 | `Project/package.json:6-10`、`docs/tech-stack.md` |
+| Web 应用 | Next.js 14.2.35（App Router）单体，React 18.3.1 + TypeScript 5.9.3 strict + TailwindCSS 3.4.19；`npm run dev` 端口 3000 | `Project/package.json:6-10`、`docs/tech-stack.md` |
 | 路由入口 | 23 个 `page.tsx` + 2 个 `layout.tsx` + 30 个 `route.ts`，合计 55 个入口 | `find Project/app -name 'page.tsx'`（23）/ `'layout.tsx'`（2）/ `'route.ts'`（30）`[已确认]` |
 | 数据库 | 自建 Supabase（Postgres + PostgREST + GoTrue Auth + RLS），14 张表、25 份迁移 | Harness 实测（`docs/open-questions.md` Q-101/Q-102）；`Project/supabase/migrations/001…025` |
 | 地图 | 高德 JS API 1.4.15（前端动态注入）+ 高德 Web 服务（服务端 Key 池，代码支持 3 槽、实配 2 槽） | `Project/lib/amap-loader.ts:69`、`Project/config/env.ts:24-37` |

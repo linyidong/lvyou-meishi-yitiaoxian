@@ -357,6 +357,7 @@ docker exec -i <postgres_container> psql -U postgres -d postgres < backup_YYYYMM
 | 2026-11-08 | 工作区 `b9600c4` | Harness | **本地生产构建 exit 0**；单测 113 / E2E 8 / 移动端审计溢出 0；**未部署**（等备案） |
 | 2026-11-11 21:00 | 工作区 `19f0515` | Harness | **上线** `https://lyytx.com`（HTTP→HTTPS，证书到 2027-02-09）；方案 B：云机 Node 22 + `next build` + `lvyou.service` + Nginx + 隧道 8081；游客全链路/管理员/匿名 401 冒烟通过；**备份与回滚演练未做** |
 | 2026-11-11 21:50 | 工作区 `19f0515` | Harness | **切换方案 C（全云）**：云机 Docker Supabase（Kong 8000 + key-auth）+ 数据迁移（行数一致、登录验证通过）；Nginx `/rest` `/auth` 改指本机 8000，隧道停用；每日备份定时器上线 |
+| 2026-11-11 23:20 | 工作区（Next 14.2.35） | Harness | **Next 安全升级 14.2.15 → 14.2.35**；typecheck 0 / 单测 116 / build 成功；生产冒烟（游客+地图+保存+后台+页脚）通过；回滚目录 `app.bak-20261111-231757` |
 | 待定 | —— | —— | 备案通过后按 §4.5 融合方案上线 |
 
 ## 13. 待用户确认（决定成本与工期）
