@@ -269,6 +269,8 @@ export function TryResultClient({ loggedIn }: { loggedIn: boolean }) {
   const [toast, setToast] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+  /** 高德算路/地图不可用时的降级提示；非空表示当前展示的是「按勾选顺序」的兜底结果 */
+  const [degraded, setDegraded] = useState('');
   /** 正在按新顺序重算路段（此时禁用拖动与上下移动，避免并发改序） */
   const [reordering, setReordering] = useState(false);
   const [moveOpenId, setMoveOpenId] = useState<string | null>(null);
@@ -364,17 +366,55 @@ export function TryResultClient({ loggedIn }: { loggedIn: boolean }) {
           return;
         }
         if (!data.ok || !data.points || !data.legs) {
-          setMessage(data.message ?? M.error);
-          setStatus('error');
+          // 降级：算路服务不可用时不阻断流程，按用户勾选顺序展示，里程/时间为空
+          const fallback: OrderResult = {
+            mode,
+            lodgingResolved: false,
+            lodging: null,
+            points: draft.places.map((p) => ({
+              name: p.name,
+              type: p.type,
+              isLodging: false,
+              lat: p.lat,
+              lng: p.lng,
+            })),
+            legs: [],
+            distanceMeters: 0,
+            durationSeconds: 0,
+            estimated: true,
+          };
+          setResult(fallback);
+          initialOrderRef.current = fallback;
+          setDegraded(M.degraded);
+          setStatus('ready');
           return;
         }
         setResult(data as OrderResult);
         initialOrderRef.current = data as OrderResult;
+        setDegraded('');
         setStatus('ready');
       } catch {
         if (!cancelled) {
-          setMessage(M.error);
-          setStatus('error');
+          const fallback: OrderResult = {
+            mode,
+            lodgingResolved: false,
+            lodging: null,
+            points: draft.places.map((p) => ({
+              name: p.name,
+              type: p.type,
+              isLodging: false,
+              lat: p.lat,
+              lng: p.lng,
+            })),
+            legs: [],
+            distanceMeters: 0,
+            durationSeconds: 0,
+            estimated: true,
+          };
+          setResult(fallback);
+          initialOrderRef.current = fallback;
+          setDegraded(M.degraded);
+          setStatus('ready');
         }
       }
     })();
@@ -758,6 +798,22 @@ export function TryResultClient({ loggedIn }: { loggedIn: boolean }) {
         </div>
       ) : result ? (
         <>
+          {degraded ? (
+            <div className="mt-6 flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+              <div>
+                <p>{degraded}</p>
+                <button
+                  type="button"
+                  onClick={() => setNonce((n) => n + 1)}
+                  className="mt-1 text-xs font-semibold underline underline-offset-2"
+                >
+                  {M.retry}
+                </button>
+              </div>
+            </div>
+          ) : null}
+
           {/* 出行方式（T-066：游客固定步行，四个按钮全部禁用，点击不再触发 /api/try/order 重排） */}
           <div className="mt-6 rounded-2xl border border-stone-200 bg-white p-4 md:p-5">
             <p className="text-sm font-semibold text-stone-900">{M.transportLabel}</p>
@@ -937,9 +993,11 @@ export function TryResultClient({ loggedIn }: { loggedIn: boolean }) {
                 </ol>
               </SortableContext>
             </DndContext>
-            <p className="mt-4 rounded-xl bg-stone-50 px-4 py-3 text-sm font-semibold text-stone-800">
-              {M.totalMeta(kmText(result.distanceMeters), minText(result.durationSeconds))}
-            </p>
+            {result.legs.length > 0 ? (
+              <p className="mt-4 rounded-xl bg-stone-50 px-4 py-3 text-sm font-semibold text-stone-800">
+                {M.totalMeta(kmText(result.distanceMeters), minText(result.durationSeconds))}
+              </p>
+            ) : null}
             <p className="mt-2 text-xs text-stone-400">{M.lodgingFirstTip}</p>
           </div>
 
