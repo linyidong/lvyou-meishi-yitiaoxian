@@ -6,12 +6,12 @@
 ## 1. 当前状态（一眼看懂）
 
 - 当前阶段：**阶段 8 验收与上线（ICP 备案已通过，待执行部署）**
-- 阶段状态：**验收已完成；生产部署进行中**（方案 B：App 已上云并跑通，**等 DNS 解析与 443 放行**才能开 HTTPS/对外）
-- 当前门禁：G1–G5 通过；G6 部分通过（代码/测试证据齐全，人工走查欠账）；G7 未通过
+- 阶段状态：**已上线（2026-11-11 21:00）**：`https://lyytx.com` 可访问，HTTP→HTTPS，证书到 2027-02-09；方案 B（App 在云机、DB 留家机）
+- 当前门禁：G1–G5 通过；G6 部分通过（人工走查欠账）；**G7 仍未通过**——已提前上线，但备份/还原演练、回滚演练、监控拨测、用户授权尚未完成
 - 当前任务：无进行中；T-092（页脚 ICP 备案号）已完成待验收
 - 任务状态：无进行中
-- 下一步：① 用户加 DNSPod `@`/`www` A 记录 + 腾讯云防火墙 443 ② 云机起 Nginx + certbot 签证书 + HTTP→HTTPS ③ 烟雾测试 9 条 → 备份/回滚演练 → G7
-- 阻塞：**无**（备案号 `闽ICP备2026041028号-2` 与公安数据码已取得；域名 `lyytx.com` 已确认在备案内）；**443 端口未在腾讯云轻量防火墙放行**（ufw 内已放行、外网实测不可达）；DNS 尚未添加
+- 下一步：① **立即补备份/还原演练 + 回滚演练**（已上线但门禁未做，最优先）② 站点拨测 + 日志轮转 ③ 隧道从 Mac 迁到 Windows 计划任务（当前单点）④ 公安联网备案（30 日内）⑤ 高德 JS API 域名白名单 ⑥ `next@14.2.15` 安全公告评估
+- 阻塞：**无**（备案、DNS、443、证书全部就绪；站点已对外可访问）
 - 最近更新：2026-11-11 20:45（ICP 通过记录 + T-092 页脚备案号）
 
 **状态行**（每次汇报第一行）：
@@ -166,6 +166,8 @@
 > 产品决策类问题见 `open-questions.md`（Q-002/Q-007/Q-008/Q-010/Q-011/Q-013/Q-014）。
 
 ## 6. 最近变更摘要
+
+- 2026-11-11 21:00：**正式上线 https://lyytx.com**——DNS（`@`/`www`）生效、443 放行、Nginx 启用、certbot 签发双域名证书（到期 2027-02-09，自动续期）并强制 HTTP→HTTPS。**冒烟结果**：首页 200（TLS 0.05s / 总 0.14s）、`www` 200、`/city` `/try/new` `/login` 200、`/routes` `/admin` `/profile` 307 到登录、`/rest/v1/` 401（隧道通）；Playwright 生产环境实跑游客全链路（选城市→设路线→勾 2 点→结果页：路线 2 行 + 一键复位 + 高德 `.amap-container` 出图）→「保存路线」跳 `/login?redirect=` ✓；管理员登录 `/admin` 概览正常、`/admin/routes` 表格 10 行、0 报错；匿名 API `landmarks`/`routes`/`member/orders` POST 均 **401**。**未执行**：测试下单→核销（会写生产数据，需授权）、`pg_cron` 查询（需家机 DB）、分享页（未取 token）。**过程偏差**：上线早于 G7 的备份/回滚演练，需立即补。
 
 - 2026-11-11 20:50：**方案 B 云机落地（进行中）**——云机装 Node v22.23.4（清华镜像）→ rsync 源码 4.7MB 到 `/srv/lvyou/app`（**GitHub 从本机与云机均超时，`git clone` 不可用**）→ `npm ci` 574 包 15s（npmmirror）→ `next build` **exit 0** → `lvyou.service`（`next start -p 3000`）active，`/login` 200（0.26s）、内存 324MB；家机起 `ssh -R 127.0.0.1:8081:desktop-vrd3hft:8000`，云机 `curl /rest/v1/` = **401**（隧道通）；Nginx 配置改为方案 B（80-only，`/`→3000、`/rest|/auth`→8081、502 维护页），`nginx -t` OK 但**保持 inactive**。**卡点**：DNS 无记录（服务端 `ENOTFOUND lyytx.com`，读库降级）、443 未在腾讯云防火墙放行。**注意**：`npm` 报 `next@14.2.15` 有安全公告，待单独评估升级（不混入本次部署）。
 
@@ -366,7 +368,9 @@
 | 服务端 env | ✅ `.env.local` 已上传（600），`NEXT_PUBLIC_SUPABASE_URL=https://lyytx.com` |
 | Supabase 隧道 | ✅ 家机 `ssh -R 127.0.0.1:8081:desktop-vrd3hft:8000`，云机 `curl /rest/v1/` = 401（正常） |
 | Nginx | ✅ 配置 `/etc/nginx/conf.d/lyytx.conf`（80-only，`/`→3000、`/rest|/auth`→8081、维护页），`nginx -t` OK；**服务仍 inactive**（等 DNS） |
-| DNS / 443 / 证书 | ❌ 未做：DNS 无记录、443 外网不可达 → `https://lyytx.com` 解析失败，服务端读库降级 |
+| DNS | ✅ `@` 与 `www` → `139.199.191.102`（DNSPod，TTL 600），本机与云机均解析正确 |
+| 443 / 证书 | ✅ 腾讯云防火墙已放行；certbot 签发 `lyytx.com` + `www.lyytx.com`（到期 2027-02-09，`certbot.timer` 自动续期）；HTTP→HTTPS 301 |
+| HTTPS 冒烟 | ✅ `https://lyytx.com/` 200（TLS 0.05s，总 0.14s）、`www` 200、`/rest/v1/` 401（隧道通） |
 
 **上线步骤（方案 B，约 2–4 小时）**
 

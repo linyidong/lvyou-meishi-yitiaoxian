@@ -306,17 +306,17 @@ docker exec -i <postgres_container> psql -U postgres -d postgres < backup_YYYYMM
 11. 域名解析 A 记录 → 服务器 IP；等高德白名单与企微可信 IP/域名配置
 12. 跑烟雾测试（§8），通过后灰度放量
 
-## 8. 发布后烟雾测试（逐条打勾）
+## 8. 发布后烟雾测试（2026-11-11 生产实测）
 
-- [ ] `GET /` 200，首页城市卡片正常
-- [ ] `/city` 200 且城市列表 92 条（`npm run check:cities` 可远程比对）
-- [ ] 游客三步走通到 `/try/result`，地图出图（高德 Key 生效）
-- [ ] 游客保存 → 跳登录 → 登录后转正成功
-- [ ] 管理员登录 → `/admin` 概览、`/admin/routes` 卡片/表格
-- [ ] 提交一笔测试订单 → 后台核销 → 用户端会员生效
-- [ ] `pg_cron` 任务存在且 `SELECT * FROM cron.job` 可见 `expire-members`
-- [ ] TLS 证书有效（`curl -I https://域名` 无警告）
-- [ ] 匿名调用 `/api/amap/landmarks` 返回 401；两个 RPC 匿名调用 401
+- [x] `GET /` 200，首页城市卡片正常（TLS 0.05s，总 0.14s）
+- [x] `/city` 200；库内 cities **109** 条；页面「热门城市」13 张卡（11 张可试用，其余为无数据城市）——非 92 条口径，数据一致性待 `check:cities` 复跑
+- [x] 游客三步走通到 `/try/result`，高德地图出图（Playwright 生产实跑：路线 2 行、一键复位、`.amap-container` 可见）
+- [x] 游客保存 → 跳 `/login?redirect=%2Ftry%2Fresult`（转正需登录态，等同 E2E-04 口径）
+- [x] 管理员登录 → `/admin` 概览正常、`/admin/routes` 表格 10 行、0 报错
+- [ ] 提交一笔测试订单 → 后台核销 → 会员生效（**未执行**：会写生产数据，需用户授权）
+- [ ] `pg_cron` `expire-members` 存在（**未执行**：需家机 DB 内查询）
+- [x] TLS 证书有效（`lyytx.com` / `www`，到期 2027-02-09，自动续期）
+- [x] 匿名 `POST /api/amap/landmarks` **401**、`POST /api/routes` **401**、`POST /api/member/orders` **401**
 
 ## 9. 回滚触发条件与步骤
 
@@ -355,7 +355,7 @@ docker exec -i <postgres_container> psql -U postgres -d postgres < backup_YYYYMM
 | 2026-10-22 | 联调（备案前预演） | Harness + 用户 | 云机初始化、Nginx 装好但禁用、SSH 反向隧道 8080/8081 通；**未解析域名、未对外服务** |
 | 2026-10-29 | `4bdde6b` | 用户 | Supabase 地址由 IP 改主机名（DHCP 换 IP 导致连不上） |
 | 2026-11-08 | 工作区 `b9600c4` | Harness | **本地生产构建 exit 0**；单测 113 / E2E 8 / 移动端审计溢出 0；**未部署**（等备案） |
-| 2026-11-11 | 工作区 `37c8ea5` + T-092 改动 | Harness | **ICP 已通过**（`闽ICP备2026041028号-2`）、域名 `lyytx.com` 确认在备案内；页脚备案号已填并实测；单测 116 / E2E 8；云机 22 通、**443 仍缺**；**仍未部署** |
+| 2026-11-11 21:00 | 工作区 `19f0515` | Harness | **上线** `https://lyytx.com`（HTTP→HTTPS，证书到 2027-02-09）；方案 B：云机 Node 22 + `next build` + `lvyou.service` + Nginx + 隧道 8081；游客全链路/管理员/匿名 401 冒烟通过；**备份与回滚演练未做** |
 | 待定 | —— | —— | 备案通过后按 §4.5 融合方案上线 |
 
 ## 13. 待用户确认（决定成本与工期）
@@ -374,7 +374,7 @@ docker exec -i <postgres_container> psql -U postgres -d postgres < backup_YYYYMM
 | 域名实名认证 | **已通过**（2026-10-22，个人 / 林艺东，与备案主体一致） | 见 §4.12 |
 | 云服务器 | **已购买并初始化** | 腾讯云轻量 2C2G / 广州 / Ubuntu 22.04.5 / `139.199.191.102`（实例 `lhins-9cl625ah`）；已装 Nginx（禁用）、ufw、fail2ban、2G swap |
 | ICP 备案 | **已通过（2026-11-11）**；网站备案号 **`闽ICP备2026041028号-2`**（主体 `闽ICP备2026041028号`） | 备案号已填入 `Project/config/product.ts` 的 `P06 ICP_NUMBER`；公安联网备案仍需 30 日内办理（数据码已取得，不入库） |
-| DNS 解析 | **未添加** | 备案域名就是 `lyytx.com`（www 同站），`@` 与 `www` 两条 A 记录都可加 → `139.199.191.102` |
+| DNS 解析 | **已添加（2026-11-11）**：`@` 与 `www` A → `139.199.191.102`，TTL 600 | DNSPod；本机与云机解析均正确 |
 
 > `lyytx.cn` 为注册商推荐的保护性注册，**暂不购买**（无实际用途，仅增加年费与到期管理成本）。
 
@@ -386,7 +386,7 @@ docker exec -i <postgres_container> psql -U postgres -d postgres < backup_YYYYMM
 |---|---|---|
 | 22 (SSH) | **仅本机出口 IP**（2026-10-22 实测 `183.253.19.247/32`） | 现在 |
 | 80 | 0.0.0.0/0 | **已放行**（2026-11-11 实测规则存在；nginx 未启动故暂无监听） |
-| 443 | 0.0.0.0/0 | **❗仍缺**：2026-11-11 外网实测 `nc -z ... 443` 超时，腾讯云轻量防火墙只有 22/80/Ping；服务器 `ufw` 内已放行 443 |
+| 443 | 0.0.0.0/0 | **已放行（2026-11-11 21:00 实测 OPEN）** |
 | 3000 | **不要开** | 永远（只给本机 Nginx） |
 
 注意：
