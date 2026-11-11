@@ -3,10 +3,21 @@
 # 计划任务：每日 04:30 + 开机补拉（脚本幂等，重复跑不会重复下载）
 $ErrorActionPreference = 'Stop'
 
+# 可选配置：C:\lyytx-ops\backup-pull.conf，每行 KEY=VALUE
+#   DEST=D:\lyytx-offsite    备份存放目录（默认 C:\lyytx-ops\offsite）
+#   KEEP=30                    本地保留份数
+$Conf = 'C:\lyytx-ops\backup-pull.conf'
+$cfg = @{}
+if (Test-Path $Conf) {
+    Get-Content $Conf | ForEach-Object {
+        if ($_ -match '^\s*([A-Z_]+)\s*=\s*(.+?)\s*$') { $cfg[$Matches[1]] = $Matches[2] }
+    }
+}
+
 $Key   = "$env:USERPROFILE\.ssh\id_lyytx_deploy"
 $Host_ = 'ubuntu@139.199.191.102'
-$Dest  = 'C:\lyytx-ops\offsite'
-$Keep  = 30
+$Dest  = if ($cfg['DEST']) { $cfg['DEST'] } elseif ($env:LYYTX_BACKUP_DEST) { $env:LYYTX_BACKUP_DEST } else { 'C:\lyytx-ops\offsite' }
+$Keep  = if ($cfg['KEEP']) { [int]$cfg['KEEP'] } else { 30 }
 
 New-Item -ItemType Directory -Force $Dest | Out-Null
 
