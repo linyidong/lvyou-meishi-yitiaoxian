@@ -53,8 +53,9 @@ export async function PATCH(request: NextRequest) {
   }
 
   // 批量软删除：{ ids: string[], hidden: true }，上限 100 条（限制管理员一次可影响的范围）
-  if (body.hidden === true || Array.isArray(body.ids)) {
-    if (body.hidden !== true || !Array.isArray(body.ids)) {
+  // 注意：只有带 ids 才走批量分支；单条 { id, hidden:true } 走下面的单条分支
+  if (Array.isArray(body.ids)) {
+    if (body.hidden !== true) {
       return NextResponse.json({ ok: false, message: MESSAGES.INVALID_PARAMS }, { status: 400 });
     }
     const ids = body.ids.filter((v): v is string => typeof v === 'string' && v.length > 0);
@@ -86,6 +87,9 @@ export async function PATCH(request: NextRequest) {
   }
   if (typeof body.adminNote === 'string') {
     patch.admin_note = body.adminNote.trim().slice(0, 500) || null;
+  }
+  if (typeof body.hidden === 'boolean') {
+    patch.hidden_by_admin = body.hidden;
   }
   // 后台清理：软删除，只从意见箱隐藏，不影响用户自己的「我最近提交」
   if (typeof body.hidden === 'boolean') {
