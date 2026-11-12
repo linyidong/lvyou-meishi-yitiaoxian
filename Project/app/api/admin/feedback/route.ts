@@ -29,6 +29,7 @@ export async function GET() {
   const { data: rows, error } = await admin
     .from('feedback')
     .select('id,user_id,page_key,feature_key,content,status,admin_note,created_at,updated_at')
+    .eq('hidden_by_admin', false)
     .order('created_at', { ascending: false })
     .limit(500);
   if (error) {
@@ -65,6 +66,10 @@ export async function PATCH(request: NextRequest) {
   }
   if (typeof body.adminNote === 'string') {
     patch.admin_note = body.adminNote.trim().slice(0, 500) || null;
+  }
+  // 后台清理：软删除，只从意见箱隐藏，不影响用户自己的「我最近提交」
+  if (typeof body.hidden === 'boolean') {
+    patch.hidden_by_admin = body.hidden;
   }
   if (Object.keys(patch).length === 1) {
     return NextResponse.json({ ok: false, message: MESSAGES.INVALID_PARAMS }, { status: 400 });

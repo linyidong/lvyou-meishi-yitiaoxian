@@ -14,6 +14,7 @@ export default async function AdminFeedbackPage() {
     const { data: rows, error } = await admin
       .from('feedback')
       .select('id,user_id,page_key,feature_key,content,status,admin_note,created_at')
+      .eq('hidden_by_admin', false)
       .order('created_at', { ascending: false })
       .limit(500);
     if (error) failed = true;

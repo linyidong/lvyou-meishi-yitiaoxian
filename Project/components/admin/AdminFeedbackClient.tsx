@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { CheckCheck, Loader2, MailOpen, Save } from 'lucide-react';
+import { CheckCheck, Loader2, MailOpen, Save, Trash2 } from 'lucide-react';
 import { FEEDBACK_PAGES, feedbackLabel } from '@/config/feedback';
 import { MESSAGES } from '@/config/messages';
 
@@ -54,6 +54,30 @@ export function AdminFeedbackClient({ items }: { items: AdminFeedbackItem[] }) {
     });
     return base;
   }, [list]);
+
+  async function remove(id: string) {
+    if (typeof window !== 'undefined' && !window.confirm(M.removeConfirm)) return;
+    setBusyId(id);
+    setTip('');
+    try {
+      const res = await fetch('/api/admin/feedback', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, hidden: true }),
+      });
+      const data = (await res.json()) as { ok?: boolean; message?: string };
+      if (!res.ok || !data.ok) {
+        setTip(data.message ?? M.loadFailed);
+        return;
+      }
+      setList((prev) => prev.filter((it) => it.id !== id));
+      setTip(M.removed);
+    } catch {
+      setTip(M.loadFailed);
+    } finally {
+      setBusyId('');
+    }
+  }
 
   async function patch(id: string, body: Record<string, unknown>) {
     setBusyId(id);
@@ -185,6 +209,15 @@ export function AdminFeedbackClient({ items }: { items: AdminFeedbackItem[] }) {
                   >
                     <Save className="h-3.5 w-3.5" />
                     {M.save}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => remove(it.id)}
+                    className="flex h-9 items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-3 text-xs text-red-600 hover:bg-red-100 disabled:opacity-60"
+                  >
+                    {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                    {M.remove}
                   </button>
                 </div>
                 <p className="mt-2 text-[11px] text-stone-400">{M.replyHint}</p>
