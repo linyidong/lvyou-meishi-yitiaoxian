@@ -204,16 +204,6 @@ export function AdminUsersClient({
 
   return (
     <>
-      {/* 约束变更说明 */}
-      <div className="mb-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-800">
-        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-        <span>
-          {M.noticeLead}
-          <strong>{M.noticeStrong}</strong>
-          {M.noticeTail}
-        </span>
-      </div>
-
       {/* 筛选 */}
       <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center">
         <div className="relative max-w-md flex-1">
