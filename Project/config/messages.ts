@@ -106,6 +106,8 @@ export const MESSAGES = {
   /** M43 地点批量添加成功（U06，count 为实际插入数） */
   PLACES_ADDED: (count: number) => `已成功添加 ${count} 个地点`,
   /** M44 注册失败兜底（D4，其余情况不再回显 GoTrue 英文原文） */
+  AUTH_REGISTER_TOO_MANY: '注册太频繁了，请稍后再试或换一个网络环境',
+  AUTH_REGISTER_GLOBAL_FULL: '今天的注册人数已达上限，请明天再试',
   AUTH_REGISTER_FAILED: '注册失败，请稍后重试或联系管理员',
   /**
    * 阶段 2 会员分层：服务端限额校验提示（错误码见 config/enums.ts QUOTA_ERROR）。

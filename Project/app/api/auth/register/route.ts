@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { sanitizeRedirect } from '@/lib/utils';
 import { isEmailLike, normalizeChinaPhone } from '@/lib/phone';
+import { takeRegisterSlot } from '@/lib/register-rate-limit';
 
 /**
  * U01 注册（邮箱 + 密码），走 Supabase Auth。
@@ -47,6 +48,21 @@ export async function POST(request: NextRequest) {
   }
   // 手机号注册未填用户名时，默认用手机号（去掉 +86）作为展示名
   const displayUsername = username || (phone ? phone.replace(/^\+86/, '') : '');
+
+  // T-104 注册限流：单 IP 每小时/每天 + 全站每天，防止批量注册刷免费额度
+  // 取真实客户端 IP：Nginx 会覆盖 X-Real-IP；X-Forwarded-For 取最后一段（最靠近服务端的一跳）
+  const realIp = request.headers.get('x-real-ip')?.trim();
+  const xff = (request.headers.get('x-forwarded-for') ?? '')
+    .split(',')
+    .map((v) => v.trim())
+    .filter(Boolean);
+  const clientIp = realIp || xff[xff.length - 1] || 'local';
+  const slot = takeRegisterSlot(clientIp);
+  if (!slot.ok) {
+    const message =
+      slot.reason === 'global-day' ? MESSAGES.AUTH_REGISTER_GLOBAL_FULL : MESSAGES.AUTH_REGISTER_TOO_MANY;
+    return NextResponse.json({ ok: false, message }, { status: 429 });
+  }
 
   // 1) 用 Secret Key 建号并直接确认邮箱/手机号（绕过自建版缺失的 SMTP / SMS）
   const admin = createAdminClient();

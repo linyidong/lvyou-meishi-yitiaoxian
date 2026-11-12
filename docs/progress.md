@@ -174,6 +174,8 @@
 
 - 2026-11-12 00:30：**本机高德 key 切换（本地开发）**——`Project/.env.local` 的 `NEXT_PUBLIC_AMAP_KEY` 换成不设白名单的本地 key（控制台名 `bendi-web-JS`），备份 `.env.local.bak-20261112-001436`；重启 dev 后本机游客链路 `.amap-container` 出图、**E2E 恢复 8 passed (10.8s)**。线上仍用带白名单的 `gaode-web-js`。
 
+- 2026-11-12 22:40：**T-104 注册限流（防批量注册刷免费额度）**——注册接口原**没有任何频率限制**；新增 `lib/register-rate-limit.ts`：单 IP **3 次/小时**、**10 次/天**、全站 **50 次/天**（进程内计数，单实例够用；取 `X-Real-IP`，缺失时取 XFF 最后一段）；超限返回 429（全站满时提示「今天注册人数已达上限」）。新增 5 条单测；typecheck 0 / 单测 **121** / E2E 8。**说明**：限流只能提高刷号成本，代理 IP 仍可绕过；根治要「邮箱真实性验证 + 验证码」，列入公开推广前的待办。
+
 - 2026-11-12 22:30：**T-103 意见箱未读角标**——新增 `GET /api/admin/feedback/pending-count`（只统计 `hidden_by_admin=false AND status='new'`，head count 查询）；`AdminShell` 与待核销订单一起轮询，侧栏「意见箱」和移动端底栏显示红色圆点数字；标记已读/已处理后角标自动减少。typecheck 0 / 单测 116。**生产验证**：提交 1 条建议 → 后台侧栏角标显示「1」；点「标记已读」后角标消失（0）。测试数据已清理。
 
 - 2026-11-12 22:22：**T-102 修复单条清理报错**——用户反馈「全选清理可以，单条清理报错」。根因：API 批量分支的条件写成 `body.hidden === true || Array.isArray(body.ids)`，单条请求 `{ id, hidden: true }` 被误判为批量分支（缺少 `ids`）→ 400 INVALID_PARAMS。修法：批量分支只认 `Array.isArray(body.ids)`，单条分支补 `hidden` 字段处理。已部署生产并实测：单条清理 A → 消失 + 「已清理」；批量清理 B → 消失；用户端仍显示 2 条。typecheck 0 / 单测 116；测试数据已硬删除。

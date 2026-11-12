@@ -179,6 +179,10 @@ export const BUSINESS = {
   /** 管理端订单列表单次读取上限 */
   ADMIN_ORDER_LIMIT: 200,
   /** 管理端「待核销订单」红色角标的刷新间隔（秒） */
+  /** T-104 注册限流：单 IP 每小时 / 每天 / 全站每天（防批量注册刷免费额度） */
+  REGISTER_IP_PER_HOUR: 3,
+  REGISTER_IP_PER_DAY: 10,
+  REGISTER_GLOBAL_PER_DAY: 50,
   ADMIN_PENDING_BADGE_REFRESH_SECONDS: 30,
   /** 角标数字显示上限，超过则显示为「上限+」，避免角标被撑破 */
   ADMIN_PENDING_BADGE_MAX: 99,
