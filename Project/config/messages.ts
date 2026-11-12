@@ -1333,6 +1333,8 @@ export const MESSAGES = {
     navTechStack: '技术栈',
     /** T-098 意见箱 */
     navFeedback: '意见箱',
+    /** T-103 未读建议角标 */
+    pendingFeedbackAria: (n: number) => `${n} 条未读建议`,
     readOnlyNote: '后台不提供编辑 / 删除 / 踢出',
     logout: '退出后台',
     browsingAs: '运营管理员',

@@ -174,6 +174,8 @@
 
 - 2026-11-12 00:30：**本机高德 key 切换（本地开发）**——`Project/.env.local` 的 `NEXT_PUBLIC_AMAP_KEY` 换成不设白名单的本地 key（控制台名 `bendi-web-JS`），备份 `.env.local.bak-20261112-001436`；重启 dev 后本机游客链路 `.amap-container` 出图、**E2E 恢复 8 passed (10.8s)**。线上仍用带白名单的 `gaode-web-js`。
 
+- 2026-11-12 22:30：**T-103 意见箱未读角标**——新增 `GET /api/admin/feedback/pending-count`（只统计 `hidden_by_admin=false AND status='new'`，head count 查询）；`AdminShell` 与待核销订单一起轮询，侧栏「意见箱」和移动端底栏显示红色圆点数字；标记已读/已处理后角标自动减少。typecheck 0 / 单测 116。
+
 - 2026-11-12 22:22：**T-102 修复单条清理报错**——用户反馈「全选清理可以，单条清理报错」。根因：API 批量分支的条件写成 `body.hidden === true || Array.isArray(body.ids)`，单条请求 `{ id, hidden: true }` 被误判为批量分支（缺少 `ids`）→ 400 INVALID_PARAMS。修法：批量分支只认 `Array.isArray(body.ids)`，单条分支补 `hidden` 字段处理。已部署生产并实测：单条清理 A → 消失 + 「已清理」；批量清理 B → 消失；用户端仍显示 2 条。typecheck 0 / 单测 116；测试数据已硬删除。
 
 - 2026-11-12 22:20：**T-101 意见箱批量清理**——后台意见箱支持勾选（含全选）+「批量清理」，一次最多 **100 条**；仍为**软删除**（`hidden_by_admin`），用户侧「我最近提交」不受影响；接口新增 `{ ids: string[], hidden: true }` 分支，单条清理保持原路径。typecheck 0 / 单测 116 / E2E 8。**生产验证**：提交 2 条 → 后台勾选 2 条（显示「已选 2 条」）→ 批量清理 → 提示「已清理 2 条」、意见箱归 0；用户端「我最近提交」仍显示 2 条。测试数据已硬删除，保留 1 条真实记录。

@@ -54,10 +54,13 @@ export const ADMIN_NAV: NavItem[] = [
 export function AdminSidebar({
   currentPath,
   pendingOrders = 0,
+  pendingFeedback = 0,
 }: {
   currentPath: string;
   /** 待核销会员订单数（由 AdminShell 轮询拿到），>0 时在「会员订单」右侧显示红色圆圈数字 */
   pendingOrders?: number;
+  /** T-103 未读建议数（由 AdminShell 轮询拿到），>0 时在「意见箱」右侧显示红色圆圈数字 */
+  pendingFeedback?: number;
 }) {
   const router = useRouter();
 
@@ -91,7 +94,12 @@ export function AdminSidebar({
           const Icon = item.icon;
           const active = currentPath === item.href;
           // 会员订单待核销提醒：红色圆圈 + 数字（0 时不显示）
-          const pending = item.href === ROUTES.ADMIN_ORDERS ? pendingOrders : 0;
+          const pending =
+            item.href === ROUTES.ADMIN_ORDERS
+              ? pendingOrders
+              : item.href === ROUTES.ADMIN_FEEDBACK
+                ? pendingFeedback
+                : 0;
           return (
             <Link
               key={item.href}
@@ -105,8 +113,16 @@ export function AdminSidebar({
               {item.label}
               {pending > 0 ? (
                 <span
-                  aria-label={MESSAGES.ADMIN_SHELL.pendingOrdersAria(pending)}
-                  title={MESSAGES.ADMIN_SHELL.pendingOrdersAria(pending)}
+                  aria-label={
+                    item.href === ROUTES.ADMIN_FEEDBACK
+                      ? MESSAGES.ADMIN_SHELL.pendingFeedbackAria(pending)
+                      : MESSAGES.ADMIN_SHELL.pendingOrdersAria(pending)
+                  }
+                  title={
+                    item.href === ROUTES.ADMIN_FEEDBACK
+                      ? MESSAGES.ADMIN_SHELL.pendingFeedbackAria(pending)
+                      : MESSAGES.ADMIN_SHELL.pendingOrdersAria(pending)
+                  }
                   className="ml-auto grid h-[18px] min-w-[18px] shrink-0 place-items-center rounded-full bg-red-500 px-1 text-[10px] leading-none font-bold text-white"
                 >
                   {pending > BUSINESS.ADMIN_PENDING_BADGE_MAX
