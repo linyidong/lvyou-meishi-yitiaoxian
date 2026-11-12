@@ -512,6 +512,11 @@ export async function planLeg(params: {
   const cacheMode = mode === NAV_MODE.TRANSIT && cityAdcode ? `${mode}:${cityAdcode}` : mode;
   const [from, to] = sortedPair(origin, destination);
 
+  // 同一坐标（同一点被重复加入、或住宿点与地点重合）：高德会报「起点与终点不能为同一地点」
+  if (from === to) {
+    return { distanceMeters: 0, durationSeconds: 0 };
+  }
+
   const cached = await readLegCache([{ mode: cacheMode, from, to }]);
   const hit = cached.get(legCacheKey(cacheMode, from, to));
   if (hit) return hit;
@@ -599,14 +604,26 @@ export async function distanceMatrix(points: string[], mode: NavMode): Promise<n
       if (hit) {
         matrix[j][i] = hit.distanceMeters;
         matrix[i][j] = hit.distanceMeters;
+      } else if (from === to) {
+        // 两个不同地点坐标完全重合：距离按 0，不能拿去请求高德（会报「起点与终点不能为同一地点」）
+        matrix[j][i] = 0;
+        matrix[i][j] = 0;
       } else {
         missing = true;
       }
     }
     if (!missing) continue;
 
+    // 只把「与终点不同坐标」的点作为起点，origin_id 需要按过滤后的顺序回映射
+    const originIdx: number[] = [];
+    for (let j = 0; j < n; j += 1) {
+      if (j === i) continue;
+      const [f, t] = sortedPair(points[j], points[i]);
+      if (f !== t) originIdx.push(j);
+    }
+    if (originIdx.length === 0) continue;
     const data = await amapGet('/v3/distance', {
-      origins: points.join('|'),
+      origins: originIdx.map((j) => points[j]).join('|'),
       destination: points[i],
       type: DISTANCE_TYPE[mode],
     });
@@ -617,8 +634,9 @@ export async function distanceMatrix(points: string[], mode: NavMode): Promise<n
     const results = (data.results as Array<Record<string, unknown>> | undefined) ?? [];
     const toWrite: LegCacheRow[] = [];
     for (const row of results) {
-      const j = Number(row.origin_id ?? 0) - 1;
-      if (j < 0 || j >= n) continue;
+      const k = Number(row.origin_id ?? 0) - 1;
+      const j = originIdx[k];
+      if (j === undefined) continue;
       const distance = Math.round(Number(row.distance ?? 0));
       matrix[j][i] = distance;
       matrix[i][j] = distance;

@@ -54,8 +54,24 @@ export function buildAmapAppUri(
   mode: NavMode,
   platform: Exclude<AmapPlatform, 'desktop'>,
 ): string | null {
-  if (points.length < 2) return null;
-  const [from, ...rest] = points;
+  // 先把「相邻重复坐标」去掉：同一地点被重复加入时，高德 App 会报「起点与终点不能为同一地点」
+  const deduped: AmapNavPoint[] = [];
+  for (const p of points) {
+    const last = deduped[deduped.length - 1];
+    if (last && Math.abs(last.lat - p.lat) < 1e-6 && Math.abs(last.lng - p.lng) < 1e-6) continue;
+    deduped.push(p);
+  }
+  // 住宿闭环会产生「起点 == 终点」：去掉末尾回程点，否则高德 App 直接弹「起点与终点不能为同一地点」
+  if (deduped.length >= 2) {
+    const first = deduped[0];
+    const last = deduped[deduped.length - 1];
+    if (Math.abs(first.lat - last.lat) < 1e-6 && Math.abs(first.lng - last.lng) < 1e-6) {
+      deduped.pop();
+    }
+  }
+  if (deduped.length < 2) return null;
+
+  const [from, ...rest] = deduped;
   const to = rest[rest.length - 1];
   const vias = rest.slice(0, -1);
   const params = [
