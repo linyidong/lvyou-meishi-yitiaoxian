@@ -54,26 +54,26 @@ export function Header({
       <div className="mx-auto flex h-14 w-full max-w-[1536px] items-center gap-6 px-4 md:h-16 md:px-6">
         {guest ? (
           // 游客态：logo 保留原样式但去掉跳转，避免把游客带离当前页面
-          <span className="flex shrink-0 items-center gap-2">
+          <span className="flex min-w-0 shrink items-center gap-2">
             <Image
               src={PRODUCT.LOGO_PATH}
               alt={PRODUCT.NAME}
               width={36}
               height={36}
-              className="h-9 w-9"
+              className="h-9 w-9 shrink-0"
             />
-            <span className="font-bold text-stone-900">{PRODUCT.NAME}</span>
+            <span className="truncate font-bold whitespace-nowrap text-stone-900">{PRODUCT.NAME}</span>
           </span>
         ) : (
-          <Link href={ROUTES.HOME} className="flex min-h-10 shrink-0 items-center gap-2">
+          <Link href={ROUTES.HOME} className="flex min-h-10 min-w-0 shrink items-center gap-2">
             <Image
               src={PRODUCT.LOGO_PATH}
               alt={PRODUCT.NAME}
               width={36}
               height={36}
-              className="h-9 w-9"
+              className="h-9 w-9 shrink-0"
             />
-            <span className="font-bold text-stone-900">{PRODUCT.NAME}</span>
+            <span className="truncate font-bold whitespace-nowrap text-stone-900">{PRODUCT.NAME}</span>
           </Link>
         )}
 

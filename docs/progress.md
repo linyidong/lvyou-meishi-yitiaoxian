@@ -174,6 +174,8 @@
 
 - 2026-11-12 00:30：**本机高德 key 切换（本地开发）**——`Project/.env.local` 的 `NEXT_PUBLIC_AMAP_KEY` 换成不设白名单的本地 key（控制台名 `bendi-web-JS`），备份 `.env.local.bak-20261112-001436`；重启 dev 后本机游客链路 `.amap-container` 出图、**E2E 恢复 8 passed (10.8s)**。线上仍用带白名单的 `gaode-web-js`。
 
+- 2026-11-12 23:25：**T-108 iPhone 结果页标题挤压修复（用户截图定位）**——现象：Safari 上「成都 · 吃 / 喝一条线」「步行」被拆行、品牌名折成两行。根因：结果页顶部 `flex justify-between` 的图例区 `shrink-0` 在 402px 下占掉大半宽度，把标题挤成窄栏。修法：手机端标题与图例**上下排**（`flex-col md:flex-row`）、标题区 `min-w-0`、图例改为可换行；顶部品牌名改 `whitespace-nowrap + truncate`（不再折行）。402px 实测：标题单行（宽 328）、meta 单行、`scrollWidth=402`。
+
 - 2026-11-12 23:15：**T-107 iOS Safari 适配（第一轮）**——① 显式 `viewport`（`viewport-fit=cover`）；② `html { -webkit-text-size-adjust:100% }`，避免 iOS 自动放大/缩小文字；③ 底部导航与页脚占位加 `env(safe-area-inset-bottom)`，避开 iPhone home indicator。**未验证**：本机未装 WebKit（下载失败），以上为 iOS 通用修正；「文字拥挤」仍需用户截图确认是否由 Safari「请求桌面网站」导致。typecheck 0 / 单测 126。
 
 - 2026-11-12 23:10：**T-106 高德「起点与终点不能为同一地点」修复——根因：住宿闭环时 `dayNavPoints` 会拼成「住宿 → 各地点 → 回住宿」，首尾坐标相同，高德 App 直接弹该错误；另外同坐标相邻点在 `planLeg` 里也会被拿去请求高德。修复：① `buildAmapAppUri` 先去掉相邻重复坐标、首尾重合时去掉末尾回程点，不足 2 点返回 null；② `planLeg` 同坐标直接返回 0，不再请求；③ `distanceMatrix` 对重合坐标填 0 且不放进 origins（避免 origin_id 错位）。新增 5 条 URI 单测；typecheck 0 / 单测 **126** / E2E 8。
