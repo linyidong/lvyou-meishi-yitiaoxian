@@ -2546,6 +2546,13 @@ export const MESSAGES = {
     remove: '清理',
     removeConfirm: '从意见箱移除这条建议？（用户自己的「我最近提交」仍会保留）',
     removed: '已清理',
+    selectAll: '全选',
+    selectedCount: (n: number) => `已选 ${n} 条`,
+    batchRemove: '批量清理',
+    batchRemoveConfirm: (n: number) =>
+      `从意见箱移除选中的 ${n} 条建议？（用户自己的「我最近提交」仍会保留，最多一次 100 条）`,
+    batchRemoved: (n: number) => `已清理 ${n} 条`,
+    batchLimit: '一次最多清理 100 条',
     userUnknown: '用户已注销',
     replyHint: '备注仅后台可见，不会发给用户',
   },

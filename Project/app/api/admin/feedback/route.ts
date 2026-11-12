@@ -52,6 +52,26 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ ok: false, message: MESSAGES.INVALID_PARAMS }, { status: 400 });
   }
 
+  // 批量软删除：{ ids: string[], hidden: true }，上限 100 条（限制管理员一次可影响的范围）
+  if (body.hidden === true || Array.isArray(body.ids)) {
+    if (body.hidden !== true || !Array.isArray(body.ids)) {
+      return NextResponse.json({ ok: false, message: MESSAGES.INVALID_PARAMS }, { status: 400 });
+    }
+    const ids = body.ids.filter((v): v is string => typeof v === 'string' && v.length > 0);
+    if (ids.length === 0 || ids.length > 100) {
+      return NextResponse.json({ ok: false, message: MESSAGES.ADMIN_FEEDBACK.batchLimit }, { status: 400 });
+    }
+    const admin = createAdminClient();
+    const { error } = await admin
+      .from('feedback')
+      .update({ hidden_by_admin: true, updated_at: new Date().toISOString() })
+      .in('id', ids);
+    if (error) {
+      return NextResponse.json({ ok: false, message: MESSAGES.ADMIN_FEEDBACK.loadFailed }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true, count: ids.length });
+  }
+
   const id = typeof body.id === 'string' ? body.id : '';
   if (!id) {
     return NextResponse.json({ ok: false, message: MESSAGES.INVALID_PARAMS }, { status: 400 });

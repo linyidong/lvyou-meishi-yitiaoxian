@@ -38,6 +38,8 @@ export function AdminFeedbackClient({ items }: { items: AdminFeedbackItem[] }) {
   const [busyId, setBusyId] = useState('');
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [tip, setTip] = useState('');
+  /** 批量清理选中项（只做软删除，最多 100 条） */
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const filtered = useMemo(
     () =>
@@ -54,6 +56,49 @@ export function AdminFeedbackClient({ items }: { items: AdminFeedbackItem[] }) {
     });
     return base;
   }, [list]);
+
+  function toggle(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    setSelected((prev) =>
+      prev.size === filtered.length ? new Set() : new Set(filtered.map((it) => it.id)),
+    );
+  }
+
+  async function batchRemove() {
+    const ids = Array.from(selected);
+    if (ids.length === 0) return;
+    if (ids.length > 100) {
+      setTip(M.batchLimit);
+      return;
+    }
+    if (typeof window !== 'undefined' && !window.confirm(M.batchRemoveConfirm(ids.length))) return;
+    setTip('');
+    try {
+      const res = await fetch('/api/admin/feedback', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids, hidden: true }),
+      });
+      const data = (await res.json()) as { ok?: boolean; message?: string };
+      if (!res.ok || !data.ok) {
+        setTip(data.message ?? M.loadFailed);
+        return;
+      }
+      setList((prev) => prev.filter((it) => !selected.has(it.id)));
+      setSelected(new Set());
+      setTip(M.batchRemoved(ids.length));
+    } catch {
+      setTip(M.loadFailed);
+    }
+  }
 
   async function remove(id: string) {
     if (typeof window !== 'undefined' && !window.confirm(M.removeConfirm)) return;
@@ -141,6 +186,27 @@ export function AdminFeedbackClient({ items }: { items: AdminFeedbackItem[] }) {
           <span className="text-xs text-stone-500">
             {M.statusNew} {counts.new} · {M.statusRead} {counts.read} · {M.statusDone} {counts.done}
           </span>
+          <label className="flex items-center gap-1 text-xs text-stone-600">
+            <input
+              type="checkbox"
+              checked={filtered.length > 0 && selected.size === filtered.length}
+              onChange={toggleAll}
+            />
+            {M.selectAll}
+          </label>
+          {selected.size > 0 ? (
+            <>
+              <span className="text-xs text-stone-500">{M.selectedCount(selected.size)}</span>
+              <button
+                type="button"
+                onClick={() => void batchRemove()}
+                className="flex h-9 items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-3 text-xs text-red-600 hover:bg-red-100"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                {M.batchRemove}
+              </button>
+            </>
+          ) : null}
           {tip ? <span className="ml-auto text-xs text-emerald-600">{tip}</span> : null}
         </div>
       </div>
@@ -157,6 +223,12 @@ export function AdminFeedbackClient({ items }: { items: AdminFeedbackItem[] }) {
             return (
               <li key={it.id} className="rounded-2xl border border-stone-200 bg-white p-4">
                 <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={selected.has(it.id)}
+                    onChange={() => toggle(it.id)}
+                    aria-label={`选择 ${label.page} · ${label.feature}`}
+                  />
                   <span className="rounded-full bg-primary/5 px-2.5 py-0.5 text-xs font-semibold text-primary">
                     {label.page} · {label.feature}
                   </span>
