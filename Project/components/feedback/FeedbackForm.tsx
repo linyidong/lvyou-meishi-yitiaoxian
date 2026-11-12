@@ -53,11 +53,21 @@ export function FeedbackForm() {
   }, []);
 
   async function submit() {
-    if (!pageKey || !featureKey || content.trim().length < 5) {
-      setNotice({ tone: 'err', text: M.required });
+    const len = content.trim().length;
+    // 分开提示：选择类 / 内容为空 / 内容过短，避免“都填了却报请选择”的误解
+    if (!pageKey || !featureKey) {
+      setNotice({ tone: 'err', text: M.selectRequired });
       return;
     }
-    if (content.trim().length > 1000) {
+    if (len === 0) {
+      setNotice({ tone: 'err', text: M.contentRequired });
+      return;
+    }
+    if (len < 5) {
+      setNotice({ tone: 'err', text: M.tooShort(len) });
+      return;
+    }
+    if (len > 1000) {
       setNotice({ tone: 'err', text: M.tooLong });
       return;
     }
@@ -142,7 +152,10 @@ export function FeedbackForm() {
             placeholder={M.contentPlaceholder}
             className="mt-1 w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
           />
-          <span className="mt-1 block text-right text-xs text-stone-400">{content.trim().length}/1000</span>
+          <span className="mt-1 flex justify-between text-xs text-stone-400">
+            <span>{M.minHint}</span>
+            <span>{content.trim().length}/1000</span>
+          </span>
         </label>
 
         {notice ? (

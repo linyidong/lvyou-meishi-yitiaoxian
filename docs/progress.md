@@ -174,6 +174,8 @@
 
 - 2026-11-12 00:30：**本机高德 key 切换（本地开发）**——`Project/.env.local` 的 `NEXT_PUBLIC_AMAP_KEY` 换成不设白名单的本地 key（控制台名 `bendi-web-JS`），备份 `.env.local.bak-20261112-001436`；重启 dev 后本机游客链路 `.amap-container` 出图、**E2E 恢复 8 passed (10.8s)**。线上仍用带白名单的 `gaode-web-js`。
 
+- 2026-11-12 22:00：**T-099 功能建议校验提示修正**——用户反馈「选好了页面/功能、只输入 2 个字，提交却提示『请选择页面和功能，并填写建议』」。根因：客户端把「未选」「内容为空」「内容 <5 字」合并成一个错误，最小长度未说明。改为分开提示：未选 → 「请选择页面和功能」；空 → 「请填写建议内容」；过短 → 「建议至少 5 个字（当前 N 个字）」；输入框下加「至少 5 个字」提示；服务端 API 同步拆分返回文案。验证：typecheck 0 / 单测 116 / E2E 8。
+
 - 2026-11-12 00:50：**T-098 功能建议 + 后台意见箱**——① 新增 `config/feedback.ts` 两级分类（页面 → 功能，含「我的路线 / 会员分享路线」等）；② 迁移 `034_feedback.sql` 新建 `public.feedback`（RLS：仅本人可写/可读自己的；管理员走 service_role），已在云库应用（0 行、2 条策略）；③ 用户端 `/feedback`（顶部导航「个人中心」右侧新增「功能建议」）：选页面 → 选功能 → 写建议（5–1000 字），并可看自己最近 10 条；④ 后台 `/admin/feedback` 意见箱：按页面/状态筛选、未读/已读/已处理、后台备注（仅后台可见）；⑤ 新增 `POST/GET /api/feedback`、`GET/PATCH /api/admin/feedback`；`ROUTES.FEEDBACK` 已加入 PROTECTED、`ADMIN_FEEDBACK` 加入 ADMIN_ROUTES。typecheck 0、单测 116、E2E 8 passed。**已部署生产并端到端验证**：顶部导航出现「功能建议」；登录用户 `/feedback` 提交成功并在「我最近提交」看到；后台 `/admin/feedback` 看到同一条（`我的路线 · 会员分享路线`），可标记「已处理」并保存后台备注；游客访问 `/feedback` 返回 307 到登录。**测试数据已清理**（`delete from feedback where content like 'T-098%'`，剩余 0 行）。**踩坑**：新建表只 grant 了 `authenticated`，漏了 `service_role`，导致后台 `permission denied` → 已补 `grant select,insert,update,delete to service_role`（迁移文件同步）。
 
 - 2026-11-12 00:45：**T-097 设置路线页必选校验 + 去掉黄色引导条**——① 未选城市时不再预先显示黄色提示，只在点「下一步」被拦时显示红色错误；② 「城际交通」「终点住宿」徽标由「选填」改为「必填」，并新增显式校验：`intercityMode` 必须选择（含「暂不设置」）、住宿必须显式选过「需要/暂不预订」（新增 `lodgingDecided` 标记，区分「没选」与「暂不预订」），未选时定位显示红字错误且不跳转。验证（本机）：无城市直达 `/route/new` 黄条 0 条；只填标题+出发城市点下一步 → URL 不变、两条错误同时出现；选择「暂不设置」+「暂不预订」后请求体 `intercityMode=none`、`lodgingType=null` 正常提交（用拦截避免真建数据）。typecheck 0、单测 116、E2E 8 passed。

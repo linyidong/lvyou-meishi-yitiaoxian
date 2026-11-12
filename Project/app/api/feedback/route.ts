@@ -24,8 +24,17 @@ export async function POST(request: NextRequest) {
   const featureKey = typeof body.featureKey === 'string' ? body.featureKey.trim() : '';
   const content = typeof body.content === 'string' ? body.content.trim() : '';
 
-  if (!findFeedbackFeature(pageKey, featureKey) || content.length < 5 || content.length > 1000) {
-    return NextResponse.json({ ok: false, message: MESSAGES.FEEDBACK.required }, { status: 400 });
+  if (!findFeedbackFeature(pageKey, featureKey)) {
+    return NextResponse.json({ ok: false, message: MESSAGES.FEEDBACK.selectRequired }, { status: 400 });
+  }
+  if (content.length === 0) {
+    return NextResponse.json({ ok: false, message: MESSAGES.FEEDBACK.contentRequired }, { status: 400 });
+  }
+  if (content.length < 5) {
+    return NextResponse.json({ ok: false, message: MESSAGES.FEEDBACK.tooShort(content.length) }, { status: 400 });
+  }
+  if (content.length > 1000) {
+    return NextResponse.json({ ok: false, message: MESSAGES.FEEDBACK.tooLong }, { status: 400 });
   }
 
   const { error } = await supabase.from('feedback').insert({
