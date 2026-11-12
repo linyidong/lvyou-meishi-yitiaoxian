@@ -1665,7 +1665,7 @@ export function RouteResultClient({
               </span>
             ) : null}
             <span className="flex items-center gap-1 text-stone-400">
-              <span className="h-2 w-2 rounded-full bg-stone-300" />
+              <span className="h-2.5 w-2.5 rounded-full bg-slate-500 ring-1 ring-white" />
               {MESSAGES.MAP.LANDMARK_LEGEND}
             </span>
           </div>

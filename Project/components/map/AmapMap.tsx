@@ -160,13 +160,28 @@ function markerHtml(point: AmapPoint, size: number): string {
   return `<span style="position:relative;display:block;width:${size}px;height:${size}px;">${dot}${label}</span>`;
 }
 
-/** 周边知名地点的标记：8px 灰点 + 下方浅灰小字，比自己的站点更轻，不抢视线 */
-function landmarkHtml(name: string): string {
-  return `<span style="position:relative;display:block;width:8px;height:8px;">
-    <span style="position:absolute;inset:0;box-sizing:border-box;border-radius:9999px;background:#cbd5e1;border:1.5px solid #fff;box-shadow:0 1px 2px rgba(0,0,0,.12)"></span>
-    <span style="position:absolute;top:10px;left:50%;transform:translateX(-50%);white-space:nowrap;color:#a8a29e;font:500 10px/1.2 -apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif">${escapeHtml(name)}</span>
+/**
+ * 周边知名地点的标记（T-109）：12px 深灰点 + 白底描边地名胶囊。
+ * 之前是 8px 浅灰点 + 10px 浅灰字，手机上几乎看不清；现在保证「点明显、名字可读」，
+ * 但仍比编号站点轻（站点是彩色大圆点 + 白字），不抢主路线视线。
+ */
+function landmarkHtml(name: string, index = 0): string {
+  // 显示名去掉括号里的分店信息（"别有洞天(玉双路店)" → "别有洞天"），减少胶囊宽度
+  const short = name.replace(/[（(][^）)]*[）)]/g, '').trim() || name;
+  // 四个方向轮转放标签：下 / 上 / 左 / 右，密集点位时减少互相压盖
+  const dir = index % 4;
+  const pos = [
+    'top:13px;left:50%;transform:translateX(-50%);',
+    'bottom:13px;left:50%;transform:translateX(-50%);',
+    'right:14px;top:50%;transform:translateY(-50%);',
+    'left:14px;top:50%;transform:translateY(-50%);',
+  ][dir];
+  return `<span style="position:relative;display:block;width:10px;height:10px;">
+    <span style="position:absolute;inset:0;box-sizing:border-box;border-radius:9999px;background:#475569;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35)"></span>
+    <span style="position:absolute;${pos}white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:96px;background:#ffffff;color:#334155;border:1px solid #e2e8f0;border-radius:5px;padding:0 4px;font:600 11px/1.6 -apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;box-shadow:0 1px 3px rgba(0,0,0,.14)">${escapeHtml(short)}</span>
   </span>`;
 }
+
 
 /**
  * 内嵌真实高德地图底图：画站点标记与站间折线，建图后自动缩放到看得见全部站点。
@@ -388,12 +403,12 @@ export function AmapMap({
       }
       step = 'landmark';
       // 周边知名地点先画，编号站点后画，保证站点压在上面
-      for (const landmark of dataRef.current.landmarks) {
+      for (const [li, landmark] of dataRef.current.landmarks.entries()) {
         next.push(
           new AMap.Marker({
             position: [landmark.lng, landmark.lat],
-            content: landmarkHtml(landmark.name),
-            offset: new AMap.Pixel(-4, -4),
+            content: landmarkHtml(landmark.name, li),
+            offset: new AMap.Pixel(-5, -5),
             zIndex: 70,
             title: landmark.name,
           }),
