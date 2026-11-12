@@ -26,7 +26,7 @@ export function SiteFooter({ icpNumber = PRODUCT.ICP_NUMBER }: { icpNumber?: str
             href="https://beian.miit.gov.cn/"
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:text-stone-700 hover:underline"
+            className="inline-flex min-h-10 items-center px-2 hover:text-stone-700 hover:underline"
           >
             {icp}
           </a>

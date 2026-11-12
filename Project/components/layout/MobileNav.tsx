@@ -2,17 +2,18 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Heart, Home, MapPinPlus, Route, User } from 'lucide-react';
+import { Heart, Home, MapPinPlus, MessageSquarePlus, Route, User } from 'lucide-react';
 import { MESSAGES } from '@/config/messages';
 import { ROUTES } from '@/config/routes';
 import { cn } from '@/lib/utils';
 
-/** 原型底部导航（仅移动端）：首页 / 新建 / 我的路线 / 我的收藏 / 我的 */
+/** 底部导航（仅移动端）：首页 / 新建 / 我的路线 / 收藏 / 建议 / 我的（T-105 增加「建议」） */
 const MOBILE_ITEMS = [
   { href: ROUTES.HOME, label: MESSAGES.NAV_HOME, icon: Home },
   { href: ROUTES.CITY, label: MESSAGES.NAV_NEW_SHORT, icon: MapPinPlus },
   { href: ROUTES.MY_ROUTES, label: MESSAGES.NAV_MY_ROUTES, icon: Route },
   { href: ROUTES.COLLECTED, label: MESSAGES.NAV_COLLECTED, icon: Heart },
+  { href: ROUTES.FEEDBACK, label: MESSAGES.NAV_FEEDBACK_SHORT, icon: MessageSquarePlus },
   { href: ROUTES.PROFILE, label: MESSAGES.NAV_PROFILE_SHORT, icon: User },
 ];
 
@@ -34,7 +35,7 @@ export function MobileNav({ guest = false }: { guest?: boolean }) {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-30 grid h-16 grid-cols-5 border-t border-stone-200 bg-white md:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-30 grid h-16 grid-cols-6 border-t border-stone-200 bg-white md:hidden">
       {MOBILE_ITEMS.map((item) => {
         if (guest) {
           return (

@@ -44,14 +44,14 @@ export function ProfileMenu() {
           <span className="flex-1">{M.menuNewRoute}</span>
           <ChevronRight className="h-4 w-4 text-stone-400" />
         </Link>
-        <a
-          href={`mailto:${M.feedbackEmail}`}
+        <Link
+          href={ROUTES.FEEDBACK}
           className="flex items-center gap-3 px-5 py-4 hover:bg-stone-50"
         >
           <MessageSquare className="h-5 w-5 text-stone-500" />
-          <span className="flex-1">{M.menuFeedback}</span>
-          <span className="text-xs text-stone-400">{M.feedbackEmail}</span>
-        </a>
+          <span className="flex-1">{MESSAGES.NAV_FEEDBACK}</span>
+          <ChevronRight className="h-4 w-4 text-stone-400" />
+        </Link>
         <button
           type="button"
           onClick={() => setOpen(true)}

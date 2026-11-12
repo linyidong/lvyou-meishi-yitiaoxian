@@ -211,6 +211,8 @@ export const MESSAGES = {
   NAV_PROFILE: '个人中心',
   /** T-098 顶部导航：功能建议 */
   NAV_FEEDBACK: '功能建议',
+  /** 手机底部导航用的短标签 */
+  NAV_FEEDBACK_SHORT: '建议',
   /** M76 底部导航（移动端）：新建 */
   NAV_NEW_SHORT: '新建',
   /** M77 底部导航（移动端）：我的 */
