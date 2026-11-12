@@ -3,6 +3,11 @@
 @tailwind utilities;
 
 @layer base {
+  /* iOS Safari：禁止自动调整字号（横屏/桌面模式下的“文字忽大忽小”）。 */
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
   body {
     @apply bg-background text-foreground antialiased;
   }

@@ -35,7 +35,7 @@ export function MobileNav({ guest = false }: { guest?: boolean }) {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-30 grid h-16 grid-cols-6 border-t border-stone-200 bg-white md:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-30 grid min-h-16 grid-cols-6 border-t border-stone-200 bg-white pb-[env(safe-area-inset-bottom)] md:hidden">
       {MOBILE_ITEMS.map((item) => {
         if (guest) {
           return (

@@ -59,7 +59,7 @@ export default async function UserLayout({ children }: { children: React.ReactNo
         {/* T-092 合规页脚：展示 ICP 备案号（备案号未配置时只显示版权行） */}
         <SiteFooter />
         {/* 移动端底部导航是 fixed，留出等高高避免遮住页脚 */}
-        <div className="h-16 md:hidden" aria-hidden />
+        <div className="h-[calc(4rem+env(safe-area-inset-bottom))] md:hidden" aria-hidden />
         <MobileNav guest={!displayName} />
       </div>
     </HeartbeatProvider>

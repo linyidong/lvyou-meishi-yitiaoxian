@@ -174,7 +174,9 @@
 
 - 2026-11-12 00:30：**本机高德 key 切换（本地开发）**——`Project/.env.local` 的 `NEXT_PUBLIC_AMAP_KEY` 换成不设白名单的本地 key（控制台名 `bendi-web-JS`），备份 `.env.local.bak-20261112-001436`；重启 dev 后本机游客链路 `.amap-container` 出图、**E2E 恢复 8 passed (10.8s)**。线上仍用带白名单的 `gaode-web-js`。
 
-- 2026-11-12 23:10：**T-106 高德「起点与终点不能为同一地点」修复**——根因：住宿闭环时 `dayNavPoints` 会拼成「住宿 → 各地点 → 回住宿」，首尾坐标相同，高德 App 直接弹该错误；另外同坐标相邻点在 `planLeg` 里也会被拿去请求高德。修复：① `buildAmapAppUri` 先去掉相邻重复坐标、首尾重合时去掉末尾回程点，不足 2 点返回 null；② `planLeg` 同坐标直接返回 0，不再请求；③ `distanceMatrix` 对重合坐标填 0 且不放进 origins（避免 origin_id 错位）。新增 5 条 URI 单测；typecheck 0 / 单测 **126** / E2E 8。
+- 2026-11-12 23:15：**T-107 iOS Safari 适配（第一轮）**——① 显式 `viewport`（`viewport-fit=cover`）；② `html { -webkit-text-size-adjust:100% }`，避免 iOS 自动放大/缩小文字；③ 底部导航与页脚占位加 `env(safe-area-inset-bottom)`，避开 iPhone home indicator。**未验证**：本机未装 WebKit（下载失败），以上为 iOS 通用修正；「文字拥挤」仍需用户截图确认是否由 Safari「请求桌面网站」导致。typecheck 0 / 单测 126。
+
+- 2026-11-12 23:10：**T-106 高德「起点与终点不能为同一地点」修复——根因：住宿闭环时 `dayNavPoints` 会拼成「住宿 → 各地点 → 回住宿」，首尾坐标相同，高德 App 直接弹该错误；另外同坐标相邻点在 `planLeg` 里也会被拿去请求高德。修复：① `buildAmapAppUri` 先去掉相邻重复坐标、首尾重合时去掉末尾回程点，不足 2 点返回 null；② `planLeg` 同坐标直接返回 0，不再请求；③ `distanceMatrix` 对重合坐标填 0 且不放进 origins（避免 origin_id 错位）。新增 5 条 URI 单测；typecheck 0 / 单测 **126** / E2E 8。
 
 - 2026-11-12 23:00：**部署事故与修复（C20）**——改手机底栏文案时手动执行「stop → build → start」，命令被中断，`lvyou` 停在 inactive、`.next` 半成品，线上 **503 约 6–8 分钟**；已重新 build 并恢复（`home=200`）。新增 `deploy/remote-deploy.sh`：备份`.next`→停服→build→启动，**失败/中断由 trap 回滚旧 `.next` 并启动**。手机底栏标签最终为「建议」（6 项：首页/新建/我的路线/收藏夹/建议/我的），390 宽无溢出。
 
